@@ -360,12 +360,12 @@ function Logo() {
 /* ───────────────────────── LOGO ROW ───────────────────────── */
 
 const LOGOS = [
-  { src: "/logos/tds.svg", alt: "Tenancy Deposit Scheme", cls: "h-12" },
-  { src: "/logos/safeagent.svg", alt: "SafeAgent", cls: "h-9" },
-  { src: "/logos/tpo.svg", alt: "The Property Ombudsman", cls: "h-12" },
-  { src: "/logos/tsi.png", alt: "CTSI Approved Code", cls: "h-14" },
-  { src: "/logos/zoopla.svg", alt: "Zoopla", cls: "h-7" },
-  { src: "/logos/primelocation2.png", alt: "PrimeLocation", cls: "h-10" },
+  { src: "/logos/tds.svg", alt: "Tenancy Deposit Scheme", cls: "h-14 md:h-16" },
+  { src: "/logos/safeagent.svg", alt: "SafeAgent", cls: "h-12 md:h-14" },
+  { src: "/logos/tpo.svg", alt: "The Property Ombudsman", cls: "h-14 md:h-16" },
+  { src: "/logos/tsi.png", alt: "CTSI Approved Code", cls: "h-16 md:h-20" },
+  { src: "/logos/zoopla.svg", alt: "Zoopla", cls: "h-10 md:h-12" },
+  { src: "/logos/primelocation2.png", alt: "PrimeLocation", cls: "h-12 md:h-14" },
 ];
 
 function LogoRow() {
@@ -393,7 +393,7 @@ function LogoRow() {
       {LOGOS.map((logo, i) => (
         <div
           key={logo.alt}
-          className="flex items-center justify-center p-6"
+          className="flex items-center justify-center p-4 md:p-6"
           style={{
             opacity: visible ? 1 : 0,
             transition: `opacity 0.5s ease-out ${i * 0.15}s`,
@@ -481,13 +481,15 @@ export default function HomePage() {
 
       <main>
         {/* ─── HERO ─── */}
-        <section className="relative min-h-screen flex items-center justify-center overflow-hidden noise-overlay">
+        <section className="relative min-h-[90vh] md:min-h-screen flex items-center justify-center overflow-hidden noise-overlay">
           {/* Background image */}
           <div className="absolute inset-0">
             <Image
               src="/hero.jpg"
               alt="Manchester skyline"
               fill
+              sizes="100vw"
+              quality={85}
               className="object-cover object-bottom"
               priority
             />
@@ -507,7 +509,7 @@ export default function HomePage() {
               </div>
 
               {/* Headline */}
-              <h1 className="animate-fade-in-up stagger-2 font-heading text-5xl md:text-6xl lg:text-7xl font-semibold text-white leading-[1.08] mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+              <h1 className="animate-fade-in-up stagger-2 font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold text-white leading-[1.08] mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
                 Find Your
                 <br />
                 Perfect Rental
@@ -624,7 +626,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── SERVICES ─── */}
-        <section id="services" className="bg-cream py-24">
+        <section id="services" className="bg-cream py-16 md:py-24">
           <div className="max-w-7xl mx-auto px-6">
             {/* Section header */}
             <AnimateIn className="max-w-2xl mb-16">
@@ -729,7 +731,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── FEATURED PROPERTIES ─── */}
-        <section id="properties" className="bg-white py-24">
+        <section id="properties" className="bg-white py-16 md:py-24">
           <div className="max-w-7xl mx-auto px-6">
             <AnimateIn className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
               <div>
@@ -804,7 +806,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── TESTIMONIALS ─── */}
-        <section className="bg-cream py-24">
+        <section className="bg-cream py-16 md:py-24">
           <div className="max-w-7xl mx-auto px-6">
             <AnimateIn className="text-center max-w-2xl mx-auto mb-16">
               <div className="flex items-center justify-center gap-2 mb-4">
@@ -840,7 +842,7 @@ export default function HomePage() {
               {TESTIMONIALS.map((testimonial, i) => (
                 <AnimateIn key={i} delay={i * 0.1}>
                 <div
-                  className="bg-cream rounded-lg p-8 border border-black/5 relative"
+                  className="bg-white rounded-lg p-8 border border-black/5 relative"
                 >
                   {/* Quote mark */}
                   <div className="text-brand/20 text-6xl font-heading leading-none absolute top-4 right-6">
@@ -880,7 +882,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── ABOUT / WHY CHOOSE US ─── */}
-        <section id="about" className="bg-white py-24">
+        <section id="about" className="bg-white py-16 md:py-24">
           <div className="max-w-7xl mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               {/* Text side */}
@@ -926,8 +928,8 @@ export default function HomePage() {
               </AnimateIn>
 
               {/* Image / visual side */}
-              <AnimateIn delay={0.2} className="relative">
-                <div className="aspect-[4/5] rounded-lg overflow-hidden relative">
+              <AnimateIn delay={0.2} className="relative mb-8 lg:mb-0">
+                <div className="aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden relative">
                   <Image
                     src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=1000&fit=crop"
                     alt="Modern property interior"
@@ -946,7 +948,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── AREAS COVERED ─── */}
-        <section className="bg-dark py-24 relative overflow-hidden noise-overlay">
+        <section className="bg-dark py-16 md:py-24 relative overflow-hidden noise-overlay">
           {/* Subtle background pattern */}
           <div className="absolute inset-0 opacity-[0.02]">
             <div className="absolute inset-0" style={{
@@ -1008,7 +1010,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── TENANTS SECTION ─── */}
-        <section id="tenants" className="bg-cream py-24">
+        <section id="tenants" className="bg-cream py-16 md:py-24">
           <div className="max-w-7xl mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-16 items-center">
               <div className="order-2 lg:order-1">
@@ -1079,7 +1081,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── FREE VALUATION CTA ─── */}
-        <section id="valuation" className="relative py-24 overflow-hidden">
+        <section id="valuation" className="relative py-16 md:py-24 overflow-hidden">
           <div className="absolute inset-0 bg-brand" />
           <div className="absolute inset-0 bg-gradient-to-br from-brand via-brand-dark to-brand opacity-90" />
           <div className="absolute -top-20 -right-20 w-80 h-80 bg-white/5 rounded-full" />
@@ -1113,7 +1115,7 @@ export default function HomePage() {
         </section>
 
         {/* ─── CONTACT ─── */}
-        <section id="contact" className="bg-cream py-24">
+        <section id="contact" className="bg-cream py-16 md:py-24">
           <div className="max-w-7xl mx-auto px-6">
             <div className="grid lg:grid-cols-2 gap-16">
               {/* Contact info */}
@@ -1154,7 +1156,7 @@ export default function HomePage() {
               </div>
 
               {/* Contact form */}
-              <div className="bg-white rounded-lg p-8 border border-black/5 shadow-sm">
+              <div className="bg-white rounded-lg p-6 sm:p-8 md:p-10 border border-black/5 shadow-sm">
                 <h3 className="font-heading text-xl font-semibold text-dark mb-6">Send a Message</h3>
                 <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
                   <div className="grid sm:grid-cols-2 gap-4">
@@ -1289,11 +1291,11 @@ export default function HomePage() {
           </div>
 
           {/* Bottom bar */}
-          <div className="flex flex-col md:flex-row items-center justify-between pt-8 gap-4">
+          <div className="flex flex-col items-center pt-8 gap-4 text-center">
             <p className="text-white/30 text-xs">
               &copy; {new Date().getFullYear()} McGowan Residential Lettings Ltd. All rights reserved.
             </p>
-            <div className="flex items-center gap-2 text-white/30 text-xs">
+            <div className="flex items-center justify-center gap-2 text-white/30 text-xs">
               <span>Regulated by</span>
               <span className="text-white/50">TDS</span>
               <span>&middot;</span>
