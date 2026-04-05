@@ -494,8 +494,8 @@ export default function HomePage() {
               priority
             />
             {/* Dark gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-r from-dark/60 via-dark/30 to-dark/10" />
-            <div className="absolute inset-0 bg-gradient-to-b from-dark/20 via-transparent to-dark/30" />
+            <div className="absolute inset-0 bg-gradient-to-r from-dark/70 via-dark/35 to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-b from-dark/25 via-transparent to-dark/20" />
           </div>
 
           <div className="relative z-10 max-w-7xl mx-auto px-6 pt-24 pb-16 w-full">
@@ -509,7 +509,7 @@ export default function HomePage() {
               </div>
 
               {/* Headline */}
-              <h1 className="animate-fade-in-up stagger-2 font-heading text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-semibold text-white leading-[1.08] mb-6 drop-shadow-[0_2px_4px_rgba(0,0,0,0.4)]">
+              <h1 className="animate-fade-in-up stagger-2 font-heading text-5xl md:text-6xl lg:text-7xl font-semibold text-white leading-[1.08] mb-6">
                 Find Your
                 <br />
                 Perfect Rental
@@ -517,7 +517,7 @@ export default function HomePage() {
               </h1>
 
               {/* Subheadline */}
-              <p className="animate-fade-in-up stagger-3 text-white text-lg md:text-xl max-w-xl mb-10 leading-relaxed drop-shadow-[0_1px_3px_rgba(0,0,0,0.6)]">
+              <p className="animate-fade-in-up stagger-3 text-white text-lg md:text-xl max-w-xl mb-10 leading-relaxed">
                 Professional letting agents covering Bury, Bolton, Manchester &
                 Rossendale. Trusted by landlords and tenants for over 25 years.
               </p>
