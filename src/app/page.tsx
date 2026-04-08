@@ -250,7 +250,7 @@ export default function HomePage() {
             src="/hero.jpg"
             alt="Manchester skyline"
             fill
-            sizes="100vw"
+            sizes="(max-width: 768px) 200vw, 100vw"
             quality={90}
             className="object-cover object-bottom"
             priority
