@@ -85,7 +85,7 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
           </button>
           {/* Move buttons — always visible on mobile, hover on desktop */}
           {images.length > 1 && (
-            <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+            <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between sm:hidden">
               <button
                 type="button"
                 onClick={() => moveImage(index, index - 1)}
