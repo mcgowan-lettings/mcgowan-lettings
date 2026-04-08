@@ -183,3 +183,11 @@ export function ChevronRightIcon({ className = "w-4 h-4" }: { className?: string
     </svg>
   );
 }
+
+export function SofaIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg className={className} fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M5 10V7a2 2 0 012-2h10a2 2 0 012 2v3M3 10h18v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4zM7 16v2m10-2v2" />
+    </svg>
+  );
+}

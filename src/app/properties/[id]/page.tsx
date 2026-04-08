@@ -12,6 +12,7 @@ import {
   WhatsAppIcon,
   MailIcon,
   HomeIcon,
+  SofaIcon,
   CheckIcon,
 } from "@/components/Icons";
 
@@ -172,7 +173,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                   <span>{property.type}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span className="w-1 h-1 rounded-full bg-text-muted/40" />
+                  <SofaIcon className="w-4 h-4" />
                   <span>{property.furnished || "Unfurnished"}</span>
                 </div>
               </div>
