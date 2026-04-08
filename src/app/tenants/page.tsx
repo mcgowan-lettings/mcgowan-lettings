@@ -38,7 +38,7 @@ const STEPS = [
     num: "03",
     title: "Referencing & Agreement",
     description:
-      "We'll carry out references with your bank, employer and previous landlords. Once approved, you'll sign a legally binding tenancy agreement.",
+      "We'll carry out full credit checks along with references from your employer and previous landlords. Once approved, you'll sign a legally binding tenancy agreement.",
     Icon: DocumentIcon,
   },
   {
@@ -89,11 +89,11 @@ const RESPONSIBILITIES = [
 const FAQS: { q: string; a: string }[] = [
   {
     q: "What references do I need to provide?",
-    a: "We require references from your bank or building society, your employer (or accountant if self-employed), and any previous landlords. These help us verify your identity, income and tenancy history.",
+    a: "We carry out full credit checks and require references from your employer (or accountant if self-employed) and any previous landlords. These help us verify your identity, income and tenancy history.",
   },
   {
     q: "How long is a typical tenancy?",
-    a: "Our standard tenancy is a minimum of 6 months. After the initial fixed term, the tenancy usually continues on a rolling monthly basis unless a new fixed term is agreed.",
+    a: "From 1 May 2026, all tenancies are Assured Periodic Tenancies. Tenants are required to give 2 months' notice to us if they wish to vacate the property.",
   },
   {
     q: "How do I get my deposit back?",
@@ -114,10 +114,6 @@ const FAQS: { q: string; a: string }[] = [
   {
     q: "What protections are in place?",
     a: "McGowan Residential Lettings is a member of The Property Ombudsman and holds client money protection via Safeagent. This means your money is protected and you have access to an independent redress scheme if needed.",
-  },
-  {
-    q: "Can I keep pets in the property?",
-    a: "This depends on the individual landlord and property. We're happy to discuss pet-friendly options when you enquire about a property. Some landlords may agree with a slightly higher deposit.",
   },
 ];
 
@@ -159,11 +155,12 @@ function FAQItem({ q, a }: { q: string; a: string }) {
         />
       </button>
       <div
-        className={`overflow-hidden transition-all duration-300 ${
-          open ? "max-h-[500px] pb-5" : "max-h-0"
-        }`}
+        className="grid transition-all duration-300 ease-in-out"
+        style={{ gridTemplateRows: open ? "1fr" : "0fr" }}
       >
-        <p className="text-text-muted leading-relaxed">{a}</p>
+        <div className="overflow-hidden">
+          <p className="text-text-muted leading-relaxed pb-5">{a}</p>
+        </div>
       </div>
     </div>
   );

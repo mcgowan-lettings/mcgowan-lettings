@@ -108,7 +108,11 @@ export default function AdminPropertiesPage() {
           </h2>
           <p className="text-sm text-text-muted mt-1">
             {properties.length} properties total &middot;{" "}
-            {properties.filter((p) => p.active).length} active
+            {properties.filter((p) => p.active).length} active &middot;{" "}
+            {properties.filter((p) => p.featured).length} featured
+          </p>
+          <p className="text-xs text-text-muted mt-1">
+            The homepage shows 3 or 6 featured properties — mark exactly 3 or 6 to fill the grid evenly.
           </p>
         </div>
         <Link

@@ -68,9 +68,8 @@ const AREAS: { name: string; neighbourhoods: string[]; main?: boolean }[] = [
 ];
 
 const STATS = [
-  { value: 250, suffix: "+", label: "Properties Managed" },
+  { value: 300, suffix: "+", label: "Properties Managed" },
   { value: 25, suffix: "+", label: "Years Experience" },
-  { value: 6, suffix: "", label: "Areas Covered" },
   { value: 98, suffix: "%", label: "Tenant Satisfaction" },
 ];
 
@@ -223,7 +222,10 @@ export default function HomePage() {
         .eq("featured", true)
         .order("created_at", { ascending: false })
         .limit(6);
-      if (data) setFeaturedProperties(data);
+      if (data) {
+        // Show 6 or 3 so the grid is always full
+        setFeaturedProperties(data.length >= 6 ? data.slice(0, 6) : data.slice(0, 3));
+      }
     }
     fetchFeatured();
   }, []);
@@ -362,7 +364,7 @@ export default function HomePage() {
       {/* ─── STATS BAR ─── */}
       <section className="bg-dark relative z-10">
         <div className="max-w-7xl mx-auto px-6 py-10 md:py-14">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 md:gap-4">
+          <div className="grid grid-cols-3 gap-8 md:gap-4">
             {STATS.map((stat, i) => (
               <AnimateIn key={stat.label} delay={i * 0.1} className="text-center">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-brand mb-1">
@@ -684,9 +686,9 @@ export default function HomePage() {
               Across Greater Manchester
             </h2>
             <p className="text-white/50 leading-relaxed">
-              From our home base in Bury across Bolton, Manchester,
-              Rossendale &amp; beyond — we know these areas inside out.
-              We&apos;ll cover most areas if the property is in good order.
+              We cover all areas across Greater Manchester and beyond.
+              Based in Bury, we operate right across the region — if the
+              property is in good order, we&apos;ll cover it.
             </p>
           </AnimateIn>
 

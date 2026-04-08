@@ -346,7 +346,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       </div>
 
       {/* ── Similar Properties ── */}
-      {similarProperties && similarProperties.length > 0 && (
+      {similarProperties && similarProperties.length >= 2 && (
         <section className="bg-cream py-16 md:py-24 pb-28 lg:pb-24 border-t border-black/5">
           <div className="max-w-7xl mx-auto px-6">
             <div className="flex items-center justify-between mb-8">

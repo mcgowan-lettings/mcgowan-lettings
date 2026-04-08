@@ -18,28 +18,27 @@ import {
 /* ───────────────────────── DATA ───────────────────────── */
 
 const FULLY_MANAGED_FEATURES = [
-  "Weekly advertising in the Bury Times and local press",
-  "Worldwide internet advertising on Zoopla, PrimeLocation and more",
-  "Full credit, employment and previous landlord referencing",
-  "Rent guarantee option available",
-  "Comprehensive inventory and schedule of condition (additional fee)",
-  "Tenancy agreement preparation and signing",
-  "Rent collection — 1 month advance plus 1 month bond, held in separate client account",
-  "Regular property inspections throughout tenancy",
-  "Maintenance and repair administration",
-  "Service management including gardening, cleaning and decorating",
-  "Housing Act Notices served on your behalf",
-  "Council and utility notification",
+  "Marketing the property and conducting viewings",
+  "Tenant referencing and Right to Rent checks",
+  "Preparing tenancy agreements and move-in documentation",
+  "Collecting rent and managing arrears",
+  "Registering and managing the tenancy deposit",
+  "Ensuring all compliance certificates are valid (Gas Safety, EICR, EPC, alarms)",
+  "Serving all legally required documents and notices",
+  "Handling day-to-day tenant communication",
+  "Arranging maintenance and emergency repairs 24/7",
+  "Carrying out regular property inspections",
+  "Managing rent reviews",
+  "Dealing with end-of-tenancy check-outs and deposit negotiations",
+  "Handling legal processes if required (e.g. notices, possession)",
 ];
 
 const LET_ONLY_FEATURES = [
-  "Weekly advertising in the Bury Times and local press",
-  "Worldwide internet advertising on Zoopla, PrimeLocation and more",
-  "Full credit, employment and previous landlord referencing",
-  "Comprehensive inventory and schedule of condition",
-  "Tenancy agreement preparation and signing",
-  "Experienced staff conduct viewings during all hours",
-  "You retain rent collection and ongoing management",
+  "Marketing the property and conducting viewings",
+  "Tenant referencing and Right to Rent checks",
+  "Preparing tenancy agreements and move-in documentation",
+  "Ensuring all compliance certificates are valid (at the beginning of the tenancy)",
+  "Moving the tenants in and then hand over to the landlord",
 ];
 
 const WHY_CHOOSE = [
@@ -104,7 +103,7 @@ const HOW_IT_WORKS = [
     step: "04",
     title: "Move-In & Management",
     description:
-      "Inventory completed, tenancy signed, deposit secured with TDS. For managed properties, we take it from here.",
+      "Tenancy signed, deposit secured with TDS. For managed properties, we take it from here.",
   },
 ];
 
