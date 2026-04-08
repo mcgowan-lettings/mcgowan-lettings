@@ -171,7 +171,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                   <HomeIcon className="w-4 h-4" />
                   <span>{property.type}</span>
                 </div>
-                <span className="hidden sm:inline text-black/10">|</span>
+                <span className="text-black/10">|</span>
                 <span>{property.furnished || "Unfurnished"}</span>
               </div>
             </div>
