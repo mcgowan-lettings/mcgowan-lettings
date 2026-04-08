@@ -60,13 +60,8 @@ export default function AdminPropertiesPage() {
       setProperties((prev) =>
         prev.map((p) => (p.id === id ? { ...p, active: !currentActive } : p))
       );
-      setMessage({
-        text: `Property ${!currentActive ? "activated" : "deactivated"}.`,
-        type: "success",
-      });
     }
     setToggling(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   const toggleFeatured = async (id: string, currentFeatured: boolean) => {
