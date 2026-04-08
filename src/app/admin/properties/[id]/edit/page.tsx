@@ -253,7 +253,7 @@ export default function EditPropertyPage() {
         <button
           onClick={handleDelete}
           disabled={deleting}
-          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
+          className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {deleting ? "Deleting..." : "Delete"}
         </button>
@@ -639,30 +639,20 @@ export default function EditPropertyPage() {
         </div>
 
         {/* Submit buttons */}
-        <div className="flex items-center justify-between pb-6">
-          <button
-            type="button"
-            onClick={handleDelete}
-            disabled={deleting}
-            className="rounded-lg bg-red-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        <div className="flex flex-col-reverse gap-3 pb-6 sm:flex-row sm:items-center sm:justify-end">
+          <Link
+            href="/admin/properties"
+            className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
           >
-            {deleting ? "Deleting..." : "Delete Property"}
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={saving || uploading}
+            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {saving ? "Saving..." : "Update Property"}
           </button>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin/properties"
-              className="rounded-lg px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
-            >
-              Cancel
-            </Link>
-            <button
-              type="submit"
-              disabled={saving || uploading}
-              className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? "Saving..." : "Update Property"}
-            </button>
-          </div>
         </div>
       </form>
     </div>

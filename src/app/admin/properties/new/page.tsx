@@ -559,10 +559,10 @@ export default function NewPropertyPage() {
         </div>
 
         {/* Submit buttons */}
-        <div className="flex items-center justify-end gap-3 pb-6">
+        <div className="flex flex-col-reverse gap-3 pb-6 sm:flex-row sm:items-center sm:justify-end">
           <Link
             href="/admin/properties"
-            className="rounded-lg px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
           >
             Cancel
           </Link>
