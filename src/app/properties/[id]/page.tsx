@@ -158,7 +158,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                 <MapPinIcon className="w-3.5 h-3.5" />
                 {property.location}
               </p>
-              <div className="flex items-center gap-4 mt-4 text-sm text-text-muted">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-sm text-text-muted">
                 <div className="flex items-center gap-1.5">
                   <BedIcon className="w-4 h-4" />
                   <span>{property.beds} bed</span>
@@ -171,7 +171,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                   <HomeIcon className="w-4 h-4" />
                   <span>{property.type}</span>
                 </div>
-                <span className="text-black/10">|</span>
+                <span className="hidden sm:inline text-black/10">|</span>
                 <span>{property.furnished || "Unfurnished"}</span>
               </div>
             </div>
@@ -319,7 +319,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       </section>
 
       {/* ── Sticky Mobile CTA ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-black/10 px-4 py-3 flex items-center gap-2 lg:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black/10 px-4 py-3 flex items-center gap-2 lg:hidden">
         <a
           href="tel:01617976967"
           className="flex-1 flex items-center justify-center gap-2 border border-dark/15 text-dark font-semibold text-sm py-3 rounded-md"
@@ -347,7 +347,7 @@ export default async function PropertyDetailPage({ params }: Props) {
 
       {/* ── Similar Properties ── */}
       {similarProperties && similarProperties.length >= 2 && (
-        <section className="bg-cream py-16 md:py-24 pb-28 lg:pb-24 border-t border-black/5">
+        <section className="bg-cream py-16 md:py-24 border-t border-black/5">
           <div className="max-w-7xl mx-auto px-6">
             <div className="flex items-center justify-between mb-8">
               <h2 className="font-heading text-2xl font-semibold text-dark">
@@ -409,6 +409,9 @@ export default async function PropertyDetailPage({ params }: Props) {
           </div>
         </section>
       )}
+
+      {/* Spacer for sticky mobile CTA */}
+      <div className="h-20 lg:hidden" />
     </>
   );
 }

@@ -193,7 +193,7 @@ export default function PropertiesPage() {
       </section>
 
       {/* ─── FILTER BAR ─── */}
-      <section className="bg-white border-b border-black/5 sticky top-16 z-30">
+      <section className="bg-white border-b border-black/5 md:sticky md:top-16 z-30">
         <div className="max-w-7xl mx-auto px-6 py-5">
           <div className="flex flex-wrap items-end gap-3">
             <FilterSelect label="Area" options={AREAS} value={area} onChange={setArea} />
