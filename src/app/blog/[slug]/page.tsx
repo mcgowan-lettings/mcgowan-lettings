@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const { data: post } = await supabaseAdmin
     .from("blog_posts")
-    .select("title, excerpt")
+    .select("title, excerpt, cover_image")
     .eq("slug", slug)
     .eq("published", true)
     .single();
@@ -23,9 +23,21 @@ export async function generateMetadata({ params }: Props) {
     return { title: "Post Not Found | McGowan Residential Lettings" };
   }
 
+  const title = `${post.title} | McGowan Residential Lettings`;
+  const description = post.excerpt || undefined;
+  const image = post.cover_image || "/hero.jpg";
+
   return {
-    title: `${post.title} | McGowan Residential Lettings`,
-    description: post.excerpt || undefined,
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      images: [image],
+    },
+    twitter: {
+      card: "summary_large_image",
+    },
   };
 }
 

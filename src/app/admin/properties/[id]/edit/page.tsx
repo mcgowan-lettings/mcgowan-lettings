@@ -28,6 +28,7 @@ export default function EditPropertyPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -197,9 +198,11 @@ export default function EditPropertyPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
+    if (!window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
       return;
     }
+
+    setDeleting(true);
 
     // Remove images from storage
     for (const url of imageUrls) {
@@ -216,6 +219,7 @@ export default function EditPropertyPage() {
 
     if (deleteError) {
       setError(deleteError.message);
+      setDeleting(false);
       return;
     }
 
@@ -252,9 +256,10 @@ export default function EditPropertyPage() {
         </div>
         <button
           onClick={handleDelete}
-          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+          disabled={deleting}
+          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
         >
-          Delete
+          {deleting ? "Deleting..." : "Delete"}
         </button>
       </div>
 
@@ -638,20 +643,30 @@ export default function EditPropertyPage() {
         </div>
 
         {/* Submit buttons */}
-        <div className="flex items-center justify-end gap-3 pb-6">
-          <Link
-            href="/admin/properties"
-            className="rounded-lg px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
-          >
-            Cancel
-          </Link>
+        <div className="flex items-center justify-between pb-6">
           <button
-            type="submit"
-            disabled={saving || uploading}
-            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="rounded-lg bg-red-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? "Saving..." : "Update Property"}
+            {deleting ? "Deleting..." : "Delete Property"}
           </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/properties"
+              className="rounded-lg px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={saving || uploading}
+              className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Update Property"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

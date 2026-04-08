@@ -97,6 +97,19 @@ export default function NewBlogPostPage() {
       return;
     }
 
+    // Check for duplicate slug
+    const { data: existing } = await supabase
+      .from("blog_posts")
+      .select("id")
+      .eq("slug", form.slug)
+      .maybeSingle();
+
+    if (existing) {
+      setError("A blog post with this URL slug already exists. Please change the title or edit the slug.");
+      setSaving(false);
+      return;
+    }
+
     const { error: insertError } = await supabase.from("blog_posts").insert({
       title: form.title,
       slug: form.slug,

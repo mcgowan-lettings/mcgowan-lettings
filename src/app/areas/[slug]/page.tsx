@@ -13,6 +13,8 @@ import {
   CheckIcon,
 } from "@/components/Icons";
 
+export const revalidate = 3600;
+
 /* ───────────────────────── AREA DATA ───────────────────────── */
 
 interface AreaData {

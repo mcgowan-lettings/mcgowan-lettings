@@ -125,6 +125,32 @@ export default function AdminSubmissionsPage() {
     });
   };
 
+  const escapeCsvField = (field: string | null | undefined): string => {
+    const str = field ?? "";
+    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  };
+
+  const exportCsv = () => {
+    const headers = ["name", "email", "phone", "type", "message", "created_at"];
+    const rows = submissions.map((s) =>
+      [s.name, s.email, s.phone, s.type, s.message, s.created_at]
+        .map(escapeCsvField)
+        .join(",")
+    );
+    const csv = [headers.join(","), ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const date = new Date().toISOString().split("T")[0];
+    a.href = url;
+    a.download = `mcgowan-submissions-${date}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const unreadCount = submissions.filter((s) => !s.read).length;
 
   if (loading) {
@@ -147,17 +173,27 @@ export default function AdminSubmissionsPage() {
             {submissions.length} total &middot; {unreadCount} unread
           </p>
         </div>
-        {unreadCount > 0 && (
-          <button
-            onClick={markAllRead}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-            Mark all as read
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {submissions.length > 0 && (
+            <button
+              onClick={exportCsv}
+              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            >
+              Export CSV
+            </button>
+          )}
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllRead}
+              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+              Mark all as read
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Notification */}

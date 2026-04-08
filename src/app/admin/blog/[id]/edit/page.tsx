@@ -24,6 +24,7 @@ export default function EditBlogPostPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -136,6 +137,20 @@ export default function EditBlogPostPage() {
       return;
     }
 
+    // Check for duplicate slug (exclude current post)
+    const { data: existing } = await supabase
+      .from("blog_posts")
+      .select("id")
+      .eq("slug", form.slug)
+      .neq("id", id)
+      .maybeSingle();
+
+    if (existing) {
+      setError("A blog post with this URL slug already exists. Please change the title or edit the slug.");
+      setSaving(false);
+      return;
+    }
+
     const { error: updateError } = await supabase
       .from("blog_posts")
       .update({
@@ -161,9 +176,11 @@ export default function EditBlogPostPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this blog post? This action cannot be undone.")) {
+    if (!window.confirm("Are you sure you want to delete this blog post? This action cannot be undone.")) {
       return;
     }
+
+    setDeleting(true);
 
     // Remove cover image from storage
     if (coverImage) {
@@ -180,6 +197,7 @@ export default function EditBlogPostPage() {
 
     if (deleteError) {
       setError(deleteError.message);
+      setDeleting(false);
       return;
     }
 
@@ -216,9 +234,10 @@ export default function EditBlogPostPage() {
         </div>
         <button
           onClick={handleDelete}
-          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50"
+          disabled={deleting}
+          className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50"
         >
-          Delete
+          {deleting ? "Deleting..." : "Delete"}
         </button>
       </div>
 
@@ -359,20 +378,30 @@ export default function EditBlogPostPage() {
         </div>
 
         {/* Submit buttons */}
-        <div className="flex items-center justify-end gap-3 pb-6">
-          <Link
-            href="/admin/blog"
-            className="rounded-lg px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
-          >
-            Cancel
-          </Link>
+        <div className="flex items-center justify-between pb-6">
           <button
-            type="submit"
-            disabled={saving || uploading}
-            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            type="button"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="rounded-lg bg-red-500 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving ? "Saving..." : "Update Post"}
+            {deleting ? "Deleting..." : "Delete Post"}
           </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin/blog"
+              className="rounded-lg px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={saving || uploading}
+              className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? "Saving..." : "Update Post"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

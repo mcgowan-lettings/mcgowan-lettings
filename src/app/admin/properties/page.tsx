@@ -64,6 +64,35 @@ export default function AdminPropertiesPage() {
     setToggling(null);
   };
 
+  const deleteProperty = async (property: Property) => {
+    if (!window.confirm(`Are you sure you want to delete "${property.title}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    // Remove images from storage
+    if (property.images?.length) {
+      for (const url of property.images) {
+        const path = url.split("/property-images/")[1];
+        if (path) {
+          await supabase.storage.from("property-images").remove([path]);
+        }
+      }
+    }
+
+    const { error } = await supabase
+      .from("properties")
+      .delete()
+      .eq("id", property.id);
+
+    if (error) {
+      setMessage({ text: "Failed to delete property.", type: "error" });
+    } else {
+      setProperties((prev) => prev.filter((p) => p.id !== property.id));
+      setMessage({ text: "Property deleted.", type: "success" });
+    }
+    setTimeout(() => setMessage(null), 3000);
+  };
+
   const toggleFeatured = async (id: string, currentFeatured: boolean) => {
     const { error } = await supabase
       .from("properties")
@@ -258,15 +287,23 @@ export default function AdminPropertiesPage() {
                       </button>
                     </td>
                     <td className="px-4 py-3">
-                      <Link
-                        href={`/admin/properties/${property.id}/edit`}
-                        className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-dark transition-colors hover:bg-gray-200"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                        </svg>
-                        Edit
-                      </Link>
+                      <div className="flex items-center gap-2">
+                        <Link
+                          href={`/admin/properties/${property.id}/edit`}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-dark transition-colors hover:bg-gray-200"
+                        >
+                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
+                          </svg>
+                          Edit
+                        </Link>
+                        <button
+                          onClick={() => deleteProperty(property)}
+                          className="text-xs font-medium text-red-500 transition-colors hover:text-red-700"
+                        >
+                          Delete
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -365,6 +402,13 @@ export default function AdminPropertiesPage() {
                       >
                         Edit
                       </Link>
+
+                      <button
+                        onClick={() => deleteProperty(property)}
+                        className="text-xs font-medium text-red-500 transition-colors hover:text-red-700"
+                      >
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>
