@@ -20,7 +20,9 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     <>
       <Header />
       <main className="flex-1">{children}</main>
-      <Footer />
+      <div className={isPropertyDetail ? "pb-20 lg:pb-0" : ""}>
+        <Footer />
+      </div>
       {!isPropertyDetail && <WhatsAppButton />}
     </>
   );

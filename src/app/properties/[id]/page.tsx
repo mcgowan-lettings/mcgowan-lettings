@@ -411,7 +411,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       )}
 
       {/* Spacer for sticky mobile CTA */}
-      <div className="h-20 lg:hidden" />
+      <div className="h-24 lg:hidden" />
     </>
   );
 }

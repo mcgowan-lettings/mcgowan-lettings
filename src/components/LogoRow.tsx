@@ -4,12 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
 const LOGOS = [
-  { src: "/logos/tds.svg", alt: "Tenancy Deposit Scheme", cls: "h-14 md:h-16" },
-  { src: "/logos/safeagent.svg", alt: "SafeAgent", cls: "h-12 md:h-14" },
-  { src: "/logos/tpo.svg", alt: "The Property Ombudsman", cls: "h-14 md:h-16" },
-  { src: "/logos/tsi.png", alt: "CTSI Approved Code", cls: "h-16 md:h-20" },
-  { src: "/logos/zoopla.svg", alt: "Zoopla", cls: "h-10 md:h-12" },
-  { src: "/logos/primelocation2.png", alt: "PrimeLocation", cls: "h-12 md:h-14" },
+  { src: "/logos/tds.svg", alt: "Tenancy Deposit Scheme", cls: "h-16 md:h-16" },
+  { src: "/logos/safeagent.svg", alt: "SafeAgent", cls: "h-14 md:h-14" },
+  { src: "/logos/tpo.svg", alt: "The Property Ombudsman", cls: "h-16 md:h-16" },
+  { src: "/logos/tsi.png", alt: "CTSI Approved Code", cls: "h-20 md:h-20" },
+  { src: "/logos/zoopla.svg", alt: "Zoopla", cls: "h-12 md:h-12" },
+  { src: "/logos/primelocation2.png", alt: "PrimeLocation", cls: "h-14 md:h-14" },
 ];
 
 export default function LogoRow() {
@@ -37,7 +37,7 @@ export default function LogoRow() {
       {LOGOS.map((logo, i) => (
         <div
           key={logo.alt}
-          className="flex items-center justify-center p-4 md:p-6"
+          className="flex items-center justify-center p-5 md:p-6"
           style={{
             opacity: visible ? 1 : 0,
             transition: `opacity 0.5s ease-out ${i * 0.15}s`,

@@ -112,7 +112,7 @@ export default function ValuationPage() {
             </span>
             <div className="w-8 h-px bg-brand" />
           </div>
-          <h1 className="font-heading text-4xl md:text-5xl lg:text-6xl font-semibold text-white leading-[1.1] mb-4">
+          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-white leading-[1.1] mb-4">
             Free Property Valuation
           </h1>
           <p className="text-white/70 text-lg md:text-xl max-w-xl mx-auto">
