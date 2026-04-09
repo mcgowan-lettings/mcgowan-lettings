@@ -376,6 +376,82 @@ export default function LandlordsPage() {
         </div>
       </section>
 
+      {/* ─── REGULATORY & PROTECTION ─── */}
+      <section className="bg-cream py-16 md:py-24">
+        <div className="max-w-7xl mx-auto px-6">
+          <AnimateIn>
+            <div className="text-center max-w-2xl mx-auto mb-14">
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <div className="w-8 h-px bg-brand" />
+                <span className="text-brand text-sm font-semibold tracking-[0.15em] uppercase">
+                  Regulated &amp; Protected
+                </span>
+                <div className="w-8 h-px bg-brand" />
+              </div>
+              <h2 className="font-heading text-3xl md:text-4xl font-semibold text-dark mb-4">
+                Your Investment Is in Safe Hands
+              </h2>
+              <p className="text-text-muted leading-relaxed">
+                We are fully regulated and committed to the highest standards of
+                professionalism, transparency, and client protection.
+              </p>
+            </div>
+          </AnimateIn>
+
+          <div className="grid md:grid-cols-2 gap-6">
+            {/* CMP */}
+            <AnimateIn>
+              <div className="bg-white rounded-lg border border-black/5 p-8 md:p-10 shadow-sm text-center h-full flex flex-col">
+                <div className="w-14 h-14 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-5">
+                  <ShieldIcon className="w-7 h-7 text-brand-dark" />
+                </div>
+                <h3 className="font-heading text-xl font-semibold text-dark mb-3">
+                  Client Money Protection
+                </h3>
+                <p className="text-text-muted text-sm leading-relaxed mb-6 flex-1">
+                  McGowan Residential Lettings LTD are a member of the client money
+                  protection scheme provided by SafeAgent. This scheme protects
+                  clients money held by our business.
+                </p>
+                <a
+                  href="/certificates/cmp-certificate.pdf"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
+                >
+                  View CMP Certificate
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                </a>
+              </div>
+            </AnimateIn>
+
+            {/* TPO */}
+            <AnimateIn delay={0.15}>
+              <div className="bg-white rounded-lg border border-black/5 p-8 md:p-10 shadow-sm text-center h-full flex flex-col">
+                <div className="w-14 h-14 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-5">
+                  <CheckIcon className="w-7 h-7 text-brand-dark" />
+                </div>
+                <h3 className="font-heading text-xl font-semibold text-dark mb-3">
+                  The Property Ombudsman
+                </h3>
+                <p className="text-text-muted text-sm leading-relaxed mb-6 flex-1">
+                  We are a member of The Property Ombudsman scheme and follow the
+                  TPO Code of Practice. If you ever need to raise a concern, our
+                  complaints procedure ensures fair and transparent resolution.
+                </p>
+                <Link
+                  href="/complaints"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
+                >
+                  View Complaints Procedure
+                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </AnimateIn>
+          </div>
+        </div>
+      </section>
+
       {/* ─── CTA ─── */}
       <section className="py-16 md:py-24 bg-dark relative overflow-hidden noise-overlay">
         <div className="absolute inset-0 bg-gradient-to-br from-dark via-dark/95 to-brand/10" />

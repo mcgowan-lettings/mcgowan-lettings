@@ -71,6 +71,7 @@ const STATS = [
   { value: 300, suffix: "+", label: "Properties Managed" },
   { value: 25, suffix: "+", label: "Years Experience" },
   { value: 98, suffix: "%", label: "Tenant Satisfaction" },
+  { value: 99, suffix: "%", label: "Landlord Satisfaction" },
 ];
 
 /* ───────────────────────── HOME CONTACT FORM ───────────────────────── */
@@ -364,7 +365,7 @@ export default function HomePage() {
       {/* ─── STATS BAR ─── */}
       <section className="bg-dark relative z-10">
         <div className="max-w-7xl mx-auto px-6 py-10 md:py-14">
-          <div className="grid grid-cols-3 gap-8 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-8 md:gap-4">
             {STATS.map((stat, i) => (
               <AnimateIn key={stat.label} delay={i * 0.1} className="text-center">
                 <div className="text-3xl md:text-4xl lg:text-5xl font-heading font-semibold text-brand mb-1">
@@ -414,12 +415,19 @@ export default function HomePage() {
                 </p>
                 <ul className="space-y-3 mb-8">
                   {[
-                    "Professional marketing & tenant sourcing",
-                    "Comprehensive referencing & right-to-rent checks",
-                    "Monthly rent collection & statements",
-                    "24/7 maintenance coordination",
-                    "Routine property inspections",
-                    "End-of-tenancy management & deposit returns",
+                    "Marketing the property and conducting viewings",
+                    "Tenant referencing and Right to Rent checks",
+                    "Preparing tenancy agreements and move-in documentation",
+                    "Collecting rent and managing arrears",
+                    "Registering and managing the tenancy deposit",
+                    "Ensuring all compliance certificates are valid (Gas Safety, EICR, EPC, alarms)",
+                    "Serving all legally required documents and notices",
+                    "Handling day-to-day tenant communication",
+                    "Arranging maintenance and emergency repairs 24/7",
+                    "Carrying out regular property inspections",
+                    "Managing rent reviews",
+                    "Dealing with end-of-tenancy check-outs and deposit negotiations",
+                    "Handling legal processes if required (e.g. notices, possession)",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-sm text-text-muted">
                       <CheckIcon className="w-4 h-4 text-brand shrink-0 mt-0.5" />
@@ -448,12 +456,11 @@ export default function HomePage() {
                 </p>
                 <ul className="space-y-3 mb-8">
                   {[
-                    "Professional property photography",
-                    "Listing on Zoopla & PrimeLocation",
-                    "Accompanied viewings",
-                    "Full tenant referencing",
-                    "Tenancy agreement preparation",
-                    "Deposit registration with TDS",
+                    "Marketing the property and conducting viewings",
+                    "Tenant referencing and Right to Rent checks",
+                    "Preparing tenancy agreements and move-in documentation",
+                    "Ensuring all compliance certificates are valid (at the beginning of the tenancy)",
+                    "Moving the tenants in and then hand over to the landlord",
                   ].map((item) => (
                     <li key={item} className="flex items-start gap-2.5 text-sm text-text-muted">
                       <CheckIcon className="w-4 h-4 text-brand shrink-0 mt-0.5" />

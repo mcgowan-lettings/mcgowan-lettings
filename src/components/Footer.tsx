@@ -96,11 +96,11 @@ export default function Footer() {
           </p>
           <div className="flex items-center justify-center gap-2 text-white/30 text-xs">
             <span>Regulated by</span>
-            <span className="text-white/50">TDS</span>
-            <span>&middot;</span>
-            <span className="text-white/50">SafeAgent</span>
-            <span>&middot;</span>
-            <span className="text-white/50">TPO</span>
+            <a href="https://www.tenancydepositscheme.com" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">TDS</a>
+            <span className="text-white/40">•</span>
+            <a href="https://safeagents.co.uk" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">SafeAgent</a>
+            <span className="text-white/40">•</span>
+            <a href="https://www.tpos.co.uk" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">TPO</a>
           </div>
         </div>
       </div>
