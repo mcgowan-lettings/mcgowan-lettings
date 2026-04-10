@@ -17,7 +17,20 @@ const AREAS = [
   "Accrington",
   "Burnley",
 ];
-const TYPES = ["House", "Apartment", "Flat", "Bungalow"];
+const TYPES = [
+  "Terraced",
+  "End Terraced",
+  "Semi Detached",
+  "Detached Bungalow",
+  "Semi Detached Bungalow",
+  "Apartment",
+  "Penthouse",
+  "Studio Apartment",
+  "Town House",
+  "Quasi Semi",
+  "Barn Conversion",
+  "House Share",
+];
 const STATUSES = ["To Let", "Let Agreed"];
 const FURNISHED_OPTIONS = ["Unfurnished", "Furnished", "Part Furnished"];
 const COUNCIL_TAX_BANDS = ["", "A", "B", "C", "D", "E", "F", "G", "H"];

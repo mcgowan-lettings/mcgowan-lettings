@@ -305,6 +305,15 @@ export default async function PropertyDetailPage({ params }: Props) {
                     title={`Map of ${property.location}`}
                   />
                 </div>
+                <a
+                  href={`https://www.google.com/maps?q=${encodeURIComponent(property.location)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 w-full text-sm font-medium text-dark bg-white border border-black/10 rounded-lg px-4 py-3 mt-3 hover:border-brand hover:text-brand transition-all duration-200"
+                >
+                  <MapPinIcon className="w-4 h-4" />
+                  Open in Google Maps
+                </a>
               </div>
             </div>
 
