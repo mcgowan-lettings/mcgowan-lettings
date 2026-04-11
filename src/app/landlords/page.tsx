@@ -333,7 +333,7 @@ export default function LandlordsPage() {
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
             {HOW_IT_WORKS.map((item, i) => (
               <AnimateIn key={item.step} delay={i * 0.1}>
-                <div className="bg-white rounded-lg border border-black/5 p-6 h-full relative shadow-sm">
+                <div className="bg-white rounded-lg border border-black/5 p-6 h-full relative group hover:shadow-lg transition-shadow duration-300">
                   <span className="text-5xl font-heading font-bold text-brand/15 absolute top-4 right-5 select-none">
                     {item.step}
                   </span>
