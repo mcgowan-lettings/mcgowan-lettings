@@ -7,6 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
 import { deleteBlogPost as deleteBlogPostAction } from "@/app/actions/admin";
+import UnsplashPicker from "@/components/UnsplashPicker";
 
 function generateSlug(title: string): string {
   return title
@@ -30,6 +31,7 @@ export default function EditBlogPostPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [coverImage, setCoverImage] = useState("");
+  const [showUnsplash, setShowUnsplash] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -351,26 +353,57 @@ export default function EditBlogPostPage() {
               </button>
             </div>
           ) : (
-            <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand/5">
-              <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
-              </svg>
-              <div>
-                <span className="text-sm font-medium text-brand-dark">
-                  {uploading ? "Uploading..." : "Click to upload cover image"}
-                </span>
-                <p className="text-xs text-text-muted mt-1">
-                  JPG, PNG or WebP. Recommended 16:9 aspect ratio.
-                </p>
-              </div>
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleCoverUpload}
-                disabled={uploading}
-                className="hidden"
-              />
-            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowUnsplash(true)}
+                className="flex flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand/5"
+              >
+                <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                </svg>
+                <div>
+                  <span className="text-sm font-medium text-brand-dark">Search stock photos</span>
+                  <p className="text-xs text-text-muted mt-1">Free from Unsplash — no storage used</p>
+                </div>
+              </button>
+
+              <label className="flex cursor-pointer flex-col items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-6 py-8 text-center transition-colors hover:border-brand/50 hover:bg-brand/5">
+                <svg className="h-8 w-8 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+                </svg>
+                <div>
+                  <span className="text-sm font-medium text-brand-dark">
+                    {uploading ? "Uploading..." : "Upload your own"}
+                  </span>
+                  <p className="text-xs text-text-muted mt-1">JPG, PNG or WebP</p>
+                </div>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handleCoverUpload}
+                  disabled={uploading}
+                  className="hidden"
+                />
+              </label>
+            </div>
+          )}
+
+          {showUnsplash && (
+            <UnsplashPicker
+              onSelect={(url) => {
+                // If there was an uploaded cover, clean it up
+                if (coverImage) {
+                  const oldPath = coverImage.split("/property-images/")[1];
+                  if (oldPath) {
+                    supabase.storage.from("property-images").remove([oldPath]);
+                  }
+                }
+                setCoverImage(url);
+                setShowUnsplash(false);
+              }}
+              onClose={() => setShowUnsplash(false)}
+            />
           )}
         </div>
 

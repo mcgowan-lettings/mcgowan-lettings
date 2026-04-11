@@ -483,7 +483,7 @@ export default function HomePage() {
             {featuredProperties.map((property, i) => (
               <AnimateIn key={property.id} delay={i * 0.1}>
                 <Link href={`/properties/${property.id}`}>
-                  <article className="property-card group bg-white rounded-lg border border-black/5 overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
+                  <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
                       <Image
                         src={property.images?.[0] || "/hero.jpg"}

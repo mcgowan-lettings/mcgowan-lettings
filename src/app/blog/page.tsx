@@ -63,7 +63,7 @@ export default async function BlogPage() {
                 <AnimateIn key={post.id} delay={i * 0.1}>
                   <Link
                     href={`/blog/${post.slug}`}
-                    className="group block overflow-hidden rounded-lg bg-white border border-black/5 shadow-sm transition-all hover:shadow-md hover:-translate-y-0.5 h-full"
+                    className="group block overflow-hidden rounded-lg bg-white border border-black/5 shadow-sm transition-all duration-300 hover:shadow-lg h-full"
                   >
                     <div className="relative aspect-[16/9] w-full overflow-hidden">
                       {post.cover_image ? (
@@ -71,7 +71,7 @@ export default async function BlogPage() {
                           src={post.cover_image}
                           alt={post.title}
                           fill
-                          className="object-cover transition-transform duration-500 group-hover:scale-105"
+                          className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
                           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         />
                       ) : (

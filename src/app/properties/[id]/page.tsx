@@ -417,7 +417,7 @@ export default async function PropertyDetailPage({ params }: Props) {
             <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
               {similarProperties.map((p) => (
                 <Link href={`/properties/${p.id}`} key={p.id}>
-                  <article className="property-card group bg-white rounded-lg border border-black/5 overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
+                  <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
                       <Image
                         src={p.images?.[0] || "/hero.jpg"}
