@@ -13,38 +13,43 @@ type Props = {
 };
 
 export async function generateMetadata({ params }: Props) {
-  const { slug } = await params;
-  const { data: post } = await supabaseAdmin
-    .from("blog_posts")
-    .select("title, excerpt, cover_image")
-    .eq("slug", slug)
-    .eq("published", true)
-    .single();
+  try {
+    const { slug } = await params;
+    const { data: post } = await supabaseAdmin
+      .from("blog_posts")
+      .select("title, excerpt, cover_image")
+      .eq("slug", slug)
+      .eq("published", true)
+      .single();
 
-  if (!post) {
-    return { title: "Post Not Found | McGowan Residential Lettings" };
+    if (!post) {
+      return { title: "Post Not Found | McGowan Residential Lettings" };
+    }
+
+    const title = `${post.title} | McGowan Residential Lettings`;
+    const description = post.excerpt || undefined;
+    const image = post.cover_image || "/hero.jpg";
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        images: [{ url: image, width: 1200, height: 630 }],
+        type: "article",
+      },
+      twitter: {
+        card: "summary_large_image",
+        title,
+        description,
+        images: [image],
+      },
+    };
+  } catch (err) {
+    console.error("[blog/[slug]] generateMetadata error", err);
+    return { title: `Blog (metadata error: ${(err as Error)?.message || "unknown"})` };
   }
-
-  const title = `${post.title} | McGowan Residential Lettings`;
-  const description = post.excerpt || undefined;
-  const image = post.cover_image || "/hero.jpg";
-
-  return {
-    title,
-    description,
-    openGraph: {
-      title,
-      description,
-      images: [{ url: image, width: 1200, height: 630 }],
-      type: "article",
-    },
-    twitter: {
-      card: "summary_large_image",
-      title,
-      description,
-      images: [image],
-    },
-  };
 }
 
 export default async function BlogPostPage({ params }: Props) {
