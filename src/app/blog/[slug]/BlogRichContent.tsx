@@ -1,6 +1,6 @@
 "use client";
 
-import { sanitizeHtml } from "@/lib/rich-text";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 export default function BlogRichContent({ html }: { html: string }) {
   return (

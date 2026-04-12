@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { renderInline, isHtml, sanitizeHtml } from "@/lib/rich-text";
+import { renderInline, isHtml } from "@/lib/rich-text";
+import { sanitizeHtml } from "@/lib/sanitize-html";
 
 export default function ExpandableDescription({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);

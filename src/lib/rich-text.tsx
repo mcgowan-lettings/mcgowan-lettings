@@ -1,5 +1,4 @@
 import React from "react";
-import DOMPurify from "isomorphic-dompurify";
 
 const INLINE_RE = /\*\*([^*\n]+?)\*\*|_([^_\n]+?)_|\[([^\]\n]+?)\]\(([^)\s]+)\)/g;
 
@@ -56,13 +55,6 @@ export function markdownToHtml(md: string): string {
     })
     .filter(Boolean)
     .join("");
-}
-
-export function sanitizeHtml(html: string): string {
-  return DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: ["p", "br", "strong", "em", "b", "i", "a", "h2", "h3", "ul", "ol", "li"],
-    ALLOWED_ATTR: ["href", "target", "rel"],
-  });
 }
 
 // Legacy markdown inline renderer — kept for any remaining plain-text fields
