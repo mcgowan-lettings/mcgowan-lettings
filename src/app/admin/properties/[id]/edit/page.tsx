@@ -8,6 +8,7 @@ import { deleteProperty as deletePropertyAction } from "@/app/actions/admin";
 import SortableImageGrid from "../../SortableImageGrid";
 import { compressImage } from "@/lib/compress-image";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
+import RichTextEditor from "@/components/RichTextEditor";
 
 const AREAS = [
   "Bury",
@@ -308,12 +309,14 @@ export default function EditPropertyPage() {
             <label className="mb-1.5 block text-sm font-medium text-dark">
               Description
             </label>
-            <textarea
-              rows={4}
+            <RichTextEditor
+              rows={6}
               value={form.description}
-              onChange={(e) => updateField("description", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
+              onChange={(v) => updateField("description", v)}
             />
+            <p className="text-xs text-text-muted mt-1.5">
+              Use the toolbar for <strong>bold</strong>, <em>italic</em> and links.
+            </p>
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AnimateIn } from "@/components/AnimateIn";
+import { renderInline } from "@/lib/rich-text";
 
 export const revalidate = 60;
 
@@ -158,14 +159,14 @@ export default async function BlogPostPage({ params }: Props) {
                         key={i}
                         className="font-heading text-xl md:text-2xl font-semibold text-dark mt-10 first:mt-0 pl-5 border-l-[3px] border-brand"
                       >
-                        {block.text}
+                        {renderInline(block.text)}
                       </h2>
                     ) : (
                       <p
                         key={i}
                         className="text-dark/75 leading-[1.8] text-[15px] md:text-base"
                       >
-                        {block.text}
+                        {renderInline(block.text)}
                       </p>
                     )
                 )}

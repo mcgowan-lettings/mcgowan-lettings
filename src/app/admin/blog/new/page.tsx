@@ -7,6 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
 import UnsplashPicker from "@/components/UnsplashPicker";
+import RichTextEditor from "@/components/RichTextEditor";
 
 function generateSlug(title: string): string {
   return title
@@ -217,15 +218,15 @@ export default function NewBlogPostPage() {
             <label className="mb-1.5 block text-sm font-medium text-dark">
               Content
             </label>
-            <textarea
+            <RichTextEditor
               rows={12}
               value={form.content}
-              onChange={(e) => updateField("content", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
-              placeholder={"Write your blog post content here.\n\nUse blank lines to separate paragraphs.\n\n## Start a line with ## to create a heading"}
+              onChange={(v) => updateField("content", v)}
+              includeHeading
+              placeholder={"Write your blog post content here.\n\nUse blank lines to separate paragraphs.\n\nSelect text, then use the B, I or link buttons for formatting."}
             />
             <p className="text-xs text-text-muted mt-1.5">
-              Separate paragraphs with blank lines. Start a line with <span className="font-mono bg-gray-100 px-1 rounded">##</span> to create a section heading.
+              Separate paragraphs with blank lines. Use the toolbar for headings, <strong>bold</strong>, <em>italic</em> and links.
             </p>
           </div>
 

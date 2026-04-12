@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { renderInline } from "@/lib/rich-text";
 
 export default function ExpandableDescription({ text }: { text: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -21,7 +22,7 @@ export default function ExpandableDescription({ text }: { text: string }) {
         <div className="space-y-3">
           {paragraphs.map((p, i) => (
             <p key={i} className="text-text-muted text-[15px] leading-relaxed">
-              {p}
+              {renderInline(p)}
             </p>
           ))}
         </div>
