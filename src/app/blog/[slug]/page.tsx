@@ -3,7 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AnimateIn } from "@/components/AnimateIn";
-import { renderInline, isHtml, sanitizeHtml } from "@/lib/rich-text";
+import { renderInline, isHtml } from "@/lib/rich-text";
+import BlogRichContent from "./BlogRichContent";
 
 export const revalidate = 60;
 
@@ -161,10 +162,7 @@ export default async function BlogPostPage({ params }: Props) {
               )}
 
               {contentIsHtml ? (
-                <div
-                  className="rich-content text-[15px] md:text-base"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(rawContent) }}
-                />
+                <BlogRichContent html={rawContent} />
               ) : (
                 <div className="space-y-6">
                   {blocks.map(
