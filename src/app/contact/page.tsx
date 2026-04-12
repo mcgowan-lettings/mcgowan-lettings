@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
 import { submitContactForm } from "@/app/actions/contact";
 import {

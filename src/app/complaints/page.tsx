@@ -1,11 +1,9 @@
 import Image from "next/image";
-import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
 import {
   PhoneIcon,
   MailIcon,
   WhatsAppIcon,
-  ArrowRightIcon,
   CheckIcon,
 } from "@/components/Icons";
 

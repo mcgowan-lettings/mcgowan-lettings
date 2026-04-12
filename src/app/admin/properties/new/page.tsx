@@ -46,7 +46,6 @@ export default function NewPropertyPage() {
   const [videoProgress, setVideoProgress] = useState(0);
   const [error, setError] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const storage = useStorageUsage();
 
@@ -84,7 +83,6 @@ export default function NewPropertyPage() {
     setError("");
 
     const newUrls: string[] = [];
-    const newPreviews: string[] = [];
 
     for (const rawFile of Array.from(files)) {
       let file: File;
@@ -112,11 +110,9 @@ export default function NewPropertyPage() {
       } = supabase.storage.from("property-images").getPublicUrl(filePath);
 
       newUrls.push(publicUrl);
-      newPreviews.push(URL.createObjectURL(file));
     }
 
     setImageUrls((prev) => [...prev, ...newUrls]);
-    setImagePreviews((prev) => [...prev, ...newPreviews]);
     setUploading(false);
 
     // Reset the file input
@@ -131,7 +127,6 @@ export default function NewPropertyPage() {
       await supabase.storage.from("property-images").remove([path]);
     }
     setImageUrls((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
