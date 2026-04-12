@@ -65,6 +65,7 @@ function FilterSelect({
     <div className="relative flex-1 min-w-[160px]">
       <label className="sr-only">{label}</label>
       <select
+        aria-label={label}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         className="w-full appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"

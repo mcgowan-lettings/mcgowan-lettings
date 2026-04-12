@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: Props) {
   const { slug } = await params;
   const { data: post } = await supabaseAdmin
     .from("blog_posts")
-    .select("title, excerpt, cover_image")
+    .select("title, excerpt, cover_image, content")
     .eq("slug", slug)
     .eq("published", true)
     .single();
@@ -26,7 +26,12 @@ export async function generateMetadata({ params }: Props) {
   }
 
   const title = `${post.title} | McGowan Residential Lettings`;
-  const description = post.excerpt || undefined;
+  const fallback = (post.content ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
+  const description = post.excerpt || fallback || `Read ${post.title} on the McGowan Residential Lettings blog.`;
   const image = post.cover_image || "/hero.jpg";
 
   return {

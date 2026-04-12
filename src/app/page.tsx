@@ -147,6 +147,7 @@ function HomeContactForm() {
           <label className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">I am a...</label>
           <div className="relative">
             <select
+              aria-label="I am a"
               value={formData.enquiryType}
               onChange={(e) => setFormData({ ...formData, enquiryType: e.target.value })}
               className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm appearance-none cursor-pointer focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
@@ -270,7 +271,7 @@ export default function HomePage() {
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Area</label>
                 <div className="relative">
-                  <select value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
                     <option value="">All Areas</option>
                     <option value="Bury">Bury</option>
                     <option value="Bolton">Bolton</option>
@@ -286,7 +287,7 @@ export default function HomePage() {
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Max Price</label>
                 <div className="relative">
-                  <select value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
                     <option value="">Any Price</option>
                     <option value="£500">£500 pcm</option>
                     <option value="£750">£750 pcm</option>
@@ -302,7 +303,7 @@ export default function HomePage() {
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Bedrooms</label>
                 <div className="relative">
-                  <select value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
                     <option value="">Any</option>
                     <option value="1">1</option>
                     <option value="2">2</option>
@@ -316,7 +317,7 @@ export default function HomePage() {
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Type</label>
                 <div className="relative">
-                  <select value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
                     <option value="">All Types</option>
                     <option value="House">House</option>
                     <option value="Apartment">Apartment</option>

@@ -224,16 +224,20 @@ export default function TestimonialsCarousel() {
           </div>
 
           {/* Dots */}
-          <div className="flex items-center justify-center gap-2 mt-8">
+          <div className="flex items-center justify-center gap-1 mt-8">
             {Array.from({ length: maxIndex + 1 }).map((_, i) => (
               <button
                 key={i}
                 onClick={() => { handleInteraction(); setCurrent(i); }}
-                className={`w-2 h-2 rounded-full transition-all duration-200 ${
-                  i === current ? "bg-brand w-6" : "bg-dark/20 hover:bg-dark/40"
-                }`}
+                className="group p-3 -m-1 cursor-pointer"
                 aria-label={`Go to slide ${i + 1}`}
-              />
+              >
+                <span
+                  className={`block h-2 rounded-full transition-all duration-200 ${
+                    i === current ? "bg-brand w-6" : "bg-dark/20 group-hover:bg-dark/40 w-2"
+                  }`}
+                />
+              </button>
             ))}
           </div>
         </div>
