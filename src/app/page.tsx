@@ -416,7 +416,7 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <Link href="/landlords" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
-                  Learn more
+                  Learn more about Fully Managed
                   <ArrowRightIcon className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
                 </Link>
               </div>
@@ -449,7 +449,7 @@ export default function HomePage() {
                   ))}
                 </ul>
                 <Link href="/landlords" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
-                  Learn more
+                  Learn more about Let Only
                   <ArrowRightIcon className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
                 </Link>
               </div>
