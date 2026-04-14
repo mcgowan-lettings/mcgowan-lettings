@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import SiteShell from "@/components/SiteShell";
+import { supabaseAdmin } from "@/lib/supabase-server";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -44,11 +45,80 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
 };
 
-export default function RootLayout({
+async function getReviewCount(): Promise<number | null> {
+  try {
+    const { data } = await supabaseAdmin
+      .from("site_config")
+      .select("value")
+      .eq("key", "google_review_count")
+      .single();
+    const parsed = data?.value ? Number(data.value) : NaN;
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const reviewCount = await getReviewCount();
+
+  const jsonLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "RealEstateAgent",
+    name: "McGowan Residential Lettings Ltd.",
+    url: "https://mcgowanlettings.co.uk",
+    logo: "https://mcgowanlettings.co.uk/mcgowan-logo.png",
+    image: "https://mcgowanlettings.co.uk/hero.jpg",
+    telephone: "0161 797 6967",
+    email: "info@mcgowanlettings.co.uk",
+    priceRange: "££",
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: "Bury",
+      addressRegion: "Greater Manchester",
+      addressCountry: "GB",
+    },
+    geo: {
+      "@type": "GeoCoordinates",
+      latitude: 53.5935,
+      longitude: -2.2975,
+    },
+    areaServed: [
+      "Bury", "Bolton", "Manchester", "Rossendale", "Accrington", "Burnley",
+    ],
+    openingHoursSpecification: [
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+        opens: "09:00",
+        closes: "18:00",
+      },
+      {
+        "@type": "OpeningHoursSpecification",
+        dayOfWeek: "Saturday",
+        opens: "10:00",
+        closes: "14:00",
+      },
+    ],
+    sameAs: [
+      "https://wa.me/447457428720",
+    ],
+  };
+
+  if (reviewCount) {
+    jsonLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: "5",
+      reviewCount,
+      bestRating: "5",
+      worstRating: "1",
+    };
+  }
+
   return (
     <html
       lang="en"
@@ -57,29 +127,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col">
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify({
-              "@context": "https://schema.org",
-              "@type": "RealEstateAgent",
-              name: "McGowan Residential Lettings Ltd.",
-              url: "https://mcgowanlettings.co.uk",
-              logo: "https://mcgowanlettings.co.uk/mcgowan-logo.png",
-              telephone: "0161 797 6967",
-              email: "info@mcgowanlettings.co.uk",
-              address: {
-                "@type": "PostalAddress",
-                addressLocality: "Bury",
-                addressRegion: "Greater Manchester",
-                addressCountry: "GB",
-              },
-              areaServed: [
-                "Bury", "Bolton", "Manchester", "Rossendale", "Accrington", "Burnley",
-              ],
-              sameAs: [
-                "https://wa.me/447457428720",
-              ],
-            }),
-          }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
         <SiteShell>{children}</SiteShell>
       </body>

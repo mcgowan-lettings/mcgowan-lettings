@@ -87,8 +87,41 @@ export default async function BlogPostPage({ params }: Props) {
     : rawContent.split(/\s+/).filter(Boolean).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 220));
 
+  const postUrl = `https://mcgowanlettings.co.uk/blog/${slug}`;
+  const blogJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: post.title,
+    description:
+      post.excerpt ||
+      (post.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160),
+    image: post.cover_image
+      ? [post.cover_image.startsWith("http") ? post.cover_image : `https://mcgowanlettings.co.uk${post.cover_image}`]
+      : ["https://mcgowanlettings.co.uk/hero.jpg"],
+    datePublished: post.created_at,
+    dateModified: post.updated_at || post.created_at,
+    author: {
+      "@type": "Organization",
+      name: "McGowan Residential Lettings Ltd.",
+      url: "https://mcgowanlettings.co.uk",
+    },
+    publisher: {
+      "@type": "Organization",
+      name: "McGowan Residential Lettings Ltd.",
+      logo: {
+        "@type": "ImageObject",
+        url: "https://mcgowanlettings.co.uk/mcgowan-logo.png",
+      },
+    },
+    mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
+  };
+
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(blogJsonLd) }}
+      />
       {/* ─── HERO ─── */}
       <section className="relative h-[40vh] min-h-[320px] flex items-end overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
