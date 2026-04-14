@@ -47,7 +47,7 @@ const AREAS: { name: string; neighbourhoods: string[]; main?: boolean }[] = [
 ];
 
 const STATS = [
-  { value: 300, suffix: "+", label: "Properties Managed" },
+  { value: 400, suffix: "+", label: "Properties Managed" },
   { value: 25, suffix: "+", label: "Years Experience" },
   { value: 98, suffix: "%", label: "Tenant Satisfaction" },
   { value: 99, suffix: "%", label: "Landlord Satisfaction" },
