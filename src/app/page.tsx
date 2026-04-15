@@ -575,7 +575,7 @@ export default function HomePage() {
             </AnimateIn>
 
             <AnimateIn delay={0.2} className="relative mb-8 lg:mb-0">
-              <div className="aspect-[3/4] md:aspect-[4/5] rounded-lg overflow-hidden relative">
+              <div className="aspect-[4/5] rounded-lg overflow-hidden relative">
                 <Image
                   src="/david-mcgowan.jpg"
                   alt="David McGowan, founder of McGowan Residential Lettings"
@@ -583,9 +583,9 @@ export default function HomePage() {
                   className="object-cover object-[center_10%]"
                 />
               </div>
-              <div className="absolute -bottom-6 left-0 lg:-left-6 bg-dark text-white p-6 rounded-lg shadow-2xl max-w-[240px]">
-                <div className="text-3xl font-heading font-semibold text-brand mb-1">25+</div>
-                <div className="text-white/80 text-sm">Years trusted by landlords &amp; tenants across Greater Manchester</div>
+              <div className="absolute -bottom-6 left-0 lg:-left-6 bg-dark text-white p-4 md:p-6 rounded-lg shadow-2xl max-w-[180px] md:max-w-[240px]">
+                <div className="text-2xl md:text-3xl font-heading font-semibold text-brand mb-1">25+</div>
+                <div className="text-white/80 text-xs md:text-sm leading-snug">Years trusted by landlords &amp; tenants across Greater Manchester</div>
               </div>
             </AnimateIn>
           </div>
