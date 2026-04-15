@@ -176,18 +176,18 @@ export default function TestimonialsCarousel() {
         </AnimateIn>
 
         {/* Carousel */}
-        <div className="relative px-10 md:px-14">
-          {/* Navigation arrows on the sides */}
+        <div className="relative px-2 md:px-14">
+          {/* Desktop-only side arrows */}
           <button
             onClick={() => { handleInteraction(); prev(); }}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
             aria-label="Previous review"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => { handleInteraction(); next(); }}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
+            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
             aria-label="Next review"
           >
             <ChevronRightIcon className="w-5 h-5" />
@@ -234,8 +234,42 @@ export default function TestimonialsCarousel() {
             </div>
           </div>
 
-          {/* Dots */}
-          <div className="flex items-center justify-center gap-1 mt-8">
+          {/* Mobile: arrows flanking dots */}
+          <div className="md:hidden flex items-center justify-center gap-4 mt-8">
+            <button
+              onClick={() => { handleInteraction(); prev(); }}
+              className="w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
+              aria-label="Previous review"
+            >
+              <ChevronLeftIcon className="w-5 h-5" />
+            </button>
+            <div className="flex items-center justify-center gap-1">
+              {Array.from({ length: maxIndex + 1 }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => { handleInteraction(); setCurrent(i); }}
+                  className="group p-2 -m-1 cursor-pointer"
+                  aria-label={`Go to slide ${i + 1}`}
+                >
+                  <span
+                    className={`block h-2 rounded-full transition-all duration-200 ${
+                      i === current ? "bg-brand w-6" : "bg-dark/20 group-hover:bg-dark/40 w-2"
+                    }`}
+                  />
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { handleInteraction(); next(); }}
+              className="w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
+              aria-label="Next review"
+            >
+              <ChevronRightIcon className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Desktop: dots only (side arrows handle nav) */}
+          <div className="hidden md:flex items-center justify-center gap-1 mt-8">
             {Array.from({ length: maxIndex + 1 }).map((_, i) => (
               <button
                 key={i}
