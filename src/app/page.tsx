@@ -583,9 +583,9 @@ export default function HomePage() {
                   className="object-cover object-[center_10%]"
                 />
               </div>
-              <div className="absolute -bottom-6 left-0 lg:-left-6 bg-dark text-white p-4 md:p-6 rounded-lg shadow-2xl max-w-[180px] md:max-w-[240px]">
-                <div className="text-2xl md:text-3xl font-heading font-semibold text-brand mb-1">25+</div>
-                <div className="text-white/80 text-xs md:text-sm leading-snug">Years trusted by landlords &amp; tenants across Greater Manchester</div>
+              <div className="absolute -bottom-6 -left-4 lg:-left-6 bg-dark text-white p-5 rounded-lg shadow-2xl max-w-[200px]">
+                <div className="text-2xl font-heading font-semibold text-brand mb-1">25+</div>
+                <div className="text-white/80 text-xs leading-snug">Years trusted by landlords &amp; tenants across Greater Manchester</div>
               </div>
             </AnimateIn>
           </div>
