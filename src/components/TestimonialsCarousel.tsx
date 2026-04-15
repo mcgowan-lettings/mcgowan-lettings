@@ -243,12 +243,12 @@ export default function TestimonialsCarousel() {
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>
-            <div className="flex items-center justify-center gap-1">
+            <div className="flex items-center justify-center gap-1 w-[180px]">
               {Array.from({ length: maxIndex + 1 }).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => { handleInteraction(); setCurrent(i); }}
-                  className="group p-2 -m-1 cursor-pointer"
+                  className="group p-2 -m-1 cursor-pointer flex-1 flex justify-center"
                   aria-label={`Go to slide ${i + 1}`}
                 >
                   <span
