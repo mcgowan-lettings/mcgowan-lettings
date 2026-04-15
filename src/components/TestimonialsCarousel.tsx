@@ -208,7 +208,7 @@ export default function TestimonialsCarousel() {
                   className="flex-shrink-0 px-3"
                   style={{ width: `${100 / visibleCount}%` }}
                 >
-                  <div className="bg-white rounded-lg p-6 md:p-8 border border-black/5 relative h-full flex flex-col">
+                  <div className="bg-white rounded-lg p-6 md:p-8 border border-black/5 relative h-full min-h-[320px] md:min-h-0 flex flex-col">
                     <div className="text-brand/20 text-6xl font-heading leading-none absolute top-4 right-6">&ldquo;</div>
                     <div className="relative flex flex-col flex-1">
                       <div className="flex items-center gap-0.5 mb-4">
