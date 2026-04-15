@@ -131,9 +131,16 @@ export default function TestimonialsCarousel() {
     return () => clearInterval(timer);
   }, [isAutoPlaying, next]);
 
+  // Pause auto-play briefly after interaction, then resume
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleInteraction = () => {
     setIsAutoPlaying(false);
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => setIsAutoPlaying(true), 8000);
   };
+  useEffect(() => () => {
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+  }, []);
 
   // Swipe support for mobile (arrows are hidden on small screens)
   const touchStartX = useRef<number | null>(null);
