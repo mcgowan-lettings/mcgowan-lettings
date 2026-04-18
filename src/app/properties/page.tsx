@@ -279,7 +279,7 @@ export default function PropertiesPage() {
                             {property.type}
                           </div>
                           {property.status === "Let Agreed" && (
-                            <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-medium px-2.5 py-1 rounded-sm shadow-sm">
+                            <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow-sm">
                               Let Agreed
                             </div>
                           )}
