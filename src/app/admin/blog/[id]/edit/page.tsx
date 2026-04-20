@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -42,33 +42,36 @@ export default function EditBlogPostPage() {
     published: false,
   });
 
-  const fetchPost = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
-      .from("blog_posts")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !data) {
-      setError("Blog post not found.");
-      setLoading(false);
-      return;
-    }
-
-    setForm({
-      title: data.title,
-      slug: data.slug,
-      excerpt: data.excerpt ?? "",
-      content: data.content ?? "",
-      published: data.published,
-    });
-    setCoverImage(data.cover_image ?? "");
-    setLoading(false);
-  }, [id]);
-
   useEffect(() => {
-    fetchPost();
-  }, [fetchPost]);
+    let cancelled = false;
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("blog_posts")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (cancelled) return;
+
+      if (fetchError || !data) {
+        setError("Blog post not found.");
+        setLoading(false);
+        return;
+      }
+
+      setForm({
+        title: data.title,
+        slug: data.slug,
+        excerpt: data.excerpt ?? "",
+        content: data.content ?? "",
+        published: data.published,
+      });
+      setCoverImage(data.cover_image ?? "");
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const updateField = (field: string, value: string | boolean) => {
     setForm((prev) => {

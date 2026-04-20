@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -26,23 +26,25 @@ export default function AdminBlogPage() {
     type: "success" | "error";
   } | null>(null);
 
-  const fetchPosts = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("blog_posts")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMessage({ text: "Failed to load blog posts.", type: "error" });
-    } else {
-      setPosts(data ?? []);
-    }
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("blog_posts")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        setMessage({ text: "Failed to load blog posts.", type: "error" });
+      } else {
+        setPosts(data ?? []);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const togglePublished = async (id: string, currentPublished: boolean) => {
     setToggling(id);

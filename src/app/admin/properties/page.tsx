@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -30,23 +30,25 @@ export default function AdminPropertiesPage() {
     type: "success" | "error";
   } | null>(null);
 
-  const fetchProperties = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMessage({ text: "Failed to load properties.", type: "error" });
-    } else {
-      setProperties(data ?? []);
-    }
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    fetchProperties();
-  }, [fetchProperties]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("properties")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        setMessage({ text: "Failed to load properties.", type: "error" });
+      } else {
+        setProperties(data ?? []);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleActive = async (id: string, currentActive: boolean) => {
     setToggling(id);

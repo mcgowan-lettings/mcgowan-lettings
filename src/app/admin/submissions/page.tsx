@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { deleteSubmission as deleteSubmissionAction } from "@/app/actions/admin";
 
@@ -24,23 +24,25 @@ export default function AdminSubmissionsPage() {
     type: "success" | "error";
   } | null>(null);
 
-  const fetchSubmissions = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("contact_submissions")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMessage({ text: "Failed to load submissions.", type: "error" });
-    } else {
-      setSubmissions(data ?? []);
-    }
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    fetchSubmissions();
-  }, [fetchSubmissions]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("contact_submissions")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        setMessage({ text: "Failed to load submissions.", type: "error" });
+      } else {
+        setSubmissions(data ?? []);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleExpand = async (submission: Submission) => {
     if (expandedId === submission.id) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState, useMemo, useEffect, useCallback } from "react";
+import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
@@ -86,47 +86,60 @@ function FilterSelect({
 
 export default function PropertiesPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [area, setArea] = useState<string>("All Areas");
-  const [maxPrice, setMaxPrice] = useState<string>("Any Price");
-  const [bedrooms, setBedrooms] = useState<string>("Any Beds");
-  const [propertyType, setPropertyType] = useState<string>("All Types");
+  const [reloadTick, setReloadTick] = useState(0);
 
-  // Fetch properties from Supabase
-  const fetchProperties = async () => {
+  const area = searchParams.get("area") ?? "All Areas";
+  const maxPrice = searchParams.get("maxPrice") ?? "Any Price";
+  const bedrooms = searchParams.get("bedrooms") ?? "Any Beds";
+  const propertyType = searchParams.get("type") ?? "All Types";
+
+  const updateParam = useCallback(
+    (key: string, value: string, defaultValue: string) => {
+      const params = new URLSearchParams(searchParams.toString());
+      if (value === defaultValue) params.delete(key);
+      else params.set(key, value);
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [searchParams, router, pathname]
+  );
+
+  const setArea = (v: string) => updateParam("area", v, "All Areas");
+  const setMaxPrice = (v: string) => updateParam("maxPrice", v, "Any Price");
+  const setBedrooms = (v: string) => updateParam("bedrooms", v, "Any Beds");
+  const setPropertyType = (v: string) => updateParam("type", v, "All Types");
+
+  const retryFetch = () => {
     setLoading(true);
     setError(null);
-    const { data, error: fetchError } = await supabase
-      .from("properties")
-      .select("id, title, price, location, area, beds, baths, type, images, status")
-      .eq("active", true)
-      .order("created_at", { ascending: false });
-
-    if (fetchError) {
-      setError("Unable to load properties. Please try again.");
-    } else if (data) {
-      setProperties(data);
-    }
-    setLoading(false);
+    setReloadTick((t) => t + 1);
   };
 
   useEffect(() => {
-    fetchProperties();
-  }, []);
-
-  // Read URL params
-  useEffect(() => {
-    const a = searchParams.get("area");
-    const p = searchParams.get("maxPrice");
-    const b = searchParams.get("bedrooms");
-    const t = searchParams.get("type");
-    if (a) setArea(a);
-    if (p) setMaxPrice(p);
-    if (b) setBedrooms(b);
-    if (t) setPropertyType(t);
-  }, [searchParams]);
+    let cancelled = false;
+    (async () => {
+      const { data, error: fetchError } = await supabase
+        .from("properties")
+        .select("id, title, price, location, area, beds, baths, type, images, status")
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (fetchError) {
+        setError("Unable to load properties. Please try again.");
+      } else if (data) {
+        setProperties(data);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reloadTick]);
 
   const filtersActive =
     area !== "All Areas" ||
@@ -154,10 +167,7 @@ export default function PropertiesPage() {
   }, [properties, area, maxPrice, bedrooms, propertyType]);
 
   function resetFilters() {
-    setArea("All Areas");
-    setMaxPrice("Any Price");
-    setBedrooms("Any Beds");
-    setPropertyType("All Types");
+    router.replace(pathname, { scroll: false });
   }
 
   return (
@@ -237,7 +247,7 @@ export default function PropertiesPage() {
                   {error}
                 </p>
                 <button
-                  onClick={fetchProperties}
+                  onClick={retryFetch}
                   className="bg-brand hover:bg-brand-light text-dark font-semibold px-6 py-3 rounded-md text-sm transition-colors"
                 >
                   Try again

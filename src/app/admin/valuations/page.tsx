@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { deleteValuationRequest as deleteValuationAction } from "@/app/actions/admin";
 
@@ -27,23 +27,25 @@ export default function AdminValuationsPage() {
     type: "success" | "error";
   } | null>(null);
 
-  const fetchRequests = useCallback(async () => {
-    const { data, error } = await supabase
-      .from("valuation_requests")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      setMessage({ text: "Failed to load valuation requests.", type: "error" });
-    } else {
-      setRequests(data ?? []);
-    }
-    setLoading(false);
-  }, []);
-
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase
+        .from("valuation_requests")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (cancelled) return;
+      if (error) {
+        setMessage({ text: "Failed to load valuation requests.", type: "error" });
+      } else {
+        setRequests(data ?? []);
+      }
+      setLoading(false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toggleExpand = async (request: ValuationRequest) => {
     if (expandedId === request.id) {
