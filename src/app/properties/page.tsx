@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { Suspense, useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -85,6 +85,14 @@ function FilterSelect({
 /* ───────────────────────── PAGE ───────────────────────── */
 
 export default function PropertiesPage() {
+  return (
+    <Suspense>
+      <PropertiesContent />
+    </Suspense>
+  );
+}
+
+function PropertiesContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
