@@ -1,6 +1,14 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
+
+export async function revalidateBlog(slug?: string) {
+  revalidatePath("/blog");
+  if (slug) {
+    revalidatePath(`/blog/${slug}`);
+  }
+}
 
 export async function deleteProperty(id: string, imageUrls: string[]) {
   // Remove images from storage
@@ -39,6 +47,7 @@ export async function deleteBlogPost(id: string, coverImage: string | null) {
   if (error) {
     return { success: false, error: error.message };
   }
+  revalidatePath("/blog");
   return { success: true, error: "" };
 }
 

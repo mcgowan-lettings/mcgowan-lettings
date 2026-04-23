@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
+import { revalidateBlog } from "@/app/actions/admin";
 import UnsplashPicker from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 
@@ -140,6 +141,7 @@ export default function NewBlogPostPage() {
       return;
     }
 
+    await revalidateBlog(form.slug);
     router.push("/admin/blog");
   };
 

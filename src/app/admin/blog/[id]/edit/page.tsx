@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
-import { deleteBlogPost as deleteBlogPostAction } from "@/app/actions/admin";
+import { deleteBlogPost as deleteBlogPostAction, revalidateBlog } from "@/app/actions/admin";
 import UnsplashPicker from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 
@@ -189,6 +189,7 @@ export default function EditBlogPostPage() {
       return;
     }
 
+    await revalidateBlog(form.slug);
     setSuccess("Post updated successfully.");
     setSaving(false);
     setTimeout(() => setSuccess(""), 3000);
