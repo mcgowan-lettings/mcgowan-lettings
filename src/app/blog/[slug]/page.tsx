@@ -7,7 +7,7 @@ import { renderInline, isHtml } from "@/lib/rich-text";
 import BlogRichContent from "./BlogRichContent";
 import { getPost } from "./get-post";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ slug: string }>;

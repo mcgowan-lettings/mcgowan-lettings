@@ -5,7 +5,7 @@ import { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getProperty } from "./get-property";
 
-export const revalidate = 60;
+export const dynamic = "force-dynamic";
 
 import PropertyGallery from "./PropertyGallery";
 import ExpandableDescription from "./ExpandableDescription";
