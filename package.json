@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@fancyapps/ui": "^6.1.13",
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2",
     "@supabase/supabase-js": "^2.101.1",
     "@tiptap/extension-link": "^3.22.3",
     "@tiptap/extensions": "^3.22.3",
@@ -21,6 +19,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "isomorphic-dompurify": "^3.8.0",
+    "mediabunny": "^1.40.1",
     "next": "16.2.2",
     "plyr": "^3.8.4",
     "react": "19.2.4",

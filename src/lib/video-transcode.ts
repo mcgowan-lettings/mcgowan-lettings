@@ -1,93 +1,184 @@
 "use client";
 
-import { FFmpeg } from "@ffmpeg/ffmpeg";
-import { fetchFile, toBlobURL } from "@ffmpeg/util";
-
-let ffmpegInstance: FFmpeg | null = null;
-let loadPromise: Promise<FFmpeg> | null = null;
-
-const CORE_BASE = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
-
-export const MAX_VIDEO_BYTES = 500 * 1024 * 1024;
-const TRANSCODE_TIMEOUT_MS = 10 * 60 * 1000;
-
-async function loadFFmpeg(): Promise<FFmpeg> {
-  if (ffmpegInstance) return ffmpegInstance;
-  if (loadPromise) return loadPromise;
-
-  loadPromise = (async () => {
-    const ffmpeg = new FFmpeg();
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
-    });
-    ffmpegInstance = ffmpeg;
-    return ffmpeg;
-  })();
-
-  return loadPromise;
-}
+export const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
 export type TranscodeStage = "loading" | "transcoding";
+
+async function transcodeWithWebCodecs(
+  file: File,
+  onProgress?: (stage: TranscodeStage, ratio: number) => void
+): Promise<File> {
+  const {
+    Input, Output, Conversion,
+    BlobSource, BufferTarget,
+    Mp4OutputFormat,
+    ALL_FORMATS,
+  } = await import("mediabunny");
+
+  onProgress?.("loading", 0);
+
+  const input = new Input({
+    source: new BlobSource(file),
+    formats: ALL_FORMATS,
+  });
+
+  const target = new BufferTarget();
+  const output = new Output({
+    format: new Mp4OutputFormat(),
+    target,
+  });
+
+  const videoTrack = await input.getPrimaryVideoTrack();
+  const srcW = videoTrack?.displayWidth ?? 1920;
+  const srcH = videoTrack?.displayHeight ?? 1080;
+  const isLandscape = srcW >= srcH;
+
+  const conversion = await Conversion.init({
+    input,
+    output,
+    video: {
+      codec: "avc",
+      bitrate: 3_500_000,
+      ...(isLandscape ? { width: Math.min(srcW, 1920) } : { height: Math.min(srcH, 1920) }),
+    },
+    audio: { discard: true },
+  });
+
+  onProgress?.("transcoding", 0);
+
+  conversion.onProgress = (p) => {
+    onProgress?.("transcoding", Math.min(p, 1));
+  };
+
+  await conversion.execute();
+
+  const buffer = target.buffer!;
+  const newName = file.name.replace(/\.[^.]+$/, "") + ".mp4";
+  return new File([buffer], newName, { type: "video/mp4" });
+}
+
+function pickMediaRecorderMime(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+  for (const mime of [
+    "video/mp4; codecs=avc1",
+    "video/mp4",
+    "video/webm; codecs=vp9",
+    "video/webm",
+  ]) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return "";
+}
+
+async function transcodeWithMediaRecorder(
+  file: File,
+  onProgress?: (stage: TranscodeStage, ratio: number) => void
+): Promise<File> {
+  const mimeType = pickMediaRecorderMime();
+  if (!mimeType) {
+    throw new Error("Your browser does not support video conversion. Please upload an MP4 file.");
+  }
+
+  onProgress?.("loading", 0);
+
+  const video = document.createElement("video");
+  video.muted = true;
+  video.playsInline = true;
+  video.preload = "auto";
+  video.src = URL.createObjectURL(file);
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("Video took too long to load.")), 30000);
+    video.onloadeddata = () => { clearTimeout(timeout); resolve(); };
+    video.onerror = () => { clearTimeout(timeout); reject(new Error("Could not read this video file.")); };
+  });
+
+  if (!video.videoWidth || !video.videoHeight) {
+    throw new Error("Could not read video dimensions.");
+  }
+
+  const srcW = video.videoWidth;
+  const srcH = video.videoHeight;
+  const scale = Math.min(1, 1920 / Math.max(srcW, srcH));
+  const outW = Math.round(srcW * scale) & ~1;
+  const outH = Math.round(srcH * scale) & ~1;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d")!;
+
+  const stream = canvas.captureStream(30);
+  const recorder = new MediaRecorder(stream, {
+    mimeType,
+    videoBitsPerSecond: 5_000_000,
+  });
+
+  const chunks: Blob[] = [];
+  recorder.ondataavailable = (e) => {
+    if (e.data.size > 0) chunks.push(e.data);
+  };
+
+  const done = new Promise<Blob>((resolve, reject) => {
+    recorder.onstop = () => {
+      const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
+      resolve(new Blob(chunks, { type }));
+    };
+    recorder.onerror = () => reject(new Error("Video conversion failed."));
+  });
+
+  recorder.start(1000);
+  onProgress?.("transcoding", 0);
+
+  try {
+    await video.play();
+  } catch {
+    recorder.stop();
+    throw new Error("Browser blocked video playback during conversion.");
+  }
+
+  const duration = video.duration;
+
+  await new Promise<void>((resolve) => {
+    video.onended = () => {
+      recorder.stop();
+      resolve();
+    };
+    const drawFrame = () => {
+      if (video.ended || video.paused) {
+        recorder.stop();
+        resolve();
+        return;
+      }
+      ctx.drawImage(video, 0, 0, outW, outH);
+      if (duration && isFinite(duration)) {
+        onProgress?.("transcoding", Math.min(video.currentTime / duration, 1));
+      }
+      requestAnimationFrame(drawFrame);
+    };
+    drawFrame();
+  });
+
+  const blob = await done;
+  URL.revokeObjectURL(video.src);
+
+  const outExt = mimeType.startsWith("video/mp4") ? ".mp4" : ".webm";
+  const outType = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
+  const newName = file.name.replace(/\.[^.]+$/, "") + outExt;
+
+  return new File([blob], newName, { type: outType });
+}
+
+function supportsWebCodecs(): boolean {
+  return typeof VideoEncoder !== "undefined" && typeof VideoDecoder !== "undefined";
+}
 
 export async function transcodeVideoToMp4(
   file: File,
   onProgress?: (stage: TranscodeStage, ratio: number) => void
 ): Promise<File> {
-  if (!ffmpegInstance) onProgress?.("loading", 0);
-  const ffmpeg = await loadFFmpeg();
-
-  const progressHandler = ({ progress }: { progress: number }) => {
-    onProgress?.("transcoding", Math.max(0, Math.min(1, progress)));
-  };
-  ffmpeg.on("progress", progressHandler);
-
-  const ext = (file.name.match(/\.[^.]+$/)?.[0] || ".mov").toLowerCase();
-  const inputName = `input${ext}`;
-  const outputName = "output.mp4";
-
-  let timedOut = false;
-  const timeoutId = setTimeout(() => {
-    timedOut = true;
-    try { ffmpeg.terminate(); } catch {}
-    ffmpegInstance = null;
-    loadPromise = null;
-  }, TRANSCODE_TIMEOUT_MS);
-
-  try {
-    await ffmpeg.writeFile(inputName, await fetchFile(file));
-
-    await ffmpeg.exec([
-      "-i", inputName,
-      "-vf", "scale=1920:1920:force_original_aspect_ratio=decrease:force_divisible_by=2,format=yuv420p",
-      "-c:v", "libx264",
-      "-preset", "ultrafast",
-      "-crf", "26",
-      "-pix_fmt", "yuv420p",
-      "-color_primaries", "bt709",
-      "-color_trc", "bt709",
-      "-colorspace", "bt709",
-      "-an",
-      "-movflags", "+faststart",
-      outputName,
-    ]);
-
-    if (timedOut) {
-      throw new Error("Video conversion timed out. Try a shorter or smaller video.");
-    }
-
-    const data = await ffmpeg.readFile(outputName);
-    const bytes = data instanceof Uint8Array ? new Uint8Array(data) : new TextEncoder().encode(data);
-    const blob = new Blob([bytes.buffer as ArrayBuffer], { type: "video/mp4" });
-    const newName = file.name.replace(/\.[^.]+$/, "") + ".mp4";
-
-    return new File([blob], newName, { type: "video/mp4" });
-  } finally {
-    clearTimeout(timeoutId);
-    ffmpeg.off("progress", progressHandler);
-    if (!timedOut) {
-      try { await ffmpeg.deleteFile(inputName); } catch {}
-      try { await ffmpeg.deleteFile(outputName); } catch {}
-    }
+  if (supportsWebCodecs()) {
+    return transcodeWithWebCodecs(file, onProgress);
   }
+  return transcodeWithMediaRecorder(file, onProgress);
 }

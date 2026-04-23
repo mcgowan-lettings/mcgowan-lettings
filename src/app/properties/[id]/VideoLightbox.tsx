@@ -62,10 +62,10 @@ export default function VideoLightbox({
         </svg>
       </button>
       <div
-        className="video-lightbox-content w-full max-w-5xl plyr-brand"
+        className="video-lightbox-content w-full max-w-5xl max-h-[90vh] plyr-brand"
         onClick={(e) => e.stopPropagation()}
       >
-        <video ref={videoRef} src={src} playsInline />
+        <video ref={videoRef} src={src} playsInline style={{ maxHeight: "90vh", objectFit: "contain" }} />
       </div>
     </div>
   );

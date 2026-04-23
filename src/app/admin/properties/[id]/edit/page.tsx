@@ -214,35 +214,22 @@ export default function EditPropertyPage() {
           );
         }
 
-        let uploadFile: File = file;
-        let contentType = file.type;
+        setVideoStatus(`Converting ${file.name}...`);
+        setVideoProgress(0);
 
-        const isAlreadyMp4 = file.type === "video/mp4";
-        if (!isAlreadyMp4) {
-          try {
-            setVideoStatus(`Preparing ${file.name}...`);
-            setVideoProgress(0);
-
-            uploadFile = await transcodeVideoToMp4(file, (stage, ratio) => {
-              if (stage === "loading") {
-                setVideoStatus("Loading video converter (first time only)...");
-                setVideoProgress(0);
-              } else {
-                setVideoStatus(`Converting to 1080p MP4...`);
-                setVideoProgress(Math.round(ratio * 100));
-              }
-            });
-            contentType = "video/mp4";
-          } catch {
-            uploadFile = file;
-            contentType = file.type;
+        const uploadFile = await transcodeVideoToMp4(file, (stage, ratio) => {
+          if (stage === "loading") {
+            setVideoStatus("Preparing video...");
+          } else {
+            setVideoStatus("Converting video...");
+            setVideoProgress(Math.round(ratio * 100));
           }
-        }
+        });
 
         setVideoStatus("Uploading...");
         setVideoProgress(100);
 
-        const publicUrl = await uploadVideoFile(uploadFile, contentType);
+        const publicUrl = await uploadVideoFile(uploadFile, uploadFile.type);
         if (publicUrl) newUrls.push(publicUrl);
       } catch (err) {
         setError(`Failed to process ${file.name}: ${err instanceof Error ? err.message : "Unknown error"}`);
@@ -806,7 +793,7 @@ export default function EditPropertyPage() {
               <div>
                 <span className="text-sm font-medium text-brand-dark">Upload video</span>
                 <p className="text-xs text-text-muted mt-1">
-                  Straight from your iPhone is fine &mdash; MP4, MOV all accepted.
+                  Straight from your iPhone is fine &mdash; MP4, MOV all accepted. Record in landscape for best results.
                 </p>
               </div>
               <input

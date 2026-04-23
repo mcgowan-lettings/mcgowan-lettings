@@ -54,7 +54,11 @@ export default function PropertyGallery({
 
   return (
     <>
-      {images.length === 1 ? (
+      {images.length === 0 ? (
+        <div className="relative w-full h-[45vh] md:h-[55vh] max-h-[550px] bg-warm-grey flex items-center justify-center">
+          {renderTourButton()}
+        </div>
+      ) : images.length === 1 ? (
         <div className="relative w-full h-[45vh] md:h-[55vh] max-h-[550px]">
           <a
             href={images[0]}
