@@ -5,15 +5,7 @@ import { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getProperty } from "./get-property";
 
-export const revalidate = 3600;
-
-export async function generateStaticParams() {
-  const { data } = await supabaseAdmin
-    .from("properties")
-    .select("id")
-    .eq("active", true);
-  return data?.map(({ id }) => ({ id })) ?? [];
-}
+export const dynamic = "force-dynamic";
 
 import PropertyGallery from "./PropertyGallery";
 import ExpandableDescription from "./ExpandableDescription";

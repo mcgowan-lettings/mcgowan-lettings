@@ -7,15 +7,7 @@ import { renderInline, isHtml } from "@/lib/rich-text";
 import BlogRichContent from "./BlogRichContent";
 import { getPost } from "./get-post";
 
-export const revalidate = 60;
-
-export async function generateStaticParams() {
-  const { data } = await supabaseAdmin
-    .from("blog_posts")
-    .select("slug")
-    .eq("published", true);
-  return data?.map(({ slug }) => ({ slug })) ?? [];
-}
+export const dynamic = "force-dynamic";
 
 type Props = {
   params: Promise<{ slug: string }>;
