@@ -9,7 +9,7 @@ async function getFeaturedProperties() {
     .select("id, title, price, location, beds, baths, type, images, status")
     .eq("active", true)
     .eq("featured", true)
-    .order("created_at", { ascending: false })
+    .order("price", { ascending: false })
     .limit(6);
 
   if (!data) return [];
