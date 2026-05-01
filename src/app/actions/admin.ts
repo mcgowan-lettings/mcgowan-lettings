@@ -260,6 +260,22 @@ export async function markAllValuationsRead(ids: string[], accessToken: string) 
   return { success: true, error: "" };
 }
 
+export async function updateReviewCount(count: number, accessToken: string) {
+  await requireAdmin(accessToken);
+  if (!Number.isInteger(count) || count < 0) {
+    return { success: false, error: "Count must be a whole number." };
+  }
+  const { error } = await supabaseAdmin
+    .from("site_config")
+    .upsert(
+      { key: "google_review_count", value: String(count), updated_at: new Date().toISOString() },
+      { onConflict: "key" }
+    );
+  if (error) return { success: false, error: error.message };
+  revalidatePath("/");
+  return { success: true, error: "" };
+}
+
 export async function deleteValuationRequest(id: string, accessToken: string) {
   await requireAdmin(accessToken);
   const { error } = await supabaseAdmin

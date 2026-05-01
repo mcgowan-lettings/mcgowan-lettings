@@ -73,10 +73,10 @@ const GOOGLE_ICON = (
 export default function TestimonialsCarousel() {
   const [current, setCurrent] = useState(0);
   const [isAutoPlaying, setIsAutoPlaying] = useState(true);
-  const [reviewCount, setReviewCount] = useState(366);
+  const [reviewCount, setReviewCount] = useState(370);
   const trackRef = useRef<HTMLDivElement>(null);
 
-  // Fetch live review count from Supabase (falls back to 366)
+  // Fetch live review count from Supabase (falls back to 370)
   useEffect(() => {
     supabase
       .from("site_config")

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
+import { updateReviewCount } from "@/app/actions/admin";
 
 interface Stats {
   total: number;
@@ -22,6 +23,51 @@ export default function AdminDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [statsError, setStatsError] = useState("");
   const storage = useStorageUsage();
+
+  const [reviewCount, setReviewCountState] = useState<string>("");
+  const [reviewCountSaved, setReviewCountSaved] = useState<string>("");
+  const [reviewCountLoading, setReviewCountLoading] = useState(true);
+  const [reviewCountSaving, setReviewCountSaving] = useState(false);
+  const [reviewCountMsg, setReviewCountMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+
+  useEffect(() => {
+    supabase
+      .from("site_config")
+      .select("value")
+      .eq("key", "google_review_count")
+      .maybeSingle()
+      .then(({ data }) => {
+        const value = data?.value ?? "";
+        setReviewCountState(value);
+        setReviewCountSaved(value);
+        setReviewCountLoading(false);
+      });
+  }, []);
+
+  const handleSaveReviewCount = async () => {
+    setReviewCountMsg(null);
+    const parsed = parseInt(reviewCount, 10);
+    if (!Number.isInteger(parsed) || parsed < 0) {
+      setReviewCountMsg({ text: "Enter a whole number.", type: "error" });
+      return;
+    }
+    setReviewCountSaving(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setReviewCountMsg({ text: "Session expired. Please sign in again.", type: "error" });
+      setReviewCountSaving(false);
+      return;
+    }
+    const result = await updateReviewCount(parsed, session.access_token);
+    if (result.success) {
+      setReviewCountSaved(String(parsed));
+      setReviewCountMsg({ text: "Saved.", type: "success" });
+      setTimeout(() => setReviewCountMsg(null), 3000);
+    } else {
+      setReviewCountMsg({ text: result.error || "Couldn't save.", type: "error" });
+    }
+    setReviewCountSaving(false);
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -197,6 +243,53 @@ export default function AdminDashboardPage() {
             </p>
           </div>
         </Link>
+      </div>
+
+      {/* Google review count */}
+      <div className="rounded-xl bg-white border border-gray-200 p-6 shadow-sm">
+        <div className="flex items-start gap-3 mb-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-yellow-50 text-yellow-600 shrink-0">
+            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-medium text-dark">Google Reviews on site</p>
+            <p className="text-xs text-text-muted mt-0.5">
+              Update this whenever your Google review count changes. It shows on your homepage testimonials section.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={reviewCount}
+            onChange={(e) => setReviewCountState(e.target.value)}
+            disabled={reviewCountLoading || reviewCountSaving}
+            className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-gray-50 disabled:text-gray-400"
+            placeholder={reviewCountLoading ? "…" : "e.g. 370"}
+          />
+          <button
+            type="button"
+            onClick={handleSaveReviewCount}
+            disabled={reviewCountLoading || reviewCountSaving || reviewCount === reviewCountSaved}
+            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {reviewCountSaving ? "Saving…" : "Save"}
+          </button>
+          {reviewCountMsg && (
+            <span
+              className={`text-sm ${
+                reviewCountMsg.type === "success" ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              {reviewCountMsg.text}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Storage usage */}
