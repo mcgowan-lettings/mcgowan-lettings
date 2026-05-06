@@ -33,9 +33,21 @@ function canUseScrollReveal(): boolean {
   if (typeof navigator === "undefined") return false;
   if (typeof IntersectionObserver === "undefined") return false;
   const ua = navigator.userAgent;
-  // Anything that includes one of these tokens is a known non-Safari engine
-  // we trust with the IO-based pattern.
-  return /Chrome|CriOS|Edg|EdgiOS|EdgA|Firefox|FxiOS|OPR|OPiOS/.test(ua);
+
+  // iOS and iPadOS — every browser on these platforms is a UI shell over
+  // WebKit, so iOS Chrome / Firefox / Edge share the same bfcache risk
+  // profile as Safari. Stay on the safe CSS-only path regardless of which
+  // browser the user picked. Catches iPadOS in "Request Desktop Site" mode
+  // by checking for touch support on what claims to be a Mac.
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) &&
+      typeof document !== "undefined" &&
+      "ontouchend" in document);
+  if (isIOS) return false;
+
+  // Known non-WebKit engines on desktop / Android.
+  return /Chrome|Edg|EdgA|Firefox|OPR/.test(ua);
 }
 
 type AnimState = "css-load" | "hidden" | "io-animate";

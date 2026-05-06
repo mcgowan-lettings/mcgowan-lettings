@@ -20,7 +20,15 @@ function canUseScrollReveal(): boolean {
   if (typeof navigator === "undefined") return false;
   if (typeof IntersectionObserver === "undefined") return false;
   const ua = navigator.userAgent;
-  return /Chrome|CriOS|Edg|EdgiOS|EdgA|Firefox|FxiOS|OPR|OPiOS/.test(ua);
+  // iOS / iPadOS — all browsers there are WebKit shells, so they share
+  // Safari's bfcache risk. Keep them on the safe CSS-only path.
+  const isIOS =
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) &&
+      typeof document !== "undefined" &&
+      "ontouchend" in document);
+  if (isIOS) return false;
+  return /Chrome|Edg|EdgA|Firefox|OPR/.test(ua);
 }
 
 type StaggerState = "css-load" | "hidden" | "io-animate";
