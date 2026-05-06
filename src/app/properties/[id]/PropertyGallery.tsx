@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import Image from "next/image";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
-import VideoLightbox from "./VideoLightbox";
 
 export default function PropertyGallery({
   images,
@@ -14,8 +13,6 @@ export default function PropertyGallery({
   videos?: string[];
   title: string;
 }) {
-  const [tourOpen, setTourOpen] = useState(false);
-
   useEffect(() => {
     // Lazy-load Fancybox so a parse error in @fancyapps/ui (which uses very
     // modern JS syntax) on older iPad Safari can't kill hydration of the
@@ -49,15 +46,15 @@ export default function PropertyGallery({
 
   const tourUrl = videos[0];
 
+  // Plain anchor (target="_blank") instead of a stateful modal — works even if
+  // hydration is broken, which is what David's older iPad Safari was doing.
+  // Safari's built-in fullscreen video player on iOS handles MP4 playback fine.
   const renderTourButton = () =>
     tourUrl ? (
-      <button
-        type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          setTourOpen(true);
-        }}
+      <a
+        href={tourUrl}
+        target="_blank"
+        rel="noopener noreferrer"
         className="absolute z-10 top-4 left-4 flex items-center gap-2.5 rounded-full bg-dark/90 backdrop-blur-sm text-white font-semibold shadow-lg hover:bg-brand hover:text-dark transition-colors px-4 py-2.5 text-sm"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-dark">
@@ -66,7 +63,7 @@ export default function PropertyGallery({
           </svg>
         </span>
         Virtual Tour
-      </button>
+      </a>
     ) : null;
 
   return (
@@ -81,6 +78,8 @@ export default function PropertyGallery({
             href={images[0]}
             data-fancybox="gallery"
             data-no-caption={title}
+            target="_blank"
+            rel="noopener noreferrer"
             className="relative block w-full h-full cursor-pointer group"
           >
             <Image
@@ -109,6 +108,8 @@ export default function PropertyGallery({
               href={img}
               data-fancybox="gallery"
               data-no-caption={`${title} — ${i + 1} of ${images.length}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="relative group"
             >
               <Image
@@ -137,6 +138,8 @@ export default function PropertyGallery({
             href={images[0]}
             data-fancybox="gallery"
             data-no-caption={`${title} — 1 of ${images.length}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="relative group"
           >
             <Image
@@ -158,6 +161,8 @@ export default function PropertyGallery({
                 href={img}
                 data-fancybox="gallery"
                 data-no-caption={`${title} — ${i + 2} of ${images.length}`}
+                target="_blank"
+                rel="noopener noreferrer"
                 className="relative group"
               >
                 <Image
@@ -184,21 +189,29 @@ export default function PropertyGallery({
               href={img}
               data-fancybox="gallery"
               data-no-caption={`${title} — ${i + 4} of ${images.length}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="hidden"
             >
               {img}
             </a>
           ))}
 
-          {/* Photo count — clickable to open gallery */}
+          {/* Photo count — clickable to open gallery. The onClick triggers
+              the Fancybox-bound first-image link on modern browsers; if React
+              hydration is dead, the click falls through to the href and opens
+              the photo in a new tab. */}
           <a
             href={images[0]}
-            data-fancybox="gallery-trigger"
+            target="_blank"
+            rel="noopener noreferrer"
             className="absolute bottom-4 right-4 bg-white text-dark text-xs font-semibold px-3 py-2 rounded-md shadow-sm flex items-center gap-1.5 z-10 cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={(e) => {
-              e.preventDefault();
               const firstLink = document.querySelector<HTMLAnchorElement>('[data-fancybox="gallery"]');
-              firstLink?.click();
+              if (firstLink) {
+                e.preventDefault();
+                firstLink.click();
+              }
             }}
           >
             <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
@@ -209,9 +222,6 @@ export default function PropertyGallery({
 
           {renderTourButton()}
         </div>
-      )}
-      {tourOpen && tourUrl && (
-        <VideoLightbox src={tourUrl} onClose={() => setTourOpen(false)} />
       )}
     </>
   );
