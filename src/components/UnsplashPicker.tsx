@@ -3,6 +3,20 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
+import { supabase } from "@/lib/supabase";
+
+/**
+ * Build an Authorization header for the admin-only Unsplash route. The
+ * picker is only ever mounted inside the admin UI so a session is always
+ * available; if it isn't, we still send no token and let the route return
+ * 401 to surface the problem instead of failing silently.
+ */
+async function authHeaders(): Promise<HeadersInit> {
+  const { data: { session } } = await supabase.auth.getSession();
+  return session?.access_token
+    ? { Authorization: `Bearer ${session.access_token}` }
+    : {};
+}
 
 interface UnsplashPhoto {
   id: string;
@@ -43,7 +57,10 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
     setPage(1);
 
     try {
-      const res = await fetch(`/api/unsplash/search?q=${encodeURIComponent(query.trim())}&page=1`);
+      const res = await fetch(
+        `/api/unsplash/search?q=${encodeURIComponent(query.trim())}&page=1`,
+        { headers: await authHeaders() }
+      );
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       setPhotos(data.results);
@@ -61,7 +78,10 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
     setLoadingMore(true);
 
     try {
-      const res = await fetch(`/api/unsplash/search?q=${encodeURIComponent(query.trim())}&page=${nextPage}`);
+      const res = await fetch(
+        `/api/unsplash/search?q=${encodeURIComponent(query.trim())}&page=${nextPage}`,
+        { headers: await authHeaders() }
+      );
       if (!res.ok) throw new Error("Load more failed");
       const data = await res.json();
       setPhotos((prev) => [...prev, ...data.results]);

@@ -1,8 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireAdmin } from "@/lib/auth";
 
 const ACCESS_KEY = process.env.UNSPLASH_ACCESS_KEY;
 
 export async function GET(req: NextRequest) {
+  // The Unsplash picker is admin-only in the UI but this route was
+  // unauthenticated, meaning anyone on the internet could burn through
+  // David's Unsplash quota (50 req/hr free tier). Require a valid admin
+  // bearer token, matching the pattern used by the server actions in
+  // `src/app/actions/admin.ts`.
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+  try {
+    await requireAdmin(token);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unauthorized";
+    return NextResponse.json(
+      { error: message },
+      { status: message === "Forbidden" ? 403 : 401 }
+    );
+  }
+
   if (!ACCESS_KEY) {
     return NextResponse.json(
       { error: "Unsplash API key not configured" },

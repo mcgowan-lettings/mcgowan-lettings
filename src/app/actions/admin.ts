@@ -2,24 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
-
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS ?? "")
-  .split(",")
-  .map((e) => e.trim().toLowerCase())
-  .filter(Boolean);
-
-async function requireAdmin(accessToken: string) {
-  if (!accessToken) throw new Error("Unauthorized");
-  const {
-    data: { user },
-    error,
-  } = await supabaseAdmin.auth.getUser(accessToken);
-  if (error || !user) throw new Error("Unauthorized");
-  if (ADMIN_EMAILS.length === 0 || !ADMIN_EMAILS.includes(user.email?.toLowerCase() ?? "")) {
-    throw new Error("Forbidden");
-  }
-  return user;
-}
+import { requireAdmin } from "@/lib/auth";
 
 export async function checkIsAdmin(accessToken: string): Promise<boolean> {
   try {
