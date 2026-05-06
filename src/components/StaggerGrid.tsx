@@ -1,9 +1,20 @@
 "use client";
 
-import { useState, useEffect, useRef, type ReactNode } from "react";
+import { type ReactNode } from "react";
 
-type StaggerState = "show" | "hide" | "animate";
-
+/**
+ * StaggerGrid — fade-and-rise entrance for a list of children, each delayed
+ * by `staggerMs` from the previous item.
+ *
+ * Implementation matches AnimateIn: pure CSS animation, no IntersectionObserver,
+ * no JS state machine. See the long-form safety note at the top of AnimateIn.tsx
+ * for the full rationale (short version: avoiding the iPad blank-page failure
+ * mode that the IO-based pattern can fall into).
+ *
+ * Trade-off: items are animated immediately on mount, so a long grid that's
+ * far below the fold will have finished its stagger animation before the user
+ * scrolls to it. They appear in their final visible state.
+ */
 export function StaggerGrid({
   children,
   className = "",
@@ -13,74 +24,15 @@ export function StaggerGrid({
   className?: string;
   staggerMs?: number;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [state, setState] = useState<StaggerState>("show");
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el || typeof IntersectionObserver === "undefined") return;
-    const rect = el.getBoundingClientRect();
-    if (rect.top < window.innerHeight) return;
-
-    let cancelled = false;
-    const hide = () => {
-      if (!cancelled) setState("hide");
-    };
-    const animate = () => {
-      if (!cancelled) setState("animate");
-    };
-    hide();
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          animate();
-          observer.unobserve(el);
-        }
-      },
-      { threshold: 0.05 }
-    );
-    observer.observe(el);
-    const fallback = window.setTimeout(animate, 1200);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(fallback);
-      observer.disconnect();
-    };
-  }, []);
-
-  const itemStyle = (i: number): React.CSSProperties | undefined => {
-    if (state === "hide") return { opacity: 0 };
-    if (state === "animate") return { animationDelay: `${i * staggerMs}ms` };
-    return undefined;
-  };
-
   return (
-    <div
-      ref={ref}
-      className={className}
-      style={{
-        ["--stagger-ms" as string]: `${staggerMs}ms`,
-      }}
-    >
-      {state === "animate" ? (
-        <style>{`
-          .stagger-item {
-            opacity: 0;
-            transform: translateY(24px);
-            animation: staggerIn 0.5s ease-out forwards;
-          }
-          @keyframes staggerIn {
-            to { opacity: 1; transform: translateY(0); }
-          }
-        `}</style>
-      ) : null}
+    <div className={className}>
       {Array.isArray(children)
         ? children.map((child, i) => (
             <div
               key={i}
-              className={state === "animate" ? "stagger-item" : ""}
-              style={itemStyle(i)}
+              style={{
+                animation: `fadeInUp 0.5s ease-out ${i * staggerMs}ms both`,
+              }}
             >
               {child}
             </div>
