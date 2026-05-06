@@ -95,6 +95,16 @@ body {
   transform: scale(1.05);
 }
 
+/* Visible keyboard focus on the photo gallery anchors. Browsers' default
+   focus rings are hit-or-miss inside object-cover image grids — this
+   guarantees a clear ring for keyboard users on the property gallery
+   and any other Fancybox-bound link. */
+a[data-fancybox]:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
 /* Logo orb gradient */
 .orb-gradient {
   background: radial-gradient(circle at 40% 35%, #c8e84a 0%, #8cc614 35%, #5a9a0a 70%, #3d7a08 100%);
