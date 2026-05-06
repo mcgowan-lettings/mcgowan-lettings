@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
+import VideoLightbox from "./VideoLightbox";
 
 export default function PropertyGallery({
   images,
@@ -13,6 +14,8 @@ export default function PropertyGallery({
   videos?: string[];
   title: string;
 }) {
+  const [tourOpen, setTourOpen] = useState(false);
+
   useEffect(() => {
     // Lazy-load Fancybox so a parse error in @fancyapps/ui (which uses very
     // modern JS syntax) on older iPad Safari can't kill hydration of the
@@ -46,15 +49,22 @@ export default function PropertyGallery({
 
   const tourUrl = videos[0];
 
-  // Plain anchor (target="_blank") instead of a stateful modal — works even if
-  // hydration is broken, which is what David's older iPad Safari was doing.
-  // Safari's built-in fullscreen video player on iOS handles MP4 playback fine.
+  // Render as <a target="_blank"> so the SSR markup works even when hydration
+  // never runs (e.g. older iPad Safari can't parse part of the route bundle).
+  // On any browser where React attaches the onClick, preventDefault wins and
+  // the styled Plyr modal opens — desktop UX is unchanged. On iPad without
+  // hydration, the anchor falls through to opening the MP4 in a new tab.
   const renderTourButton = () =>
     tourUrl ? (
       <a
         href={tourUrl}
         target="_blank"
         rel="noopener noreferrer"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setTourOpen(true);
+        }}
         className="absolute z-10 top-4 left-4 flex items-center gap-2.5 rounded-full bg-dark/90 backdrop-blur-sm text-white font-semibold shadow-lg hover:bg-brand hover:text-dark transition-colors px-4 py-2.5 text-sm"
       >
         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand text-dark">
@@ -222,6 +232,9 @@ export default function PropertyGallery({
 
           {renderTourButton()}
         </div>
+      )}
+      {tourOpen && tourUrl && (
+        <VideoLightbox src={tourUrl} onClose={() => setTourOpen(false)} />
       )}
     </>
   );
