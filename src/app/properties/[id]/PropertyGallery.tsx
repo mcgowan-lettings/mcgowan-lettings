@@ -6,10 +6,12 @@ import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import VideoLightbox from "./VideoLightbox";
 
 export default function PropertyGallery({
+  propertyId,
   images,
   videos = [],
   title,
 }: {
+  propertyId: string;
   images: string[];
   videos?: string[];
   title: string;
@@ -208,13 +210,12 @@ export default function PropertyGallery({
           ))}
 
           {/* Photo count — clickable to open gallery. The onClick triggers
-              the Fancybox-bound first-image link on modern browsers; if React
-              hydration is dead, the click falls through to the href and opens
-              the photo in a new tab. */}
+              the Fancybox-bound first-image link on modern browsers; if
+              hydration didn't run or Fancybox didn't bind (e.g. David's iPad),
+              the click falls through to the href and lands on the dedicated
+              SSR photos page where every image is visible. */}
           <a
-            href={images[0]}
-            target="_blank"
-            rel="noopener noreferrer"
+            href={`/properties/${propertyId}/photos`}
             className="absolute bottom-4 right-4 bg-white text-dark text-xs font-semibold px-3 py-2 rounded-md shadow-sm flex items-center gap-1.5 z-10 cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={(e) => {
               const firstLink = document.querySelector<HTMLAnchorElement>('[data-fancybox="gallery"]');

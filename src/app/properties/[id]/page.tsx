@@ -161,7 +161,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       {/* ── Gallery — full width ── */}
       <section className="bg-dark pt-16">
         {hasImages || videos.length > 0 ? (
-          <PropertyGallery images={images} videos={videos} title={property.title} />
+          <PropertyGallery propertyId={id} images={images} videos={videos} title={property.title} />
         ) : (
           <div className="w-full h-[45vh] md:h-[55vh] max-h-[550px] bg-warm-grey flex items-center justify-center">
             <HomeIcon className="w-16 h-16 text-text-light" />
