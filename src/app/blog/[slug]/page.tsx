@@ -230,7 +230,7 @@ export default async function BlogPostPage({ params }: Props) {
                 className="group inline-flex items-center gap-1.5 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
               >
                 Get a Free Valuation
-                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-1" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
           </AnimateIn>
@@ -242,7 +242,7 @@ export default async function BlogPostPage({ params }: Props) {
                 href="/blog"
                 className="group inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
               >
-                <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-1" />
+                <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-0.5" />
                 Back to all posts
               </Link>
             </div>

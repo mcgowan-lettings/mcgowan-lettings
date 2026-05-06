@@ -138,9 +138,9 @@ export default function AreasPage() {
                       <span className="text-xs text-text-muted">
                         {area.neighbourhoods} key neighbourhoods
                       </span>
-                      <span className="inline-flex items-center gap-1 text-sm font-semibold text-brand-dark group-hover:gap-2 transition-all duration-200">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark">
                         Explore guide
-                        <ArrowRightIcon className="w-3.5 h-3.5" />
+                        <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                       </span>
                     </div>
                   </div>
@@ -167,17 +167,17 @@ export default function AreasPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/valuation"
-                className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
+                className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
               >
                 Request a Free Valuation
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="/properties"
-                className="inline-flex items-center gap-2 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-sm hover:bg-white/10 transition-colors"
+                className="group inline-flex items-center gap-2 border border-white/20 text-white font-semibold px-8 py-3.5 rounded-sm hover:bg-white/10 transition-colors"
               >
                 View All Properties
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
           </AnimateIn>

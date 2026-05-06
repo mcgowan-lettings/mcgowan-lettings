@@ -412,10 +412,10 @@ export default async function AreaGuidePage({
                   </div>
                   <Link
                     href={`/properties?area=${encodeURIComponent(area.name)}`}
-                    className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-5 py-2.5 rounded-sm hover:bg-brand-light transition-colors text-sm w-full justify-center"
+                    className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-5 py-2.5 rounded-sm hover:bg-brand-light transition-colors text-sm w-full justify-center"
                   >
                     View Properties in {area.name}
-                    <ArrowRightIcon className="w-3.5 h-3.5" />
+                    <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                   </Link>
                 </div>
               </AnimateIn>
@@ -545,10 +545,10 @@ export default async function AreaGuidePage({
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/valuation"
-                className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
+                className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
               >
                 Request a Free Valuation
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
               <a
                 href="tel:01617976967"

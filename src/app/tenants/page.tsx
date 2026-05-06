@@ -462,17 +462,17 @@ export default function TenantsPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/properties"
-                className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
+                className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
               >
                 View Properties
-                <ArrowRightIcon className="w-4 h-4" />
+                <ArrowRightIcon className="w-4 h-4 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
               <Link
                 href="/contact"
-                className="inline-flex items-center gap-2 bg-white/10 text-white font-semibold px-8 py-3.5 rounded-sm hover:bg-white/20 transition-colors border border-white/20"
+                className="group inline-flex items-center gap-2 bg-white/10 text-white font-semibold px-8 py-3.5 rounded-sm hover:bg-white/20 transition-colors border border-white/20"
               >
                 Get in Touch
-                <ArrowRightIcon className="w-4 h-4" />
+                <ArrowRightIcon className="w-4 h-4 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
           </AnimateIn>

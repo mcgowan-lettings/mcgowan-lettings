@@ -445,10 +445,10 @@ export default function ContactPage() {
                         type="submit"
                         disabled={submitting}
                         aria-describedby={error ? "contact-form-error" : undefined}
-                        className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                       >
                         {submitting ? "Sending..." : "Send Message"}
-                        {!submitting && <ArrowRightIcon className="w-4 h-4" />}
+                        {!submitting && <ArrowRightIcon className="w-4 h-4 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />}
                       </button>
                     </form>
                   )}
@@ -518,10 +518,10 @@ export default function ContactPage() {
               href={GOOGLE_REVIEW_URL}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors whitespace-nowrap"
+              className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors whitespace-nowrap"
             >
               Write a Review
-              <ArrowRightIcon className="w-4 h-4" />
+              <ArrowRightIcon className="w-4 h-4 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
             </a>
           </AnimateIn>
         </div>

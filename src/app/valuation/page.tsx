@@ -453,10 +453,10 @@ export default function ValuationPage() {
                   <button
                     type="submit"
                     disabled={submitting}
-                    className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Submitting..." : "Request Free Valuation"}
-                    {!submitting && <ArrowRightIcon className="w-4 h-4" />}
+                    {!submitting && <ArrowRightIcon className="w-4 h-4 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />}
                   </button>
                 </form>
               )}

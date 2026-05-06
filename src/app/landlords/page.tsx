@@ -209,10 +209,10 @@ export default function LandlordsPage() {
                 </ul>
                 <Link
                   href="/valuation"
-                  className="inline-flex items-center justify-center gap-2 bg-brand text-dark font-semibold px-6 py-3 rounded-sm hover:bg-brand-light transition-all duration-200 text-sm w-full md:w-auto"
+                  className="group inline-flex items-center justify-center gap-2 bg-brand text-dark font-semibold px-6 py-3 rounded-sm hover:bg-brand-light transition-all duration-200 text-sm w-full md:w-auto"
                 >
                   Get a Free Valuation
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
             </AnimateIn>
@@ -246,10 +246,10 @@ export default function LandlordsPage() {
                 </ul>
                 <Link
                   href="/contact"
-                  className="inline-flex items-center justify-center gap-2 border border-dark/20 text-dark font-semibold px-6 py-3 rounded-sm hover:bg-dark hover:text-white transition-all duration-200 text-sm w-full md:w-auto"
+                  className="group inline-flex items-center justify-center gap-2 border border-dark/20 text-dark font-semibold px-6 py-3 rounded-sm hover:bg-dark hover:text-white transition-all duration-200 text-sm w-full md:w-auto"
                 >
                   Enquire Now
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
             </AnimateIn>
@@ -284,10 +284,10 @@ export default function LandlordsPage() {
                 </ul>
                 <Link
                   href="/contact"
-                  className="inline-flex items-center justify-center gap-2 border border-dark/20 text-dark font-semibold px-6 py-3 rounded-sm hover:bg-dark hover:text-white transition-all duration-200 text-sm w-full md:w-auto"
+                  className="group inline-flex items-center justify-center gap-2 border border-dark/20 text-dark font-semibold px-6 py-3 rounded-sm hover:bg-dark hover:text-white transition-all duration-200 text-sm w-full md:w-auto"
                 >
                   Enquire Now
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
             </AnimateIn>
@@ -466,7 +466,7 @@ export default function LandlordsPage() {
                   className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
                 >
                   View CMP Certificate
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                 </a>
               </div>
             </AnimateIn>
@@ -491,7 +491,7 @@ export default function LandlordsPage() {
                   className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
                 >
                   View Complaints Procedure
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
             </AnimateIn>
@@ -515,10 +515,10 @@ export default function LandlordsPage() {
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
               <Link
                 href="/valuation"
-                className="inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
+                className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors"
               >
                 Request a Free Valuation
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
               <a
                 href="tel:01617976967"
