@@ -16,7 +16,9 @@ import {
 
 /* ───────────────────────── FILTER OPTIONS ───────────────────────── */
 
-const AREAS = ["All Areas", "Bury", "Bolton", "Manchester", "Rossendale", "Accrington", "Burnley"] as const;
+// Curated order — known areas appear first; any extra areas (e.g. typed in by admin)
+// fall through to the dynamic list and are appended alphabetically.
+const KNOWN_AREAS = ["Bury", "Bolton", "Manchester", "Rochdale", "Rossendale", "Accrington", "Burnley"] as const;
 const MAX_PRICES = ["Any Price", "£500", "£750", "£1,000", "£1,250", "£1,500", "£2,000+"] as const;
 const BEDROOMS = ["Any Beds", "1", "2", "3", "4+"] as const;
 const PROPERTY_TYPES = ["All Types", "House", "Apartment", "Flat", "Bungalow"] as const;
@@ -96,6 +98,23 @@ function PropertiesContent({ initialProperties }: { initialProperties: Property[
   const router = useRouter();
   const pathname = usePathname();
   const properties = initialProperties;
+
+  // Build the area filter list from actual property data, so any area the admin
+  // types in (e.g. "Rochdale", or anywhere new) automatically appears here.
+  const areaOptions = useMemo(() => {
+    const liveAreas = new Set(
+      properties.map((p) => p.area?.trim()).filter((a): a is string => Boolean(a))
+    );
+    const ordered: string[] = [];
+    for (const a of KNOWN_AREAS) {
+      if (liveAreas.has(a)) {
+        ordered.push(a);
+        liveAreas.delete(a);
+      }
+    }
+    const extras = Array.from(liveAreas).sort((a, b) => a.localeCompare(b));
+    return ["All Areas", ...ordered, ...extras];
+  }, [properties]);
 
   const area = searchParams.get("area") ?? "All Areas";
   const maxPrice = searchParams.get("maxPrice") ?? "Any Price";
@@ -185,7 +204,7 @@ function PropertiesContent({ initialProperties }: { initialProperties: Property[
       <section className="bg-white border-b border-black/5 md:sticky md:top-16 z-30">
         <div className="max-w-7xl mx-auto px-6 py-5">
           <div className="flex flex-wrap items-end gap-3">
-            <FilterSelect label="Area" options={AREAS} value={area} onChange={setArea} />
+            <FilterSelect label="Area" options={areaOptions} value={area} onChange={setArea} />
             <FilterSelect label="Max Price" options={MAX_PRICES} value={maxPrice} onChange={setMaxPrice} />
             <FilterSelect label="Bedrooms" options={BEDROOMS} value={bedrooms} onChange={setBedrooms} />
             <FilterSelect label="Property Type" options={PROPERTY_TYPES} value={propertyType} onChange={setPropertyType} />

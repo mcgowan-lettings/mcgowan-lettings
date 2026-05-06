@@ -91,7 +91,7 @@ export default async function RootLayout({
       longitude: -2.2975,
     },
     areaServed: [
-      "Bury", "Bolton", "Manchester", "Rossendale", "Accrington", "Burnley",
+      "Bury", "Bolton", "Manchester", "Rochdale", "Rossendale", "Accrington", "Burnley",
     ],
     openingHoursSpecification: [
       {

@@ -276,6 +276,7 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
                     <option value="Bury">Bury</option>
                     <option value="Bolton">Bolton</option>
                     <option value="Manchester">Manchester</option>
+                    <option value="Rochdale">Rochdale</option>
                     <option value="Rossendale">Rossendale</option>
                     <option value="Accrington">Accrington</option>
                     <option value="Burnley">Burnley</option>

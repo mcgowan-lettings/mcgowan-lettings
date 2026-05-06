@@ -16,6 +16,7 @@ const AREAS = [
   "Bury",
   "Bolton",
   "Manchester",
+  "Rochdale",
   "Rossendale",
   "Accrington",
   "Burnley",
@@ -475,17 +476,24 @@ export default function EditPropertyPage() {
               <label className="mb-1.5 block text-sm font-medium text-dark">
                 Area <span className="text-red-500">*</span>
               </label>
-              <select
+              <input
+                type="text"
+                required
+                list="area-suggestions"
                 value={form.area}
                 onChange={(e) => updateField("area", e.target.value)}
+                onBlur={(e) => updateField("area", e.target.value.trim())}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
-              >
+                placeholder="e.g. Bury"
+              />
+              <datalist id="area-suggestions">
                 {AREAS.map((area) => (
-                  <option key={area} value={area}>
-                    {area}
-                  </option>
+                  <option key={area} value={area} />
                 ))}
-              </select>
+              </datalist>
+              <p className="mt-1 text-xs text-text-muted">
+                Pick from the list, or type a new area to add it.
+              </p>
             </div>
           </div>
         </div>
