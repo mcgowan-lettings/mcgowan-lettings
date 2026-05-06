@@ -25,14 +25,13 @@ export default function LogoRow() {
     if (rect.top < window.innerHeight) return;
 
     let cancelled = false;
-    const hide = () => {
-      if (!cancelled) setState("hide");
-    };
     const animate = () => {
       if (!cancelled) setState("animate");
     };
-    hide();
 
+    // Wire up reveal mechanisms before hiding. See AnimateIn.tsx for the
+    // full rationale on why we drop the 1.2s timer (it short-circuited
+    // scroll-reveal) and rely on `pageshow` for bfcache safety instead.
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -43,11 +42,18 @@ export default function LogoRow() {
       { threshold: 0.2 }
     );
     observer.observe(el);
-    const fallback = window.setTimeout(animate, 1200);
+
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) animate();
+    };
+    window.addEventListener("pageshow", handlePageShow);
+
+    setState("hide");
+
     return () => {
       cancelled = true;
-      window.clearTimeout(fallback);
       observer.disconnect();
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, []);
 

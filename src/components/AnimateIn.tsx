@@ -3,64 +3,50 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
- * Branching strategy
- * ------------------
- * The original IntersectionObserver-based scroll-reveal pattern caused
- * permanently-invisible content on iPad/Safari (bfcache restore + hydration
- * glitches — see commits 07957b3 and c64bdcc). Desktop Chrome/Firefox/Edge
- * never had this problem.
+ * AnimateIn — fade-and-rise entrance animation for any block of content.
  *
- * So we branch:
+ * Strategy
+ * --------
+ * SSR always renders the element with its CSS animation baked in. That makes
+ * the "above the fold" case work without JS at all and means a hydration
+ * failure can never leave content invisible.
  *
- *   Safari path (iPad, iPhone, macOS Safari, anything we can't positively
- *   identify as a non-Safari engine): pure CSS animation baked into the
- *   inline style. The browser handles it; React state never hides the
- *   element. Above-fold animates on load; below-fold animates offscreen.
- *   No scroll-reveal, but no failure mode that can leave content invisible.
+ * After mount, below-the-fold elements opt into scroll-reveal: hide via
+ * inline style, then reveal when an IntersectionObserver fires. This gives
+ * us the rich on-scroll feel back on every browser (including iOS), without
+ * regressing the iPad blank-page bug fixed in 07957b3 / c64bdcc.
  *
- *   Non-Safari path (Chrome, Firefox, Edge, Opera, and their variants):
- *   above-fold elements keep the SSR-baked CSS animation, while below-fold
- *   elements switch into the rich IntersectionObserver scroll-reveal pattern
- *   on mount, with a 1.2s safety-net timer that always animates eventually.
+ * Why this is safe on iPad / Safari
+ * ---------------------------------
+ * The original failure mode was: page navigates away with state="hidden",
+ * gets bfcache-frozen, navigates back with state still "hidden", and the
+ * IntersectionObserver doesn't re-fire (because intersection state didn't
+ * change during the freeze). Result: permanently invisible content.
  *
- * Detection is conservative: we only switch to the rich path when we can
- * positively identify a non-Safari engine. Anything ambiguous falls into
- * the safe Safari path. False positives degrade to "no scroll-reveal";
- * only false negatives could re-expose the iPad bug, and those would
- * require Chrome to spoof its UA — extremely unlikely.
+ * We add two independent reveal mechanisms beyond the IntersectionObserver
+ * itself:
+ *
+ *   1. A `pageshow` event handler that listens for `event.persisted=true`
+ *      (i.e. bfcache restore) and forces the visible state immediately.
+ *      The user has already seen the page once, so skipping the animation
+ *      on bfcache is the right behaviour anyway. This is the explicit fix
+ *      for the original iPad failure mode.
+ *   2. The SSR-baked CSS animation with animation-fill-mode 'both' — even
+ *      with no JS at all, the element ends up visible.
+ *
+ * (We deliberately do NOT use a fixed-duration safety-net timer. A timer
+ * fires after N seconds regardless of scroll position, which short-circuits
+ * the entire scroll-reveal effect for any element the user hasn't reached
+ * yet. The bfcache scenario the original timer was guarding against is now
+ * covered by the pageshow handler.)
+ *
+ * Order matters: we register the reveal mechanisms BEFORE calling
+ * setState("hidden"), so any exception during setup leaves the element
+ * visible.
  */
-function canUseScrollReveal(): boolean {
-  if (typeof navigator === "undefined") return false;
-  if (typeof IntersectionObserver === "undefined") return false;
-  const ua = navigator.userAgent;
-
-  // iOS and iPadOS — every browser on these platforms is a UI shell over
-  // WebKit, so iOS Chrome / Firefox / Edge share the same bfcache risk
-  // profile as Safari. Stay on the safe CSS-only path regardless of which
-  // browser the user picked. Catches iPadOS in "Request Desktop Site" mode
-  // by checking for touch support on what claims to be a Mac.
-  const isIOS =
-    /iPad|iPhone|iPod/.test(ua) ||
-    (/Macintosh/.test(ua) &&
-      typeof document !== "undefined" &&
-      "ontouchend" in document);
-  if (isIOS) return false;
-
-  // Known non-WebKit engines on desktop / Android.
-  return /Chrome|Edg|EdgA|Firefox|OPR/.test(ua);
-}
 
 type AnimState = "css-load" | "hidden" | "io-animate";
 
-/**
- * AnimateIn — fade-and-rise entrance animation for any block of content.
- *
- * SSR always renders the element with its inline CSS animation set, so the
- * Safari path needs no JS at all. On non-Safari browsers, useEffect can opt
- * the element into the IO scroll-reveal flow if it's below the fold; if any
- * step of that flow fails, the element falls back to the visible end-state
- * via the 1.2s safety-net timer.
- */
 export function AnimateIn({
   children,
   className = "",
@@ -78,22 +64,18 @@ export function AnimateIn({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if (!canUseScrollReveal()) return; // Safari path: leave the CSS animation alone
+    if (typeof IntersectionObserver === "undefined") return;
 
     const rect = el.getBoundingClientRect();
     if (rect.top < window.innerHeight) return; // above-fold: leave the CSS animation alone
 
-    // Below the fold on a non-Safari browser: hide the element and reveal it
-    // when it scrolls into view.
     let cancelled = false;
-    const hide = () => {
-      if (!cancelled) setState("hidden");
-    };
     const animate = () => {
       if (!cancelled) setState("io-animate");
     };
-    hide();
 
+    // Wire up every reveal mechanism BEFORE we hide the element, so an
+    // exception during setup can't leave it stuck invisible.
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
@@ -105,13 +87,23 @@ export function AnimateIn({
     );
     observer.observe(el);
 
-    // Safety net: if the observer never fires for any reason, reveal anyway.
-    const fallback = window.setTimeout(animate, 1200);
+    // bfcache safety net: if the page is restored from the back/forward
+    // cache (iOS Safari, modern desktop browsers), force visible. The user
+    // already saw the page on the previous visit — skipping the animation
+    // is fine and protects us from the IntersectionObserver-stuck failure
+    // mode that caused the original iPad blank-page bug.
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) animate();
+    };
+    window.addEventListener("pageshow", handlePageShow);
+
+    // Now safe to hide — every recovery path is in place.
+    setState("hidden");
 
     return () => {
       cancelled = true;
       observer.disconnect();
-      window.clearTimeout(fallback);
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, []);
 
@@ -180,11 +172,17 @@ export function CountUp({ value, suffix = "" }: { value: number; suffix?: string
       { threshold: 0.3 }
     );
     observer.observe(el);
-    const fallback = window.setTimeout(start, 1200);
+    // bfcache safety: if the page is restored from cache, the count is
+    // already at its final value (initial state), so just mark it started
+    // to short-circuit any pending observer work.
+    const handlePageShow = (e: PageTransitionEvent) => {
+      if (e.persisted && !cancelled) setStarted(true);
+    };
+    window.addEventListener("pageshow", handlePageShow);
     return () => {
       cancelled = true;
-      window.clearTimeout(fallback);
       observer.disconnect();
+      window.removeEventListener("pageshow", handlePageShow);
     };
   }, [started]);
 
