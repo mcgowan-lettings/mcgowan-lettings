@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
@@ -140,27 +140,50 @@ const FEES = [
 
 function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [contentHeight, setContentHeight] = useState(0);
+
+  // Measure the content's natural height once mounted, and again whenever
+  // the inner text would re-wrap (viewport resize). The accordion animates
+  // height: 0 ↔ measured-px instead of max-height: 0 ↔ [600px], which fixes
+  // the "snap-then-stall" pattern caused by max-height overshooting the
+  // real content height.
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+    const measure = () => setContentHeight(el.scrollHeight);
+    measure();
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
   return (
     <div className="border-b border-black/5 last:border-0">
       <button
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-5 text-left group cursor-pointer"
+        aria-expanded={open}
       >
         <span className="font-body text-dark font-medium pr-4 group-hover:text-brand transition-colors">
           {q}
         </span>
         <ChevronDownIcon
+          aria-hidden="true"
           className={`w-5 h-5 text-text-muted shrink-0 transition-transform duration-300 ${
             open ? "rotate-180" : ""
           }`}
         />
       </button>
       <div
-        className={`overflow-hidden transition-[max-height] duration-300 ease-in-out ${
-          open ? "max-h-[600px]" : "max-h-0"
-        }`}
+        className="overflow-hidden transition-[height] duration-300 ease-in-out"
+        style={{ height: open ? contentHeight : 0 }}
       >
-        <p className="text-text-muted leading-relaxed pb-5">{a}</p>
+        <p ref={contentRef} className="text-text-muted leading-relaxed pb-5">{a}</p>
       </div>
     </div>
   );
