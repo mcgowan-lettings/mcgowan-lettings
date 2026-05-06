@@ -387,10 +387,10 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link
                   href="/contact"
-                  className="inline-flex items-center justify-center gap-2 bg-brand text-dark font-semibold px-6 py-3 rounded-sm hover:bg-brand-light transition-all duration-200 text-sm"
+                  className="group inline-flex items-center justify-center gap-2 bg-brand text-dark font-semibold px-6 py-3 rounded-sm hover:bg-brand-light transition-all duration-200 text-sm"
                 >
                   Get in Touch
-                  <ArrowRightIcon className="w-3.5 h-3.5" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                 </Link>
                 <Link
                   href="/landlords"
@@ -476,9 +476,9 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
                   Learn more about Fully Managed
-                  <ArrowRightIcon className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
               </div>
             </div>
@@ -509,9 +509,9 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
                   Learn more about Let Only
-                  <ArrowRightIcon className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
               </div>
             </div>
@@ -541,9 +541,9 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
                   Learn more about Rent Collection
-                  <ArrowRightIcon className="w-3.5 h-3.5 group-hover/link:translate-x-1 transition-transform" />
+                  <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
               </div>
             </div>
@@ -566,10 +566,10 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
             </div>
             <Link
               href="/properties"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-dark border border-dark/20 px-5 py-2.5 rounded-sm hover:bg-dark hover:text-white transition-all duration-200"
+              className="group inline-flex items-center gap-1.5 text-sm font-semibold text-dark border border-dark/20 px-5 py-2.5 rounded-sm hover:bg-dark hover:text-white transition-all duration-200"
             >
               View All Properties
-              <ArrowRightIcon className="w-3.5 h-3.5" />
+              <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
             </Link>
           </AnimateIn>
 
@@ -732,10 +732,10 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
               </div>
               <Link
                 href="/tenants"
-                className="inline-flex items-center gap-2 text-sm font-semibold text-dark border border-dark/20 px-5 py-2.5 rounded-sm hover:bg-dark hover:text-white transition-all duration-200"
+                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-dark border border-dark/20 px-5 py-2.5 rounded-sm hover:bg-dark hover:text-white transition-all duration-200"
               >
                 Tenant Information
-                <ArrowRightIcon className="w-3.5 h-3.5" />
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
           </div>
@@ -775,10 +775,10 @@ export default function HomePage({ featuredProperties }: { featuredProperties: F
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
               href="/valuation"
-              className="bg-dark text-white font-semibold px-8 py-3.5 rounded-sm hover:bg-dark-soft transition-colors duration-200 text-sm flex items-center gap-2"
+              className="group bg-dark text-white font-semibold px-8 py-3.5 rounded-sm hover:bg-dark-soft transition-colors duration-200 text-sm flex items-center gap-1.5"
             >
               Request Free Valuation
-              <ArrowRightIcon className="w-3.5 h-3.5" />
+              <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
             </Link>
             <a
               href="tel:01617976967"

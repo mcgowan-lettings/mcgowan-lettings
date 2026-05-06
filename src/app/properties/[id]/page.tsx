@@ -21,6 +21,8 @@ import {
   HomeIcon,
   SofaIcon,
   CheckIcon,
+  ArrowLeftIcon,
+  ArrowRightIcon,
 } from "@/components/Icons";
 
 type Props = {
@@ -279,9 +281,10 @@ export default async function PropertyDetailPage({ params }: Props) {
                             href={property.epc_document}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-brand-dark font-semibold text-sm hover:underline"
+                            className="group inline-flex items-center gap-1.5 text-brand-dark font-semibold text-sm hover:text-brand transition-colors"
                           >
-                            View EPC →
+                            View EPC
+                            <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                           </a>
                         </p>
                       </div>
@@ -364,12 +367,17 @@ export default async function PropertyDetailPage({ params }: Props) {
                   </div>
                 </div>
 
-                {/* Back */}
+                {/* Back. translate-y-0.5 compensates for Plus Jakarta Sans's
+                    descender depth — items-center centers against the line-
+                    box midpoint, but PJS's optical text centerline sits ~2px
+                    lower than that, so the icon reads as too-high without
+                    this nudge. (Inter / Outfit don't need it.) */}
                 <Link
                   href="/properties"
-                  className="inline-flex items-center gap-2 text-sm text-text-muted hover:text-brand transition-colors"
+                  className="group inline-flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-brand transition-colors"
                 >
-                  ← Back to all properties
+                  <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-0.5" />
+                  Back to all properties
                 </Link>
               </div>
             </div>
@@ -414,9 +422,10 @@ export default async function PropertyDetailPage({ params }: Props) {
               </h2>
               <Link
                 href="/properties"
-                className="text-sm font-semibold text-text-muted hover:text-brand transition-colors"
+                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-text-muted hover:text-brand transition-colors"
               >
-                View all →
+                View all
+                <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
               </Link>
             </div>
 

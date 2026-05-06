@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { AnimateIn } from "@/components/AnimateIn";
+import { ArrowRightIcon } from "@/components/Icons";
 
 export const revalidate = 60;
 
@@ -101,19 +102,7 @@ export default async function BlogPage() {
                       )}
                       <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark">
                         Read more
-                        <svg
-                          className="h-4 w-4 transition-transform group-hover:translate-x-0.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"
-                          />
-                        </svg>
+                        <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                       </span>
                     </div>
                   </Link>
