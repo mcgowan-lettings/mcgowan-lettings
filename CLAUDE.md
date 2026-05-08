@@ -112,3 +112,9 @@ When building this site, follow these principles:
 - **Admin allowlist**: All admin DB mutations go through server actions gated by `requireAdmin()` in `src/app/actions/admin.ts`, which checks the user's email against the `ADMIN_EMAILS` env var. The admin UI is also gated via `checkIsAdmin()` in the layout and login page.
 - **Storage uploads**: File uploads (images, videos, EPCs) go directly from the browser to Supabase Storage using the anon key. Authorization for these operations depends on **Supabase bucket policies** configured in the dashboard — not the `ADMIN_EMAILS` allowlist. The `property-images` bucket must be restricted to authenticated users only (no public writes). This is an infra dependency not enforced in code.
 - **Public forms**: Contact and valuation forms use a honeypot field (`website`) for bot protection. The server actions silently succeed when the honeypot is filled, so bots don't retry.
+
+## Tools available
+- `gh` CLI
+- `vercel` CLI — project lives under the `web-admin@` Vercel account; the local CLI session isn't logged into it, so don't try to link. Deploys happen via the GitHub integration on push.
+- `supabase` CLI — linked to the `mcgowan-lettings` project. Schema lives in the dashboard; `supabase/migrations/` only appears if you run `supabase db pull`.
+- Playwright MCP — before using it, check whether the dev server is running on `localhost:3000` and start it with `npm run dev` (background) if it isn't.

@@ -37,6 +37,12 @@ yarn-error.log*
 # vercel
 .vercel
 
+# supabase CLI cache (project-ref, version markers, pooler URL) — keep migrations/ tracked
+/supabase/.temp/
+
+# MCP config — local-only, do not commit
+.mcp.json
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
