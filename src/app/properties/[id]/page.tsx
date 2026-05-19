@@ -6,7 +6,10 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { safeJsonLd } from "@/lib/json-ld";
 import { getProperty } from "./get-property";
 
-export const dynamic = "force-dynamic";
+// Cached statically; updateProperty / togglePropertyActive / deleteProperty
+// all call `revalidatePath(/properties/${id})` so edits, deactivation and
+// deletion go live immediately. The 60s ceiling is a safety net.
+export const revalidate = 60;
 
 import PropertyGallery from "./PropertyGallery";
 import ExpandableDescription from "./ExpandableDescription";

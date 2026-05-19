@@ -48,6 +48,8 @@ export async function deleteProperty(id: string, imageUrls: string[], accessToke
   }
   revalidatePath("/properties");
   revalidatePath("/");
+  // Detail page is ISR — drop the cached HTML so the deleted URL 404s now.
+  revalidatePath(`/properties/${id}`);
   return { success: true, error: "" };
 }
 
@@ -127,6 +129,8 @@ export async function togglePropertyActive(id: string, active: boolean, accessTo
   if (error) return { success: false, error: error.message };
   revalidatePath("/properties");
   revalidatePath("/");
+  // Detail page is ISR — deactivating should 404 immediately, not after 60s.
+  revalidatePath(`/properties/${id}`);
   return { success: true, error: "" };
 }
 

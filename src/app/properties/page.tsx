@@ -1,7 +1,9 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import PropertiesPage from "./PropertiesClient";
 
-export const dynamic = "force-dynamic";
+// Cached statically; admin mutations call `revalidatePath("/properties")`
+// so edits go live immediately. The 60s ceiling is a safety net.
+export const revalidate = 60;
 
 async function getProperties() {
   const { data } = await supabaseAdmin
