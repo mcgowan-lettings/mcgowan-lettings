@@ -183,6 +183,18 @@ a[data-fancybox]:focus-visible {
   --plyr-color-main: var(--color-brand);
   --plyr-control-radius: 4px;
 }
+/* When fullscreen is active (native API or CSS fallback), drop the rounded
+   clip/overflow on the wrapper — clip-path on an ancestor visually clips
+   position:fixed descendants, which made the video disappear on mobile. */
+.plyr-brand:has(.plyr--fullscreen-active),
+.plyr-brand:has(.plyr--fullscreen-fallback) {
+  border-radius: 0;
+  overflow: visible;
+  clip-path: none;
+  isolation: auto;
+  max-width: none !important;
+  max-height: none !important;
+}
 
 @keyframes video-lightbox-fade {
   from { opacity: 0; }
