@@ -2,8 +2,6 @@
 
 Premium letting-agent website for David McGowan (McGowan Residential Lettings Ltd). Public marketing site + property listings + a custom admin where David manages properties, blog posts, and form submissions by hand (he has no property-management software). Built by Viktor. **Commit and push straight to `main` — no feature branches, no PRs, for the small fixes that make up most work here.**
 
-> ⚠️ **Next.js 16 is not the Next.js in your training data.** See `AGENTS.md` — read the relevant guide in `node_modules/next/dist/docs/` before writing framework code, and heed deprecation notices. APIs, conventions, and file structure may differ.
-
 ## Stack
 
 Next.js 16.2 (App Router, Server Actions) · React 19 · Supabase (Postgres + Auth + Storage) · Resend (transactional email) · Tailwind CSS v4 (CSS-first `@theme`, no `tailwind.config`) · TipTap (blog rich-text) · Plyr + Fancyapps (galleries/video) · mediabunny (client-side video transcode) · Vercel hosting (deploy via GitHub integration on push). TypeScript strict. ESLint 9 flat config (`eslint.config.mjs`). No test framework. npm-managed. Path alias `@/*` → `./src/*` — use it, don't write deep relative imports.
