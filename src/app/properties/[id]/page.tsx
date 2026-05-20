@@ -122,7 +122,9 @@ export default async function PropertyDetailPage({ params }: Props) {
     "Modern fitted kitchen",
     "Close to local amenities",
     property.furnished || "Unfurnished",
-    `${property.beds} ${property.beds === 1 ? "bedroom" : "bedrooms"}`,
+    property.beds === 0
+      ? "Studio"
+      : `${property.beds} ${property.beds === 1 ? "bedroom" : "bedrooms"}`,
   ];
 
   const status = property.status || "To Let";
@@ -232,7 +234,7 @@ export default async function PropertyDetailPage({ params }: Props) {
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mt-4 text-sm text-text-muted">
                 <div className="flex items-center gap-1.5">
                   <BedIcon className="w-4 h-4" />
-                  <span>{property.beds} bed</span>
+                  <span>{property.beds === 0 ? "Studio" : `${property.beds} bed`}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <BathIcon className="w-4 h-4" />

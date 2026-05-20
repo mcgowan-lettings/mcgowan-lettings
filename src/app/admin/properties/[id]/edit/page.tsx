@@ -39,6 +39,14 @@ const TYPES = [
 const STATUSES = ["To Let", "Let Agreed"];
 const FURNISHED_OPTIONS = ["Unfurnished", "Furnished", "Part Furnished"];
 const COUNCIL_TAX_BANDS = ["", "A", "B", "C", "D", "E", "F", "G", "H"];
+// Studio is stored as 0 bedrooms; displayed as "Studio" across the public site.
+const BEDROOM_OPTIONS = [
+  { value: "0", label: "Studio" },
+  ...Array.from({ length: 10 }, (_, i) => ({
+    value: String(i + 1),
+    label: String(i + 1),
+  })),
+];
 
 export default function EditPropertyPage() {
   const router = useRouter();
@@ -516,14 +524,21 @@ export default function EditPropertyPage() {
               <label className="mb-1.5 block text-sm font-medium text-dark">
                 Bedrooms <span className="text-red-500">*</span>
               </label>
-              <input
-                type="number"
+              <select
                 required
-                min="0"
                 value={form.beds}
                 onChange={(e) => updateField("beds", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
-              />
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+              >
+                <option value="" disabled>
+                  Select…
+                </option>
+                {BEDROOM_OPTIONS.map((b) => (
+                  <option key={b.value} value={b.value}>
+                    {b.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

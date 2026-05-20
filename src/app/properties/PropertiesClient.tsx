@@ -274,7 +274,9 @@ function PropertiesContent({ initialProperties }: { initialProperties: Property[
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BedIcon className="w-4 h-4" />
                           <span>
-                            {property.beds} {property.beds === 1 ? "Bed" : "Beds"}
+                            {property.beds === 0
+                              ? "Studio"
+                              : `${property.beds} ${property.beds === 1 ? "Bed" : "Beds"}`}
                           </span>
                         </div>
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">

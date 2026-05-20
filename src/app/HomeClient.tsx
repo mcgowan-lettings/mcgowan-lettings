@@ -618,7 +618,7 @@ export default function HomePage({
                       <div className="flex items-center gap-4 pt-4 border-t border-black/5">
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BedIcon className="w-4 h-4" />
-                          <span>{property.beds} {property.beds === 1 ? "Bed" : "Beds"}</span>
+                          <span>{property.beds === 0 ? "Studio" : `${property.beds} ${property.beds === 1 ? "Bed" : "Beds"}`}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BathIcon className="w-4 h-4" />
