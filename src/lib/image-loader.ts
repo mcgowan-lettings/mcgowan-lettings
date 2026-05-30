@@ -1,40 +1,33 @@
 /**
- * Custom Next.js image loader.
+ * Custom Next.js image loader — pure pass-through, no server-side resizing.
  *
- * Replaces Vercel's image optimizer (which sat behind a Hobby-tier monthly
- * quota and 402'd the entire site once exhausted) with Supabase's image
- * transformation endpoint — included free with the Pro plan David already
- * pays for, and CDN-cached by Cloudflare in front.
+ * History / why this is a pass-through:
+ *   1. We started on Vercel's image optimizer. It sat behind a Hobby-tier
+ *      monthly quota and, once exhausted, 402'd the *entire site* (hard fail).
+ *   2. We moved to Supabase's image-transformation endpoint to escape that.
+ *      But Supabase's Pro plan only includes **100 origin images / month** for
+ *      transformations (an "origin image" = one distinct source file resized at
+ *      least once that month — variants are free, but each *new* photo counts).
+ *      With ~18 properties × many photos + blog covers we blow past 100 every
+ *      month. It doesn't break the site (over-quota Supabase keeps serving and
+ *      just bills ~$5/1000 origin images), but it's a recurring charge for
+ *      David with no real upside — see point 3.
+ *   3. There IS no real upside, because every image is already compressed to
+ *      ≤1600px / q0.75 JPEG in the browser before upload (see
+ *      src/lib/compress-image.ts). A typical property photo is 150–400 KB. The
+ *      transform endpoint was only ever producing slightly-smaller thumbnails;
+ *      serving the already-small original instead costs a little bandwidth
+ *      (Cloudflare-cached, well inside the 250 GB Pro egress allowance) and
+ *      saves the transform quota entirely.
  *
- * Routing:
- *   • Supabase Storage URL + requested width ≥ source cap → original object
- *     URL, served verbatim. Re-encoding a 1600 px source at "give me 3840"
- *     just adds a lossy JPEG pass over already-compressed bytes; better to
- *     hand the browser the same bytes it would have got under Vercel (which
- *     also never upscaled). This is what makes the resized output indistinguishable
- *     from the pre-incident look.
- *   • Supabase Storage URL + smaller width → /storage/v1/render/image/public/…
- *     with ?width=N&resize=contain&quality=N (tested empirically: this is the
- *     only param combo that aspect-preserves a width-only resize).
- *   • Anything else (local /public files, external Unsplash) → original URL
- *     with `?_w=N` appended (underscore-prefixed so Unsplash ignores it and
- *     doesn't re-crop). Same bytes served, but Next sees distinct URLs per
- *     width, satisfying its loader contract check.
- *
- * Next.js calls this once per (src, width) pair when building srcset, so a
- * single image fans out to ~6-8 URLs spanning deviceSizes/imageSizes. Supabase
- * bills per *origin* image, not per variant, so cardinality is free.
+ * So every URL — Supabase Storage, local /public files, external Unsplash — is
+ * returned verbatim with a per-width marker (`?_w=N`) appended. Next.js calls
+ * this once per (src, width) pair when building srcset and requires distinct
+ * URLs per width; `_w` (underscore-prefixed so Unsplash ignores it and doesn't
+ * re-crop) satisfies that contract without changing the bytes the browser
+ * fetches. The browser still picks the right-sized srcset entry; we just hand
+ * it the same compressed original at every width.
  */
-
-const SUPABASE_PUBLIC_OBJECT = /^(https:\/\/[^/]+\.supabase\.co)\/storage\/v1\/object\/public\/(.+)$/;
-
-/**
- * Hard cap on uploaded image width — see `MAX_WIDTH` in src/lib/compress-image.ts.
- * Every property photo is resized to this in the browser before upload, so any
- * srcset variant the browser picks at this width or above is served as the
- * original file with no transformation pass. Keep these two numbers in sync.
- */
-const SOURCE_MAX_WIDTH = 1600;
 
 type LoaderArgs = {
   src: string;
@@ -42,28 +35,10 @@ type LoaderArgs = {
   quality?: number;
 };
 
-export default function imageLoader({ src, width, quality }: LoaderArgs): string {
-  const match = src.match(SUPABASE_PUBLIC_OBJECT);
-  if (match) {
-    // Variants at or above the source cap: serve the original. Supabase's render
-    // endpoint won't upscale anyway, and skipping it avoids the extra lossy pass.
-    if (width >= SOURCE_MAX_WIDTH) {
-      return src;
-    }
-    const [, origin, path] = match;
-    const params = new URLSearchParams({
-      width: String(width),
-      resize: "contain",
-      quality: String(quality ?? 85),
-    });
-    return `${origin}/storage/v1/render/image/public/${path}?${params.toString()}`;
-  }
-
-  // Local /public files and external URLs (Unsplash) — pass through, but
-  // append a per-width marker (`_w`, not `w`, so Unsplash doesn't re-crop
-  // and aspect ratio is preserved) so Next's per-width srcset entries are
-  // distinct. This silences the dev "loader does not implement width"
-  // warning without changing the bytes the browser fetches.
+export default function imageLoader({ src, width }: LoaderArgs): string {
+  // Pass every URL through untouched, with a per-width marker so Next's
+  // srcset entries are distinct. No Supabase transform call = no transform
+  // quota usage. See the file header for the full rationale.
   const separator = src.includes("?") ? "&" : "?";
   return `${src}${separator}_w=${width}`;
 }

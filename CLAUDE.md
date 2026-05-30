@@ -47,7 +47,7 @@ Public pages are ISR via `export const revalidate`: home / properties list / pro
 
 ## Images
 
-`next.config.ts` uses a **custom loader** (`src/lib/image-loader.ts`) that routes Supabase Storage URLs through Supabase's free image-transform endpoint instead of Vercel's quota'd optimizer (which once 402'd the whole site). Read the file's header before touching image sizing — it intentionally serves originals at/above the 1600px source cap and only resizes downward, and appends `?_w=N` to external URLs to satisfy Next's loader contract without re-cropping. Remote hosts allowed: `*.supabase.co`, `images.unsplash.com`.
+`next.config.ts` uses a **custom loader** (`src/lib/image-loader.ts`) that is a **pure pass-through**: it serves every image's already-compressed original (uploads are capped at 1600px/q0.75 in the browser, ~150–400KB) and just appends a `?_w=N` per-width marker so Next's srcset stays valid — it does **no** server-side resizing. This deliberately sidesteps *two* quotas: Vercel's image optimizer (which once 402'd the whole site) **and** Supabase's image-transform quota (Pro includes only 100 origin images/month; routing thumbnails through it blew past that and racked up overage for no real benefit, since originals are already small). Read the file header before reintroducing any transform endpoint. Remote hosts allowed: `*.supabase.co`, `images.unsplash.com`.
 
 ## Data model (Supabase tables)
 

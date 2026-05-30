@@ -2,11 +2,11 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    // Custom loader routes Supabase Storage URLs through Supabase's image
-    // transformation endpoint (included free in the Pro plan, CDN-cached by
-    // Cloudflare). Local /public assets and external URLs pass through. See
-    // src/lib/image-loader.ts for the full rationale — short version: this
-    // sidesteps Vercel's image-optimization quota entirely.
+    // Custom loader is a pure pass-through (no server-side resizing) — it
+    // serves every image's already-compressed original (≤1600px/q0.75) and
+    // appends a per-width marker so Next's srcset stays valid. This sidesteps
+    // BOTH Vercel's image-optimization quota AND Supabase's 100-origin-image/mo
+    // transform quota. See src/lib/image-loader.ts for the full rationale.
     loader: "custom",
     loaderFile: "./src/lib/image-loader.ts",
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
