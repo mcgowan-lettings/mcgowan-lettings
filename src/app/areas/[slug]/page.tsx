@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { safeJsonLd } from "@/lib/json-ld";
 import {
   ArrowRightIcon,
   MapPinIcon,
@@ -317,10 +318,25 @@ export async function generateMetadata({
   const area = AREAS[slug];
   if (!area) return {};
 
+  const title = `Renting in ${area.name} | McGowan Residential Lettings`;
+  const description = `Discover what it is like to rent in ${area.name}. Local neighbourhood guide, transport links, amenities and available properties from McGowan Lettings.`;
+
   return {
-    title: `Renting in ${area.name} | McGowan Residential Lettings`,
-    description: `Discover what it is like to rent in ${area.name}. Local neighbourhood guide, transport links, amenities and available properties from McGowan Lettings.`,
+    title,
+    description,
     alternates: { canonical: `/areas/${slug}` },
+    openGraph: {
+      title,
+      description,
+      images: [{ url: "/hero.jpg", width: 1200, height: 630 }],
+      type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: ["/hero.jpg"],
+    },
   };
 }
 
@@ -351,8 +367,38 @@ export default async function AreaGuidePage({
 
   const propertyCount = count ?? 0;
 
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://mcgowanlettings.co.uk" },
+      { "@type": "ListItem", position: 2, name: "Area Guides", item: "https://mcgowanlettings.co.uk/areas" },
+      { "@type": "ListItem", position: 3, name: area.name },
+    ],
+  };
+
+  const areaJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    name: `Renting in ${area.name}`,
+    url: `https://mcgowanlettings.co.uk/areas/${slug}`,
+    description: area.description[0],
+    about: {
+      "@type": "Place",
+      name: area.name,
+      containedInPlace: { "@type": "AdministrativeArea", name: "Greater Manchester" },
+    },
+    provider: {
+      "@type": "RealEstateAgent",
+      name: "McGowan Residential Lettings Ltd.",
+      url: "https://mcgowanlettings.co.uk",
+    },
+  };
+
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(areaJsonLd) }} />
       {/* ─── HERO ─── */}
       <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
