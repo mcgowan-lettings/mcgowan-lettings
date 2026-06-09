@@ -3,6 +3,19 @@
 import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/auth";
+import { sanitizeHtml } from "@/lib/sanitize-html";
+
+// Storage paths are derived from public URLs; warn instead of silently
+// skipping when a URL doesn't contain the expected bucket segment.
+function extractStoragePath(url: string | null | undefined): string | null {
+  if (!url) return null;
+  const path = url.split("/property-images/")[1];
+  if (!path) {
+    console.warn("Could not derive storage path from URL:", url);
+    return null;
+  }
+  return path;
+}
 
 export async function checkIsAdmin(accessToken: string): Promise<boolean> {
   try {
@@ -30,14 +43,6 @@ export async function revalidateProperty(id?: string) {
 
 export async function deleteProperty(id: string, imageUrls: string[], accessToken: string) {
   await requireAdmin(accessToken);
-  // Remove images from storage
-  for (const url of imageUrls) {
-    const path = url.split("/property-images/")[1];
-    if (path) {
-      await supabaseAdmin.storage.from("property-images").remove([path]);
-    }
-  }
-
   const { error } = await supabaseAdmin
     .from("properties")
     .delete()
@@ -45,6 +50,13 @@ export async function deleteProperty(id: string, imageUrls: string[], accessToke
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  // Storage cleanup after the row is gone — if removal fails the worst case is
+  // an orphaned file (cleanupOrphans reaps it), not a live listing with dead images.
+  const paths = imageUrls.map(extractStoragePath).filter((p): p is string => p !== null);
+  if (paths.length) {
+    await supabaseAdmin.storage.from("property-images").remove(paths);
   }
   revalidatePath("/properties");
   revalidatePath("/");
@@ -55,14 +67,6 @@ export async function deleteProperty(id: string, imageUrls: string[], accessToke
 
 export async function deleteBlogPost(id: string, coverImage: string | null, accessToken: string, slug?: string) {
   await requireAdmin(accessToken);
-  // Remove cover image from storage
-  if (coverImage) {
-    const path = coverImage.split("/property-images/")[1];
-    if (path) {
-      await supabaseAdmin.storage.from("property-images").remove([path]);
-    }
-  }
-
   const { error } = await supabaseAdmin
     .from("blog_posts")
     .delete()
@@ -70,6 +74,12 @@ export async function deleteBlogPost(id: string, coverImage: string | null, acce
 
   if (error) {
     return { success: false, error: error.message };
+  }
+
+  // Storage cleanup after the row is gone (see deleteProperty).
+  const coverPath = extractStoragePath(coverImage);
+  if (coverPath) {
+    await supabaseAdmin.storage.from("property-images").remove([coverPath]);
   }
   revalidatePath("/blog");
   // Blog post page is now ISR — explicitly invalidate the deleted slug so
@@ -103,6 +113,9 @@ export type PropertyData = {
 
 export async function createProperty(data: PropertyData, accessToken: string) {
   await requireAdmin(accessToken);
+  // Sanitize rich text on write as well as render — stored HTML stays clean
+  // even if a future render path forgets to.
+  if (data.description) data.description = sanitizeHtml(data.description);
   const { error } = await supabaseAdmin.from("properties").insert(data);
   if (error) return { success: false, error: error.message };
   revalidatePath("/properties");
@@ -112,6 +125,7 @@ export async function createProperty(data: PropertyData, accessToken: string) {
 
 export async function updateProperty(id: string, data: Partial<PropertyData> & { updated_at: string }, accessToken: string) {
   await requireAdmin(accessToken);
+  if (data.description) data.description = sanitizeHtml(data.description);
   const { error } = await supabaseAdmin.from("properties").update(data).eq("id", id);
   if (error) return { success: false, error: error.message };
   revalidatePath("/properties");
@@ -168,6 +182,7 @@ export async function createBlogPost(data: BlogPostData, accessToken: string) {
 
   if (existing) return { success: false, error: "A blog post with this URL slug already exists." };
 
+  if (data.content) data.content = sanitizeHtml(data.content);
   const { error } = await supabaseAdmin.from("blog_posts").insert(data);
   if (error) return { success: false, error: error.message };
   revalidatePath("/blog");
@@ -177,6 +192,7 @@ export async function createBlogPost(data: BlogPostData, accessToken: string) {
 
 export async function updateBlogPost(id: string, data: Partial<BlogPostData> & { updated_at: string }, accessToken: string) {
   await requireAdmin(accessToken);
+  if (data.content) data.content = sanitizeHtml(data.content);
   const { error } = await supabaseAdmin.from("blog_posts").update(data).eq("id", id);
   if (error) return { success: false, error: error.message };
   revalidatePath("/blog");
