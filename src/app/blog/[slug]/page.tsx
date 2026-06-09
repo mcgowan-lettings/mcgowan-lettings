@@ -243,7 +243,7 @@ export default async function BlogPostPage({ params }: Props) {
             <div className="mt-10 pt-8 border-t border-black/5">
               <Link
                 href="/blog"
-                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
+                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors"
               >
                 <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-0.5" />
                 Back to all posts

@@ -308,7 +308,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                             href={property.epc_document}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group inline-flex items-center gap-1.5 text-brand-dark font-semibold text-sm hover:text-brand transition-colors"
+                            className="group inline-flex items-center gap-1.5 text-brand-deep font-semibold text-sm hover:text-brand-dark transition-colors"
                           >
                             View EPC
                             <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />

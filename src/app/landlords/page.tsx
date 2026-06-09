@@ -463,7 +463,7 @@ export default function LandlordsPage() {
                   href="/certificates/cmp-certificate.pdf"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors"
                 >
                   View CMP Certificate
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
@@ -488,7 +488,7 @@ export default function LandlordsPage() {
                 </p>
                 <Link
                   href="/complaints"
-                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-dark hover:text-brand transition-colors"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors"
                 >
                   View Complaints Procedure
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />

@@ -65,6 +65,7 @@ Public: `/` · `/properties` (+ `/[id]`, `/[id]/photos`) · `/landlords` · `/te
 
 Defined in `src/app/globals.css` via Tailwind v4 `@theme` — use these tokens, don't hardcode hexes:
 - Brand lime: `--color-brand` `#abd300`, `--color-brand-dark` `#96ba00`, `--color-brand-light` `#c0e233` (use `text-brand`, `bg-brand`, etc.)
+- `--color-brand-deep` `#5f7700` — WCAG-AA tone for **functional text links on light backgrounds** (lime fails contrast there). Decorative accents (section kickers, badges, stats) stay bright lime by design — don't "fix" them to deep.
 - Neutrals: `--color-dark` `#1a1a1a`, `--color-dark-soft` `#2a2a2a`, `--color-cream` `#f8f8f6`, `--color-warm-grey` `#f0f0ec`, `--color-text-muted` `#6b6b6b`
 - Fonts: headings = Playfair Display (`--font-heading`/`--font-playfair`, serif), body = Plus Jakarta Sans (`--font-body`/`--font-jakarta`), loaded via `next/font` in `layout.tsx`
 - Helpers: `.noise-overlay`, `.text-gradient-brand`, `.animate-fade-in-up` / `.animate-fade-in` / `.animate-slide-down`, `.stagger-1..4`. Animations collapse under `prefers-reduced-motion` — keep that.

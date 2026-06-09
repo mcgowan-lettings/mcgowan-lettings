@@ -145,7 +145,7 @@ export default function AreasPage() {
                       <span className="text-xs text-text-muted">
                         {area.neighbourhoods} key neighbourhoods
                       </span>
-                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark">
+                      <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep">
                         Explore guide
                         <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                       </span>

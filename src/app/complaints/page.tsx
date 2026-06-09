@@ -138,7 +138,7 @@ const STEPS = [
               href="https://www.tpos.co.uk"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-brand-dark hover:text-brand underline underline-offset-2 transition-colors"
+              className="text-brand-deep hover:text-brand-dark underline underline-offset-2 transition-colors"
             >
               www.tpos.co.uk
             </a>

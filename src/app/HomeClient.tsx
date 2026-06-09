@@ -485,7 +485,7 @@ export default function HomePage({
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
                   Learn more about Fully Managed
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
@@ -518,7 +518,7 @@ export default function HomePage({
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
                   Learn more about Let Only
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
@@ -550,7 +550,7 @@ export default function HomePage({
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark hover:text-brand transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
                   Learn more about Rent Collection
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>

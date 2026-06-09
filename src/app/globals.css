@@ -5,6 +5,10 @@
   --color-brand: #abd300;
   --color-brand-dark: #96ba00;
   --color-brand-light: #c0e233;
+  /* WCAG AA text tone: ≥4.5:1 on white/cream/warm-grey. Used for functional
+     text links on light backgrounds only — decorative accents (kickers,
+     badges, stats) deliberately stay brand/brand-dark for brand identity. */
+  --color-brand-deep: #5f7700;
   --color-dark: #1a1a1a;
   --color-dark-soft: #2a2a2a;
   --color-cream: #f8f8f6;
@@ -124,7 +128,7 @@ a[data-fancybox]:focus-visible {
 .tiptap-content h2:first-child { margin-top: 0; }
 .tiptap-content strong { font-weight: 600; color: var(--color-dark); }
 .tiptap-content em { font-style: italic; }
-.tiptap-content a { color: var(--color-brand-dark); text-decoration: underline; }
+.tiptap-content a { color: var(--color-brand-deep); text-decoration: underline; }
 .tiptap-content p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
@@ -165,8 +169,8 @@ a[data-fancybox]:focus-visible {
 .rich-content li:last-child { margin-bottom: 0; }
 .rich-content strong { font-weight: 600; color: var(--color-dark); }
 .rich-content em { font-style: italic; }
-.rich-content a { color: var(--color-brand-dark); text-decoration: underline; }
-.rich-content a:hover { color: var(--color-brand); }
+.rich-content a { color: var(--color-brand-deep); text-decoration: underline; }
+.rich-content a:hover { color: var(--color-brand-dark); }
 
 @media (min-width: 768px) {
   .rich-content h2 { font-size: 1.5rem; }
