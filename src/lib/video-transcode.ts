@@ -40,7 +40,7 @@ async function transcodeWithWebCodecs(
   const srcCodec = videoTrack.codec;
   if (!srcCodec || !(await canDecodeVideo(srcCodec))) {
     throw new Error(
-      "This video format can't be processed in your browser — this usually means an iPhone HEVC/H.265 clip. On your iPhone go to Settings › Camera › Formats and choose “Most Compatible”, then re-record. Or upload an MP4.",
+      "This clip is in a video format that can't be converted here. Please email the clip to Viktor and he'll get it added to the listing for you.",
     );
   }
 
@@ -63,7 +63,7 @@ async function transcodeWithWebCodecs(
     }),
     new Promise<never>((_, reject) =>
       setTimeout(
-        () => reject(new Error("Preparing the video timed out. Please try a shorter clip or upload an MP4.")),
+        () => reject(new Error("Preparing the video timed out. Please try again — if it keeps happening, email the clip to Viktor and he'll sort it.")),
         60_000,
       ),
     ),
