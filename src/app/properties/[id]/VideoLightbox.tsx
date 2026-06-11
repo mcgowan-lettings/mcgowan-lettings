@@ -44,6 +44,7 @@ export default function VideoLightbox({
       const stored = localStorage.getItem(MUSIC_VOLUME_KEY);
       if (stored != null) {
         const n = parseFloat(stored);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from localStorage on mount
         if (!Number.isNaN(n) && n >= 0 && n <= 1) setVolume(n);
       }
     } catch {}

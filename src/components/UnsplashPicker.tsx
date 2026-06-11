@@ -44,6 +44,7 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration mount guard
     setMounted(true);
   }, []);
 

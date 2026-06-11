@@ -19,10 +19,10 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "mediabunny": "^1.42.0",
-    "next": "16.2.4",
+    "next": "16.2.9",
     "plyr": "^3.8.4",
-    "react": "19.2.5",
-    "react-dom": "19.2.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
     "resend": "^6.12.2",
     "sanitize-html": "^2.17.3"
   },
@@ -33,7 +33,7 @@
     "@types/react-dom": "^19",
     "@types/sanitize-html": "^2.16.1",
     "eslint": "^9",
-    "eslint-config-next": "16.2.4",
+    "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

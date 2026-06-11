@@ -123,6 +123,7 @@ export default function EditPropertyPage() {
   }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount populates form state
     fetchProperty();
   }, [fetchProperty]);
 
