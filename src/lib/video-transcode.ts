@@ -13,6 +13,7 @@ async function transcodeWithWebCodecs(
     BlobSource, BufferTarget,
     Mp4OutputFormat,
     ALL_FORMATS,
+    canDecodeVideo,
   } = await import("mediabunny");
 
   onProgress?.("loading", 0);
@@ -29,20 +30,44 @@ async function transcodeWithWebCodecs(
   });
 
   const videoTrack = await input.getPrimaryVideoTrack();
-  const srcW = videoTrack?.displayWidth ?? 1920;
-  const srcH = videoTrack?.displayHeight ?? 1080;
+  if (!videoTrack) {
+    throw new Error("No video track found in this file. Please upload a standard video file (MP4).");
+  }
+
+  // Fail fast on source codecs this browser can't decode (most commonly iPhone
+  // HEVC / H.265 recordings). Without this check Conversion.init() can hang
+  // indefinitely, leaving the UI stuck on "Preparing video..." with no error.
+  const srcCodec = videoTrack.codec;
+  if (!srcCodec || !(await canDecodeVideo(srcCodec))) {
+    throw new Error(
+      "This video format can't be processed in your browser — this usually means an iPhone HEVC/H.265 clip. On your iPhone go to Settings › Camera › Formats and choose “Most Compatible”, then re-record. Or upload an MP4.",
+    );
+  }
+
+  const srcW = videoTrack.displayWidth ?? 1920;
+  const srcH = videoTrack.displayHeight ?? 1080;
   const isLandscape = srcW >= srcH;
 
-  const conversion = await Conversion.init({
-    input,
-    output,
-    video: {
-      codec: "avc",
-      bitrate: 3_500_000,
-      ...(isLandscape ? { width: Math.min(srcW, 1920) } : { height: Math.min(srcH, 1920) }),
-    },
-    audio: { discard: true },
-  });
+  // Hard safety timeout so an unexpected stall during setup can never leave the
+  // UI hanging on "Preparing video..." forever.
+  const conversion = await Promise.race([
+    Conversion.init({
+      input,
+      output,
+      video: {
+        codec: "avc",
+        bitrate: 3_500_000,
+        ...(isLandscape ? { width: Math.min(srcW, 1920) } : { height: Math.min(srcH, 1920) }),
+      },
+      audio: { discard: true },
+    }),
+    new Promise<never>((_, reject) =>
+      setTimeout(
+        () => reject(new Error("Preparing the video timed out. Please try a shorter clip or upload an MP4.")),
+        60_000,
+      ),
+    ),
+  ]);
 
   onProgress?.("transcoding", 0);
 
