@@ -36,5 +36,13 @@
     "eslint-config-next": "16.2.9",
     "tailwindcss": "^4",
     "typescript": "^5"
-  }
+  },
+  "//browserslist": "Floor set to Safari/iOS 15.4 so the build transpiles away class `static {}` blocks, RegExp lookbehind, etc. — syntax that lands only in Safari 16.4+. Without this, Next 16 emits `static {}` in its core App Router chunk and iPadOS 16.2 Safari throws a parse-time SyntaxError → blank page on older iPads. David runs an iPad Pro on iPadOS 16.2. Don't raise the Safari floor above 15.4.",
+  "browserslist": [
+    "Chrome >= 90",
+    "Firefox >= 90",
+    "Edge >= 90",
+    "Safari >= 15.4",
+    "iOS >= 15.4"
+  ]
 }
