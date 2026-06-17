@@ -14,6 +14,9 @@ import { useEffect, useRef, type ReactNode } from "react";
  *     when the grid scrolls into view (or on `pageshow` bfcache restore).
  *   - No React state for the visual pipeline, so we never trip the React 19
  *     cascading-render warning, and the iPad bfcache failure mode is moot.
+ *   - A 1.5s `setTimeout` failsafe force-reveals if IO never fires at all
+ *     (observed on iPad Safari after client-side navigation), so the grid
+ *     can never be stuck invisible. `reveal()` is idempotent.
  */
 
 export function StaggerGrid({
@@ -36,10 +39,12 @@ export function StaggerGrid({
     if (rect.top < window.innerHeight) return;
 
     let cancelled = false;
+    let revealed = false;
     const childArr = Array.from(el.children) as HTMLElement[];
 
     const reveal = () => {
-      if (cancelled) return;
+      if (cancelled || revealed) return;
+      revealed = true;
       // Re-trigger the staggered animation. Clear styles and force a reflow
       // before re-applying, so the browser actually restarts the animation
       // instead of treating it as a no-op (it was already running from SSR).
@@ -70,6 +75,12 @@ export function StaggerGrid({
     };
     window.addEventListener("pageshow", handlePageShow);
 
+    // Failsafe: if IntersectionObserver never fires (a documented iPad
+    // Safari failure mode after client-side navigation), force-reveal so
+    // the grid can never be stuck invisible. `reveal()` is idempotent, so
+    // the scroll-triggered path still wins whenever IO works normally.
+    const failsafe = setTimeout(reveal, 1500);
+
     // Hide each child imperatively after observers are wired. Any setup
     // failure leaves the SSR animation running (children remain visible).
     childArr.forEach((child) => {
@@ -80,6 +91,7 @@ export function StaggerGrid({
 
     return () => {
       cancelled = true;
+      clearTimeout(failsafe);
       observer.disconnect();
       window.removeEventListener("pageshow", handlePageShow);
     };

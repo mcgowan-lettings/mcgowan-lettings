@@ -32,6 +32,12 @@ import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 
  * changes. We still listen for `pageshow` with `event.persisted=true` so a
  * bfcache restore force-completes the animation; it's redundant safety on
  * top of the SSR fill-mode default.
+ *
+ * Belt-and-braces, a `setTimeout` failsafe force-reveals after 1.5s if IO
+ * never fired at all (iPad Safari has been observed to silently drop the
+ * IntersectionObserver callback after a client-side navigation). `reveal()`
+ * is idempotent, so this only matters when the scroll path failed — content
+ * can never be left permanently invisible.
  */
 
 export function AnimateIn({
@@ -57,8 +63,10 @@ export function AnimateIn({
     if (rect.top < window.innerHeight) return; // above-fold: leave SSR animation alone
 
     let cancelled = false;
+    let revealed = false;
     const reveal = () => {
-      if (cancelled) return;
+      if (cancelled || revealed) return;
+      revealed = true;
       // Re-trigger animation from zero. Clearing then setting is more
       // reliable than mutating in place once the browser has already
       // started the SSR-default animation.
@@ -85,6 +93,12 @@ export function AnimateIn({
     };
     window.addEventListener("pageshow", handlePageShow);
 
+    // Failsafe: if IntersectionObserver never fires (a documented iPad
+    // Safari failure mode after client-side navigation), force-reveal so
+    // content can never be stuck invisible. `reveal()` is idempotent, so
+    // the scroll-triggered path still wins whenever IO works normally.
+    const failsafe = setTimeout(reveal, 1500);
+
     // Hide imperatively, AFTER all reveal mechanisms are in place. If any
     // of the listeners errored, we'd still be visible (animation already
     // running from the SSR style).
@@ -94,6 +108,7 @@ export function AnimateIn({
 
     return () => {
       cancelled = true;
+      clearTimeout(failsafe);
       observer.disconnect();
       window.removeEventListener("pageshow", handlePageShow);
     };
