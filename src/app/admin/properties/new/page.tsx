@@ -161,8 +161,9 @@ export default function NewPropertyPage() {
       .upload(filePath, file, { contentType });
 
     if (uploadError) {
-      setError(`Failed to upload ${file.name}: ${uploadError.message}`);
-      return null;
+      // Throw so the caller routes this into videoError — the general form
+      // error renders at the top of the page, out of sight from the video box.
+      throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
     }
 
     const { data: { publicUrl } } = supabase.storage

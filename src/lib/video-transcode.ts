@@ -203,7 +203,20 @@ export async function transcodeVideoToMp4(
   onProgress?: (stage: TranscodeStage, ratio: number) => void
 ): Promise<File> {
   if (supportsWebCodecs()) {
-    return transcodeWithWebCodecs(file, onProgress);
+    try {
+      return await transcodeWithWebCodecs(file, onProgress);
+    } catch (webCodecsErr) {
+      // WebCodecs couldn't handle this clip — most commonly iPhone HEVC on a
+      // device without HEVC decode support. The MediaRecorder fallback plays
+      // the clip through a <video> element, which uses the browser's native
+      // decoder and often succeeds where WebCodecs can't. Only if that fails
+      // too do we surface the original (friendlier, actionable) error.
+      try {
+        return await transcodeWithMediaRecorder(file, onProgress);
+      } catch {
+        throw webCodecsErr;
+      }
+    }
   }
   return transcodeWithMediaRecorder(file, onProgress);
 }
