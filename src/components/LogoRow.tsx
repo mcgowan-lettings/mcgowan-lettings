@@ -71,7 +71,7 @@ export default function LogoRow() {
   }, []);
 
   return (
-    <div ref={ref} className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
+    <div ref={ref} className="grid grid-cols-2 sm:grid-cols-6 md:grid-cols-5 [&>*:last-child]:col-span-2 sm:[&>*]:col-span-2 sm:[&>*:nth-child(4)]:col-start-2 md:[&>*]:col-span-1 md:[&>*:last-child]:col-span-1 md:[&>*:nth-child(4)]:col-start-auto">
       {LOGOS.map((logo) => (
         <div
           key={logo.alt}
