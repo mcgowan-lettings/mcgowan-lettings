@@ -120,10 +120,10 @@ const STEPS = [
           The Property Ombudsman
         </p>
         <p className="text-text-muted text-sm leading-relaxed mb-1">
-          Milford House, 43&ndash;55 Milford Street
+          Unit 159756, PO Box 7169
         </p>
         <p className="text-text-muted text-sm leading-relaxed mb-3">
-          Salisbury, Wiltshire, SP1 2BP
+          Poole, BH15 9EL
         </p>
         <div className="space-y-1 text-sm text-text-muted">
           <p>
