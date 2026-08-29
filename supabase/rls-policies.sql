@@ -39,7 +39,12 @@ create policy "Admins can update valuation_requests" on public.valuation_request
 create policy "Admins can delete valuation_requests" on public.valuation_requests for delete to authenticated using (public.is_admin());
 
 -- contact_submissions ------------------------------------------------------
--- ("Anon can submit contact form" INSERT policy is intentionally kept.)
+-- The old "Anon can submit contact form" INSERT policy is dropped: the contact
+-- action inserts via supabaseAdmin (service role, bypasses RLS), so nothing used
+-- it, while it let anyone holding the anon key POST rows straight into David's
+-- inbox, bypassing the honeypot and server-side validation. Verified: anon
+-- insert now fails with 42501, service-role insert still succeeds.
+drop policy if exists "Anon can submit contact form" on public.contact_submissions;
 drop policy if exists "Authenticated full access to submissions" on public.contact_submissions;
 create policy "Admins can read contact_submissions"   on public.contact_submissions for select to authenticated using (public.is_admin());
 create policy "Admins can update contact_submissions" on public.contact_submissions for update to authenticated using (public.is_admin()) with check (public.is_admin());
