@@ -144,11 +144,14 @@ class Layout {
   page: PDFPage;
   y = PAGE_H - MARGIN;
 
+  private pageCount = 0;
+
   constructor(
     private doc: PDFDocument,
     private regular: PDFFont,
     private bold: PDFFont,
-    private logo: PDFImage | null
+    private logo: PDFImage | null,
+    private continuationLabel = ""
   ) {
     this.page = this.newPage();
   }
@@ -158,6 +161,26 @@ class Layout {
     this.page = page;
     this.y = PAGE_H - MARGIN;
     this.drawFooter(page);
+    this.pageCount += 1;
+    // Pages after the first get a continuation line so they never look orphaned.
+    if (this.pageCount > 1 && this.continuationLabel) {
+      const size = 8.5;
+      page.drawText(sanitize(this.continuationLabel), {
+        x: MARGIN,
+        y: this.y - 8,
+        size,
+        font: this.regular,
+        color: MUTED,
+      });
+      this.y -= 20;
+      page.drawLine({
+        start: { x: MARGIN, y: this.y },
+        end: { x: PAGE_W - MARGIN, y: this.y },
+        thickness: 0.6,
+        color: RULE,
+      });
+      this.y -= 26;
+    }
     return page;
   }
 
@@ -187,66 +210,77 @@ class Layout {
     this.y -= h;
   }
 
-  header() {
-    const logoH = 40;
+  header(receivedLabel?: string) {
+    const logoH = 38;
     if (this.logo) {
       const scale = logoH / this.logo.height;
       const w = this.logo.width * scale;
       this.page.drawImage(this.logo, { x: MARGIN, y: this.y - logoH, width: w, height: logoH });
     }
-    this.y -= logoH + 22;
+    if (receivedLabel) {
+      const size = 8.5;
+      const w = this.regular.widthOfTextAtSize(receivedLabel, size);
+      this.page.drawText(receivedLabel, {
+        x: PAGE_W - MARGIN - w,
+        y: this.y - logoH + 4,
+        size,
+        font: this.regular,
+        color: MUTED,
+      });
+    }
+    this.y -= logoH + 26;
 
     this.page.drawText("Residential Rental Application", {
       x: MARGIN,
       y: this.y,
-      size: 20,
+      size: 19,
       font: this.bold,
       color: TEXT,
     });
-    this.y -= 12;
-    this.page.drawLine({
-      start: { x: MARGIN, y: this.y },
-      end: { x: MARGIN + 60, y: this.y },
-      thickness: 2.5,
-      color: BRAND,
-    });
-    this.y -= 22;
-  }
-
-  section(title: string) {
-    this.ensure(60);
-    this.space(6);
-    this.page.drawText(sanitize(title).toUpperCase(), {
-      x: MARGIN,
-      y: this.y,
-      size: 9.5,
-      font: this.bold,
-      color: TEXT,
-    });
-    this.y -= 7;
+    this.y -= 13;
     this.page.drawLine({
       start: { x: MARGIN, y: this.y },
       end: { x: PAGE_W - MARGIN, y: this.y },
-      thickness: 1,
+      thickness: 2,
       color: BRAND,
     });
-    this.y -= 16;
+    this.y -= 26;
   }
 
-  /** Label/value row. Value wraps; label column fixed width. */
+  section(title: string) {
+    this.ensure(70);
+    this.space(10);
+    this.page.drawText(sanitize(title).toUpperCase(), {
+      x: MARGIN,
+      y: this.y,
+      size: 8.5,
+      font: this.bold,
+      color: MUTED,
+    });
+    this.y -= 8;
+    this.page.drawLine({
+      start: { x: MARGIN, y: this.y },
+      end: { x: PAGE_W - MARGIN, y: this.y },
+      thickness: 0.6,
+      color: RULE,
+    });
+    this.y -= 18;
+  }
+
+  /** Label/value row. Value wraps; label column fixed width. No rules — whitespace separates. */
   field(label: string, value: string | null | undefined) {
     const labelW = 150;
     const size = 10;
-    const lineH = 14;
-    const text = sanitize(value) || "—";
+    const lineH = 13.5;
+    const text = sanitize(value) || "\u2014";
     const lines = wrapText(text, this.regular, size, CONTENT_W - labelW);
-    const rowH = lines.length * lineH + 6;
+    const rowH = lines.length * lineH + 8;
     this.ensure(rowH);
 
     this.page.drawText(sanitize(label), {
       x: MARGIN,
       y: this.y,
-      size,
+      size: 9,
       font: this.bold,
       color: MUTED,
     });
@@ -256,13 +290,6 @@ class Layout {
       y -= lineH;
     }
     this.y -= rowH;
-    this.page.drawLine({
-      start: { x: MARGIN, y: this.y + 3 },
-      end: { x: PAGE_W - MARGIN, y: this.y + 3 },
-      thickness: 0.5,
-      color: RULE,
-    });
-    this.y -= 4;
   }
 
   paragraph(text: string, size = 9.5, color = TEXT) {
@@ -275,40 +302,85 @@ class Layout {
     }
   }
 
+  /** Tick-box confirmation line — replaces the clumsy "Agreed | Yes" row. */
+  confirmation(text: string) {
+    const size = 9.5;
+    this.ensure(24);
+    const boxY = this.y - 1.5;
+    this.page.drawRectangle({
+      x: MARGIN,
+      y: boxY,
+      width: 9.5,
+      height: 9.5,
+      borderColor: TEXT,
+      borderWidth: 0.75,
+    });
+    // tick
+    this.page.drawLine({
+      start: { x: MARGIN + 2, y: boxY + 5 },
+      end: { x: MARGIN + 4, y: boxY + 2.4 },
+      thickness: 1.1,
+      color: TEXT,
+    });
+    this.page.drawLine({
+      start: { x: MARGIN + 4, y: boxY + 2.4 },
+      end: { x: MARGIN + 7.8, y: boxY + 7.4 },
+      thickness: 1.1,
+      color: TEXT,
+    });
+    this.page.drawText(sanitize(text), {
+      x: MARGIN + 18,
+      y: this.y,
+      size,
+      font: this.regular,
+      color: TEXT,
+    });
+    this.y -= 22;
+  }
+
   signature(image: PDFImage | null) {
-    const maxW = 200;
-    const maxH = 70;
-    const boxH = maxH + 12;
-    this.ensure(boxH + 20);
+    const lineW = 230;
+    const maxW = 210;
+    const maxH = 58;
+    this.ensure(maxH + 46);
 
     if (image) {
       const scale = Math.min(maxW / image.width, maxH / image.height, 1);
       const w = image.width * scale;
       const h = image.height * scale;
-      this.page.drawImage(image, { x: MARGIN, y: this.y - h, width: w, height: h });
+      // sit the signature on the baseline, nudged up slightly so it doesn't clip
+      this.page.drawImage(image, { x: MARGIN + 4, y: this.y - maxH + (maxH - h) + 4, width: w, height: h });
     } else {
-      this.page.drawText("(signature unavailable)", {
-        x: MARGIN,
-        y: this.y - 14,
+      this.page.drawText("(signature not captured)", {
+        x: MARGIN + 4,
+        y: this.y - maxH + 18,
         size: 9,
         font: this.regular,
         color: MUTED,
       });
     }
-    this.y -= boxH;
+    this.y -= maxH + 4;
     this.page.drawLine({
       start: { x: MARGIN, y: this.y },
-      end: { x: MARGIN + maxW, y: this.y },
+      end: { x: MARGIN + lineW, y: this.y },
       thickness: 0.75,
       color: TEXT,
     });
-    this.y -= 16;
+    this.y -= 11;
+    this.page.drawText("Signature of applicant", {
+      x: MARGIN,
+      y: this.y,
+      size: 8,
+      font: this.regular,
+      color: MUTED,
+    });
+    this.y -= 20;
   }
 
   officeUseBox() {
-    const boxH = 92;
-    this.ensure(boxH + 16);
-    this.space(8);
+    const boxH = 88;
+    this.ensure(boxH + 18);
+    this.space(10);
     const top = this.y;
     this.page.drawRectangle({
       x: MARGIN,
@@ -316,36 +388,36 @@ class Layout {
       width: CONTENT_W,
       height: boxH,
       borderColor: RULE,
-      borderWidth: 1,
+      borderWidth: 0.8,
     });
     this.page.drawText("OFFICE USE ONLY", {
-      x: MARGIN + 12,
-      y: top - 18,
-      size: 8.5,
+      x: MARGIN + 14,
+      y: top - 19,
+      size: 8,
       font: this.bold,
       color: MUTED,
     });
-    const items = ["Reference Check", "Suitable", "Agreement Conf."];
-    let y = top - 40;
+    const items = ["Reference check", "Suitable", "Agreement confirmed"];
+    let y = top - 41;
     for (const item of items) {
       this.page.drawRectangle({
-        x: MARGIN + 12,
+        x: MARGIN + 14,
         y: y - 2,
-        width: 10,
-        height: 10,
-        borderColor: TEXT,
-        borderWidth: 0.75,
+        width: 9.5,
+        height: 9.5,
+        borderColor: MUTED,
+        borderWidth: 0.7,
       });
-      this.page.drawText(item, { x: MARGIN + 28, y, size: 9, font: this.regular, color: TEXT });
+      this.page.drawText(item, { x: MARGIN + 30, y, size: 9, font: this.regular, color: TEXT });
       this.page.drawLine({
-        start: { x: MARGIN + 130, y: y - 1 },
-        end: { x: PAGE_W - MARGIN - 12, y: y - 1 },
+        start: { x: MARGIN + 160, y: y - 2 },
+        end: { x: PAGE_W - MARGIN - 14, y: y - 2 },
         thickness: 0.5,
         color: RULE,
       });
-      y -= 20;
+      y -= 19;
     }
-    this.y = top - boxH - 8;
+    this.y = top - boxH - 10;
   }
 }
 
@@ -397,8 +469,14 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
   const logo = await loadLogo(doc);
   const signature = await loadSignature(doc, app.signature_data_url);
 
-  const L = new Layout(doc, regular, bold, logo);
-  L.header();
+  const L = new Layout(
+    doc,
+    regular,
+    bold,
+    logo,
+    `Residential Rental Application \u2014 ${sanitize(app.full_name)}`
+  );
+  L.header(`Received ${formatDate(app.created_at)}`);
 
   L.section("Property");
   L.field("Property address", app.property_address);
@@ -422,8 +500,12 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
 
   L.section("Declaration");
   L.paragraph(DECLARATION_TEXT);
-  L.space(8);
-  L.field("Agreed", app.declaration_agreed ? "Yes" : "No");
+  L.space(10);
+  if (app.declaration_agreed) {
+    L.confirmation("The applicant has read and agreed to the declaration above.");
+  } else {
+    L.field("Agreed", "No");
+  }
 
   L.section("Signature");
   L.signature(signature);
@@ -431,6 +513,23 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
   L.field("Date signed", formatDateTime(app.signed_at));
 
   L.officeUseBox();
+
+  // Page numbers, drawn once the total is known.
+  const pages = doc.getPages();
+  if (pages.length > 1) {
+    pages.forEach((page, i) => {
+      const label = `Page ${i + 1} of ${pages.length}`;
+      const size = 7.5;
+      const w = regular.widthOfTextAtSize(label, size);
+      page.drawText(label, {
+        x: PAGE_W - MARGIN - w,
+        y: PAGE_H - MARGIN - 8,
+        size,
+        font: regular,
+        color: MUTED,
+      });
+    });
+  }
 
   return doc.save();
 }
