@@ -97,7 +97,23 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              5. Data Retention
+              5. Tenant Application Forms
+            </h2>
+            <p className="text-text-muted leading-relaxed mb-6">
+              If you apply for a property through our online application form, we collect your
+              full name, contact details, date of birth, National Insurance number, current
+              address, employment and income details, and your electronic signature. We use
+              this information to assess your tenancy application and carry out referencing, as
+              a necessary pre-contract step taken at your request (legitimate interest /
+              preparation for a tenancy agreement). We share this data only with referencing
+              providers and the relevant landlord where needed to process your application. It
+              is retained for as long as your application and any resulting tenancy are under
+              consideration, and deleted on request. To request deletion of your application
+              data, email info@mcgowanlettings.co.uk.
+            </p>
+
+            <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
+              6. Data Retention
             </h2>
             <p className="text-text-muted leading-relaxed mb-6">
               We retain your personal data only for as long as is necessary for the purposes
@@ -108,7 +124,7 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              6. Your Rights Under GDPR
+              7. Your Rights Under GDPR
             </h2>
             <p className="text-text-muted leading-relaxed mb-4">
               You have the following rights in relation to your personal data:
@@ -127,7 +143,7 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              7. Cookies
+              8. Cookies
             </h2>
             <p className="text-text-muted leading-relaxed mb-6">
               Our website uses essential cookies to ensure it functions correctly. We may also
@@ -137,7 +153,7 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              8. Third Parties
+              9. Third Parties
             </h2>
             <p className="text-text-muted leading-relaxed mb-4">
               We may share your personal data with the following third parties where necessary:
@@ -155,7 +171,7 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              9. Data Security
+              10. Data Security
             </h2>
             <p className="text-text-muted leading-relaxed mb-6">
               We take appropriate technical and organisational measures to protect your personal
@@ -164,7 +180,7 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              10. Contact Us
+              11. Contact Us
             </h2>
             <p className="text-text-muted leading-relaxed mb-6">
               If you have any questions about this privacy policy or wish to exercise your

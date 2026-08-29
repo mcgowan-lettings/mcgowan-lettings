@@ -256,7 +256,12 @@ export default function TenantsPage() {
             </h2>
             <p className="text-text-muted text-lg max-w-2xl mb-14">
               From your first search to moving day, here is what to expect when
-              renting through McGowan Residential Lettings.
+              renting through McGowan Residential Lettings. Once you have viewed
+              a property and want to apply, we&apos;ll send you a link to our{" "}
+              <a href="/apply" className="text-brand-deep underline underline-offset-2 hover:text-brand-dark transition-colors">
+                simple online application form
+              </a>
+              , which works on your phone &mdash; no more printing out paperwork.
             </p>
           </AnimateIn>
 

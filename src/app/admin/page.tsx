@@ -5,12 +5,14 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import { updateReviewCount } from "@/app/actions/admin";
+import { countUnreadApplications } from "@/app/actions/applications";
 
 interface Stats {
   total: number;
   active: number;
   inactive: number;
   unreadSubmissions: number;
+  unreadApplications: number;
 }
 
 export default function AdminDashboardPage() {
@@ -19,6 +21,7 @@ export default function AdminDashboardPage() {
     active: 0,
     inactive: 0,
     unreadSubmissions: 0,
+    unreadApplications: 0,
   });
   const [loading, setLoading] = useState(true);
   const [statsError, setStatsError] = useState("");
@@ -71,15 +74,22 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const fetchStats = async () => {
-      const [propertiesRes, unreadRes] = await Promise.all([
+      const { data: { session } } = await supabase.auth.getSession();
+      const [propertiesRes, unreadRes, unreadAppsRes] = await Promise.all([
         supabase.from("properties").select("active").limit(1000),
         supabase
           .from("contact_submissions")
           .select("id", { count: "exact", head: true })
           .eq("read", false),
+        session
+          ? countUnreadApplications(session.access_token).then(
+              (count) => ({ count, error: null as Error | null }),
+              (err: unknown) => ({ count: 0, error: err instanceof Error ? err : new Error("failed") })
+            )
+          : Promise.resolve({ count: 0, error: new Error("No session") }),
       ]);
 
-      if (propertiesRes.error || unreadRes.error) {
+      if (propertiesRes.error || unreadRes.error || unreadAppsRes.error) {
         setStatsError("Couldn't load dashboard stats. Please refresh the page.");
         setLoading(false);
         return;
@@ -93,6 +103,7 @@ export default function AdminDashboardPage() {
         active: activeCount,
         inactive: properties.length - activeCount,
         unreadSubmissions: unreadRes.count ?? 0,
+        unreadApplications: unreadAppsRes.count ?? 0,
       });
       setLoading(false);
     };
@@ -141,6 +152,16 @@ export default function AdminDashboardPage() {
         </svg>
       ),
     },
+    {
+      label: "New Applications",
+      value: stats.unreadApplications,
+      color: "bg-brand/10 text-brand-deep",
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zM9 12.75l1.5 1.5 3-3" />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -162,7 +183,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {cards.map((card) => (
           <div
             key={card.label}
@@ -239,6 +260,27 @@ export default function AdminDashboardPage() {
                 ? "Loading..."
                 : stats.unreadSubmissions > 0
                 ? `${stats.unreadSubmissions} unread message${stats.unreadSubmissions !== 1 ? "s" : ""}`
+                : "All caught up"}
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/applications"
+          className="flex items-center gap-4 rounded-xl bg-white p-6 shadow-sm border border-gray-200/60 transition-all hover:shadow-md hover:border-brand/30"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-brand/10 text-brand-deep">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zM9 12.75l1.5 1.5 3-3" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-medium text-dark">Tenant Applications</p>
+            <p className="text-sm text-text-muted">
+              {loading
+                ? "Loading..."
+                : stats.unreadApplications > 0
+                ? `${stats.unreadApplications} new application${stats.unreadApplications !== 1 ? "s" : ""}`
                 : "All caught up"}
             </p>
           </div>
