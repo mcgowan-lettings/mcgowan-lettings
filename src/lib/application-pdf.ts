@@ -27,6 +27,7 @@ const BRAND = rgb(0.671, 0.827, 0);
 const TEXT = rgb(0.102, 0.102, 0.102);
 const MUTED = rgb(0.42, 0.42, 0.42);
 const RULE = rgb(0.85, 0.85, 0.83);
+const LABEL_W = 100; // shared label column so single- and two-column rows align
 
 const FOOTER_LINE =
   "McGowan Residential Lettings Ltd · PO Box 546, Bury, Lancashire BL8 9HB · t. 0161 797 6967 · " +
@@ -211,7 +212,7 @@ class Layout {
   }
 
   header(receivedLabel?: string) {
-    const logoH = 38;
+    const logoH = 34;
     if (this.logo) {
       const scale = logoH / this.logo.height;
       const w = this.logo.width * scale;
@@ -228,7 +229,7 @@ class Layout {
         color: MUTED,
       });
     }
-    this.y -= logoH + 26;
+    this.y -= logoH + 20;
 
     this.page.drawText("Residential Rental Application", {
       x: MARGIN,
@@ -237,19 +238,19 @@ class Layout {
       font: this.bold,
       color: TEXT,
     });
-    this.y -= 13;
+    this.y -= 12;
     this.page.drawLine({
       start: { x: MARGIN, y: this.y },
       end: { x: PAGE_W - MARGIN, y: this.y },
       thickness: 2,
       color: BRAND,
     });
-    this.y -= 26;
+    this.y -= 20;
   }
 
   section(title: string) {
     this.ensure(70);
-    this.space(10);
+    this.space(7);
     this.page.drawText(sanitize(title).toUpperCase(), {
       x: MARGIN,
       y: this.y,
@@ -264,12 +265,12 @@ class Layout {
       thickness: 0.6,
       color: RULE,
     });
-    this.y -= 18;
+    this.y -= 14;
   }
 
   /** Label/value row. Value wraps; label column fixed width. No rules — whitespace separates. */
   field(label: string, value: string | null | undefined) {
-    const labelW = 150;
+    const labelW = LABEL_W;
     const size = 10;
     const lineH = 13.5;
     const text = sanitize(value) || "\u2014";
@@ -288,6 +289,47 @@ class Layout {
     for (const line of lines) {
       this.page.drawText(line, { x: MARGIN + labelW, y, size, font: this.regular, color: TEXT });
       y -= lineH;
+    }
+    this.y -= rowH;
+  }
+
+  /** One column of a paired row. Returns the height it needs. */
+  private colHeight(value: string | null | undefined, valueW: number, size: number, lineH: number) {
+    const text = sanitize(value) || "\u2014";
+    return wrapText(text, this.regular, size, valueW).length * lineH;
+  }
+
+  private drawCol(x: number, label: string, value: string | null | undefined, labelW: number, valueW: number) {
+    const size = 10;
+    const lineH = 13.5;
+    this.page.drawText(sanitize(label), { x, y: this.y, size: 9, font: this.bold, color: MUTED });
+    let y = this.y;
+    for (const line of wrapText(sanitize(value) || "\u2014", this.regular, size, valueW)) {
+      this.page.drawText(line, { x: x + labelW, y, size, font: this.regular, color: TEXT });
+      y -= lineH;
+    }
+  }
+
+  /** Two label/value pairs side by side. Pass null for the right pair to leave it blank. */
+  fieldPair(
+    leftLabel: string,
+    leftValue: string | null | undefined,
+    rightLabel?: string,
+    rightValue?: string | null | undefined
+  ) {
+    const labelW = LABEL_W;
+    const colW = CONTENT_W / 2;
+    const valueW = colW - labelW - 8;
+    const lineH = 13.5;
+    const h = Math.max(
+      this.colHeight(leftValue, valueW, 10, lineH),
+      rightLabel ? this.colHeight(rightValue, valueW, 10, lineH) : 0
+    );
+    const rowH = h + 7;
+    this.ensure(rowH);
+    this.drawCol(MARGIN, leftLabel, leftValue, labelW, valueW);
+    if (rightLabel) {
+      this.drawCol(MARGIN + colW + 6, rightLabel, rightValue, labelW, valueW);
     }
     this.y -= rowH;
   }
@@ -341,7 +383,7 @@ class Layout {
   signature(image: PDFImage | null) {
     const lineW = 230;
     const maxW = 210;
-    const maxH = 58;
+    const maxH = 50;
     this.ensure(maxH + 46);
 
     if (image) {
@@ -366,7 +408,7 @@ class Layout {
       thickness: 0.75,
       color: TEXT,
     });
-    this.y -= 11;
+    this.y -= 10;
     this.page.drawText("Signature of applicant", {
       x: MARGIN,
       y: this.y,
@@ -374,13 +416,13 @@ class Layout {
       font: this.regular,
       color: MUTED,
     });
-    this.y -= 20;
+    this.y -= 18;
   }
 
   officeUseBox() {
-    const boxH = 88;
-    this.ensure(boxH + 18);
-    this.space(10);
+    const boxH = 72;
+    this.ensure(boxH + 8);
+    this.space(5);
     const top = this.y;
     this.page.drawRectangle({
       x: MARGIN,
@@ -398,7 +440,7 @@ class Layout {
       color: MUTED,
     });
     const items = ["Reference check", "Suitable", "Agreement confirmed"];
-    let y = top - 41;
+    let y = top - 34;
     for (const item of items) {
       this.page.drawRectangle({
         x: MARGIN + 14,
@@ -415,7 +457,7 @@ class Layout {
         thickness: 0.5,
         color: RULE,
       });
-      y -= 19;
+      y -= 16;
     }
     this.y = top - boxH - 10;
   }
@@ -480,37 +522,34 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
 
   L.section("Property");
   L.field("Property address", app.property_address);
-  L.field("Rent", formatRent(app.rent_pcm));
+  L.fieldPair("Rent", formatRent(app.rent_pcm));
 
   L.section("Personal Information");
-  L.field("Full name", app.full_name);
+  L.fieldPair("Full name", app.full_name, "Date of birth", formatDate(app.date_of_birth));
+  L.fieldPair("Email", app.email, "Phone", app.phone);
+  L.fieldPair("NI number", app.ni_number, "Period at address", app.period_at_address);
   L.field("Current address", app.current_address);
-  L.field("Period at address", app.period_at_address);
-  L.field("Email", app.email);
-  L.field("Phone", app.phone);
-  L.field("Date of birth", formatDate(app.date_of_birth));
-  L.field("NI number", app.ni_number);
 
   L.section("Employment Details");
-  L.field("Employment status", app.employment_status);
-  L.field("Employer", app.employer);
-  L.field("Job title", app.job_title);
-  L.field("Start date", app.employment_start_date ? formatDate(app.employment_start_date) : "—");
-  L.field("Monthly income", formatMoney(app.monthly_income));
+  L.fieldPair("Employment status", app.employment_status, "Monthly income", formatMoney(app.monthly_income));
+  L.fieldPair("Employer", app.employer, "Job title", app.job_title);
+  L.fieldPair(
+    "Start date",
+    app.employment_start_date ? formatDate(app.employment_start_date) : "\u2014"
+  );
 
   L.section("Declaration");
-  L.paragraph(DECLARATION_TEXT);
-  L.space(10);
+  L.paragraph(DECLARATION_TEXT, 8.5);
+  L.space(5);
   if (app.declaration_agreed) {
     L.confirmation("The applicant has read and agreed to the declaration above.");
   } else {
-    L.field("Agreed", "No");
+    L.fieldPair("Agreed", "No");
   }
 
   L.section("Signature");
   L.signature(signature);
-  L.field("Print name", app.signed_name);
-  L.field("Date signed", formatDateTime(app.signed_at));
+  L.fieldPair("Print name", app.signed_name, "Date signed", formatDateTime(app.signed_at));
 
   L.officeUseBox();
 
