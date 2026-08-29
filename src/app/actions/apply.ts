@@ -122,7 +122,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
 
   if (!ni_number) return { success: false, error: "National Insurance number is required." };
   if (!NI_REGEX.test(ni_number)) {
-    return { success: false, error: "Please enter a valid National Insurance number (e.g. QQ 12 34 56 C)." };
+    return { success: false, error: "Please enter a valid National Insurance number (e.g. AB 12 34 56 C)." };
   }
 
   if (!current_address) return { success: false, error: "Current address is required." };

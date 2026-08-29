@@ -469,7 +469,7 @@ export default function ApplyForm({
     }
     req("ni_number", "Please enter your National Insurance number.");
     if (fields.ni_number && !NI_REGEX.test(fields.ni_number.replace(/\s+/g, ""))) {
-      e.ni_number = "Please enter a valid NI number, e.g. QQ 12 34 56 C.";
+      e.ni_number = "Please enter a valid NI number, e.g. AB 12 34 56 C.";
     }
     req("current_address", "Please enter your current address.");
     req("period_at_address", "Please tell us how long you've lived there.");
@@ -789,7 +789,7 @@ export default function ApplyForm({
               value={fields.ni_number}
               onChange={set("ni_number")}
               className={`${cls("ni_number")} uppercase tracking-wide`}
-              placeholder="QQ 12 34 56 C"
+              placeholder="AB 12 34 56 C"
               {...aria("ni_number")}
             />
             <FieldError id="apply-ni_number-error" message={errors.ni_number} />
