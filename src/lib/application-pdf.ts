@@ -27,6 +27,7 @@ const BRAND = rgb(0.671, 0.827, 0);
 const TEXT = rgb(0.102, 0.102, 0.102);
 const MUTED = rgb(0.42, 0.42, 0.42);
 const RULE = rgb(0.85, 0.85, 0.83);
+const PANEL = rgb(0.972, 0.972, 0.965);
 const LABEL_W = 100; // shared label column so single- and two-column rows align
 
 const FOOTER_LINE =
@@ -250,7 +251,7 @@ class Layout {
 
   section(title: string) {
     this.ensure(70);
-    this.space(9);
+    this.space(8);
     this.page.drawText(sanitize(title).toUpperCase(), {
       x: MARGIN,
       y: this.y,
@@ -265,7 +266,7 @@ class Layout {
       thickness: 0.6,
       color: RULE,
     });
-    this.y -= 17;
+    this.y -= 16;
   }
 
   /** Label/value row. Value wraps; label column fixed width. No rules — whitespace separates. */
@@ -275,7 +276,7 @@ class Layout {
     const lineH = 13.5;
     const text = sanitize(value) || "\u2014";
     const lines = wrapText(text, this.regular, size, CONTENT_W - labelW);
-    const rowH = lines.length * lineH + 11;
+    const rowH = lines.length * lineH + 10;
     this.ensure(rowH);
 
     this.page.drawText(sanitize(label), {
@@ -325,13 +326,76 @@ class Layout {
       this.colHeight(leftValue, valueW, 10, lineH),
       rightLabel ? this.colHeight(rightValue, valueW, 10, lineH) : 0
     );
-    const rowH = h + 11;
+    const rowH = h + 10;
     this.ensure(rowH);
     this.drawCol(MARGIN, leftLabel, leftValue, labelW, valueW);
     if (rightLabel) {
       this.drawCol(MARGIN + colW + 6, rightLabel, rightValue, labelW, valueW);
     }
     this.y -= rowH;
+  }
+
+  /** Declaration text and its acceptance tick, together in one soft panel. */
+  panelParagraph(
+    text: string,
+    size = 8.5,
+    confirm?: { text: string; checked: boolean }
+  ) {
+    const padX = 12;
+    const padY = 10;
+    const lineH = size * 1.5;
+    const lines = wrapText(sanitize(text), this.regular, size, CONTENT_W - padX * 2);
+    const confirmH = confirm ? 21 : 0;
+    const panelH = lines.length * lineH + padY * 2 - (lineH - size) + confirmH;
+    this.ensure(panelH + 6);
+    const top = this.y + size + 2;
+    this.page.drawRectangle({
+      x: MARGIN,
+      y: top - panelH,
+      width: CONTENT_W,
+      height: panelH,
+      color: PANEL,
+    });
+    let y = top - padY - size;
+    for (const line of lines) {
+      this.page.drawText(line, { x: MARGIN + padX, y, size, font: this.regular, color: TEXT });
+      y -= lineH;
+    }
+    if (confirm) {
+      y -= 5;
+      const bx = MARGIN + padX;
+      this.page.drawRectangle({
+        x: bx,
+        y: y - 1.5,
+        width: 9.5,
+        height: 9.5,
+        borderColor: TEXT,
+        borderWidth: 0.75,
+        color: rgb(1, 1, 1),
+      });
+      if (confirm.checked) {
+        this.page.drawLine({
+          start: { x: bx + 2, y: y + 3.5 },
+          end: { x: bx + 4, y: y + 0.9 },
+          thickness: 1.1,
+          color: TEXT,
+        });
+        this.page.drawLine({
+          start: { x: bx + 4, y: y + 0.9 },
+          end: { x: bx + 7.8, y: y + 5.9 },
+          thickness: 1.1,
+          color: TEXT,
+        });
+      }
+      this.page.drawText(sanitize(confirm.text), {
+        x: bx + 16,
+        y,
+        size: 9,
+        font: this.bold,
+        color: TEXT,
+      });
+    }
+    this.y = top - panelH - 4;
   }
 
   paragraph(text: string, size = 9.5, color = TEXT) {
@@ -386,7 +450,7 @@ class Layout {
     const lineW = 225;
     const maxW = 205;
     const maxH = 46;
-    const blockH = 74;
+    const blockH = 70;
     this.ensure(blockH + 6);
     const top = this.y;
 
@@ -564,14 +628,12 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
   );
 
   L.section("Declaration");
-  L.paragraph(DECLARATION_TEXT, 8.5);
-  L.space(5);
-  L.confirmation(
-    app.declaration_agreed
-      ? "The applicant has read and agreed to the declaration above."
-      : "The applicant did NOT agree to the declaration.",
-    app.declaration_agreed
-  );
+  L.panelParagraph(DECLARATION_TEXT, 8.5, {
+    text: app.declaration_agreed
+      ? "The applicant has read and agreed to this declaration."
+      : "The applicant did NOT agree to this declaration.",
+    checked: app.declaration_agreed,
+  });
 
   L.section("Signature");
   L.signatureBlock(signature, app.signed_name, formatDateTime(app.signed_at));
