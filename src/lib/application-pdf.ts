@@ -245,12 +245,12 @@ class Layout {
       thickness: 2,
       color: BRAND,
     });
-    this.y -= 20;
+    this.y -= 14;
   }
 
   section(title: string) {
     this.ensure(70);
-    this.space(7);
+    this.space(9);
     this.page.drawText(sanitize(title).toUpperCase(), {
       x: MARGIN,
       y: this.y,
@@ -265,7 +265,7 @@ class Layout {
       thickness: 0.6,
       color: RULE,
     });
-    this.y -= 14;
+    this.y -= 17;
   }
 
   /** Label/value row. Value wraps; label column fixed width. No rules — whitespace separates. */
@@ -275,7 +275,7 @@ class Layout {
     const lineH = 13.5;
     const text = sanitize(value) || "\u2014";
     const lines = wrapText(text, this.regular, size, CONTENT_W - labelW);
-    const rowH = lines.length * lineH + 8;
+    const rowH = lines.length * lineH + 11;
     this.ensure(rowH);
 
     this.page.drawText(sanitize(label), {
@@ -325,7 +325,7 @@ class Layout {
       this.colHeight(leftValue, valueW, 10, lineH),
       rightLabel ? this.colHeight(rightValue, valueW, 10, lineH) : 0
     );
-    const rowH = h + 7;
+    const rowH = h + 11;
     this.ensure(rowH);
     this.drawCol(MARGIN, leftLabel, leftValue, labelW, valueW);
     if (rightLabel) {
@@ -345,7 +345,7 @@ class Layout {
   }
 
   /** Tick-box confirmation line — replaces the clumsy "Agreed | Yes" row. */
-  confirmation(text: string) {
+  confirmation(text: string, checked = true) {
     const size = 9.5;
     this.ensure(24);
     const boxY = this.y - 1.5;
@@ -357,19 +357,20 @@ class Layout {
       borderColor: TEXT,
       borderWidth: 0.75,
     });
-    // tick
-    this.page.drawLine({
-      start: { x: MARGIN + 2, y: boxY + 5 },
-      end: { x: MARGIN + 4, y: boxY + 2.4 },
-      thickness: 1.1,
-      color: TEXT,
-    });
-    this.page.drawLine({
-      start: { x: MARGIN + 4, y: boxY + 2.4 },
-      end: { x: MARGIN + 7.8, y: boxY + 7.4 },
-      thickness: 1.1,
-      color: TEXT,
-    });
+    if (checked) {
+      this.page.drawLine({
+        start: { x: MARGIN + 2, y: boxY + 5 },
+        end: { x: MARGIN + 4, y: boxY + 2.4 },
+        thickness: 1.1,
+        color: TEXT,
+      });
+      this.page.drawLine({
+        start: { x: MARGIN + 4, y: boxY + 2.4 },
+        end: { x: MARGIN + 7.8, y: boxY + 7.4 },
+        thickness: 1.1,
+        color: TEXT,
+      });
+    }
     this.page.drawText(sanitize(text), {
       x: MARGIN + 18,
       y: this.y,
@@ -380,48 +381,75 @@ class Layout {
     this.y -= 22;
   }
 
-  signature(image: PDFImage | null) {
-    const lineW = 230;
-    const maxW = 210;
-    const maxH = 50;
-    this.ensure(maxH + 46);
+  /** Signature on the left, printed name + date on the right — one balanced block. */
+  signatureBlock(image: PDFImage | null, printName: string, dateSigned: string) {
+    const lineW = 225;
+    const maxW = 205;
+    const maxH = 46;
+    const blockH = 74;
+    this.ensure(blockH + 6);
+    const top = this.y;
 
+    // --- left: the signature itself, sitting on its baseline
+    const baselineY = top - maxH - 6;
     if (image) {
       const scale = Math.min(maxW / image.width, maxH / image.height, 1);
       const w = image.width * scale;
       const h = image.height * scale;
-      // sit the signature on the baseline, nudged up slightly so it doesn't clip
-      this.page.drawImage(image, { x: MARGIN + 4, y: this.y - maxH + (maxH - h) + 4, width: w, height: h });
+      this.page.drawImage(image, { x: MARGIN + 4, y: baselineY + 3, width: w, height: h });
     } else {
       this.page.drawText("(signature not captured)", {
         x: MARGIN + 4,
-        y: this.y - maxH + 18,
+        y: baselineY + 14,
         size: 9,
         font: this.regular,
         color: MUTED,
       });
     }
-    this.y -= maxH + 4;
     this.page.drawLine({
-      start: { x: MARGIN, y: this.y },
-      end: { x: MARGIN + lineW, y: this.y },
+      start: { x: MARGIN, y: baselineY },
+      end: { x: MARGIN + lineW, y: baselineY },
       thickness: 0.75,
       color: TEXT,
     });
-    this.y -= 10;
     this.page.drawText("Signature of applicant", {
       x: MARGIN,
-      y: this.y,
+      y: baselineY - 11,
       size: 8,
       font: this.regular,
       color: MUTED,
     });
-    this.y -= 18;
+
+    // --- right: printed name and date, aligned to the same column grid as the rows above
+    const colX = MARGIN + CONTENT_W / 2 + 6;
+    const valueW = CONTENT_W / 2 - LABEL_W - 8;
+    const pairs: [string, string][] = [
+      ["Print name", printName],
+      ["Date signed", dateSigned],
+    ];
+    let py = top - 6;
+    for (const [label, value] of pairs) {
+      this.page.drawText(sanitize(label), {
+        x: colX,
+        y: py,
+        size: 9,
+        font: this.bold,
+        color: MUTED,
+      });
+      let vy = py;
+      for (const line of wrapText(sanitize(value) || "\u2014", this.regular, 10, valueW)) {
+        this.page.drawText(line, { x: colX + LABEL_W, y: vy, size: 10, font: this.regular, color: TEXT });
+        vy -= 13.5;
+      }
+      py = vy - 8;
+    }
+
+    this.y = top - blockH;
   }
 
   officeUseBox() {
-    const boxH = 72;
-    this.ensure(boxH + 8);
+    const boxH = 48;
+    this.ensure(boxH + 10);
     this.space(5);
     const top = this.y;
     this.page.drawRectangle({
@@ -434,32 +462,29 @@ class Layout {
     });
     this.page.drawText("OFFICE USE ONLY", {
       x: MARGIN + 14,
-      y: top - 19,
-      size: 8,
+      y: top - 17,
+      size: 7.5,
       font: this.bold,
       color: MUTED,
     });
+
     const items = ["Reference check", "Suitable", "Agreement confirmed"];
-    let y = top - 34;
+    const size = 9;
+    const y = top - 36;
+    let x = MARGIN + 14;
     for (const item of items) {
       this.page.drawRectangle({
-        x: MARGIN + 14,
+        x,
         y: y - 2,
         width: 9.5,
         height: 9.5,
         borderColor: MUTED,
         borderWidth: 0.7,
       });
-      this.page.drawText(item, { x: MARGIN + 30, y, size: 9, font: this.regular, color: TEXT });
-      this.page.drawLine({
-        start: { x: MARGIN + 160, y: y - 2 },
-        end: { x: PAGE_W - MARGIN - 14, y: y - 2 },
-        thickness: 0.5,
-        color: RULE,
-      });
-      y -= 16;
+      this.page.drawText(item, { x: x + 15, y, size, font: this.regular, color: TEXT });
+      x += 15 + this.regular.widthOfTextAtSize(item, size) + 34;
     }
-    this.y = top - boxH - 10;
+    this.y = top - boxH - 8;
   }
 }
 
@@ -541,15 +566,15 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
   L.section("Declaration");
   L.paragraph(DECLARATION_TEXT, 8.5);
   L.space(5);
-  if (app.declaration_agreed) {
-    L.confirmation("The applicant has read and agreed to the declaration above.");
-  } else {
-    L.fieldPair("Agreed", "No");
-  }
+  L.confirmation(
+    app.declaration_agreed
+      ? "The applicant has read and agreed to the declaration above."
+      : "The applicant did NOT agree to the declaration.",
+    app.declaration_agreed
+  );
 
   L.section("Signature");
-  L.signature(signature);
-  L.fieldPair("Print name", app.signed_name, "Date signed", formatDateTime(app.signed_at));
+  L.signatureBlock(signature, app.signed_name, formatDateTime(app.signed_at));
 
   L.officeUseBox();
 
