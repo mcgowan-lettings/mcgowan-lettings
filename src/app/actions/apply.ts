@@ -7,9 +7,12 @@ import { buildApplicationPdf } from "@/lib/application-pdf";
 import { isWellFormedPng } from "@/lib/png-check";
 import {
   EMPLOYMENT_STATUSES,
+  isApplicationKind,
   type ApplicationFormData,
+  type ApplicationKind,
   type TenantApplicationRow,
 } from "@/lib/application-types";
+import { copyFor } from "@/lib/application-copy";
 
 function escapeHtml(text: string): string {
   return text
@@ -62,9 +65,9 @@ function maskNi(ni: string): string {
   return "*".repeat(ni.length - 3) + ni.slice(-3);
 }
 
-function safeFilename(name: string): string {
+function safeFilename(prefix: string, name: string): string {
   const cleaned = name.replace(/[^a-z0-9]+/gi, "-").replace(/^-+|-+$/g, "");
-  return `Application-${cleaned || "Applicant"}.pdf`;
+  return `${prefix}-${cleaned || "Applicant"}.pdf`;
 }
 
 function row(label: string, value: string): string {
@@ -85,6 +88,12 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   }
 
   // --- Normalise ---------------------------------------------------------
+  const application_type: ApplicationKind = isApplicationKind(data.application_type)
+    ? data.application_type
+    : "tenant";
+  const isGuarantor = application_type === "guarantor";
+  const copy = copyFor(application_type);
+  const tenant_name = str(data.tenant_name, MAX_SHORT);
   const property_address = str(data.property_address, MAX_LONG);
   const rent_pcm = str(data.rent_pcm, 50);
   const full_name = str(data.full_name, MAX_SHORT);
@@ -105,6 +114,9 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
 
   // --- Validate ----------------------------------------------------------
   if (!property_address) return { success: false, error: "Property address is required." };
+  if (isGuarantor && !tenant_name) {
+    return { success: false, error: "The name of the tenant you are guaranteeing is required." };
+  }
   if (!full_name) return { success: false, error: "Full name is required." };
   if (!email) return { success: false, error: "Email is required." };
   if (!EMAIL_REGEX.test(email)) return { success: false, error: "Please enter a valid email address." };
@@ -216,7 +228,9 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
     const { data: inserted, error } = await supabaseAdmin
       .from("tenant_applications")
       .insert({
+        application_type,
         property_address,
+        tenant_name: isGuarantor ? tenant_name : null,
         rent_pcm: rent_pcm || null,
         full_name,
         email,
@@ -249,16 +263,19 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
     // --- Emails (never fail the submission) --------------------------------
     try {
       const pdf = await buildApplicationPdf(inserted);
-      const attachments = [{ filename: safeFilename(full_name), content: Buffer.from(pdf) }];
+      const attachments = [
+        { filename: safeFilename(copy.filenamePrefix, full_name), content: Buffer.from(pdf) },
+      ];
       const resend = getResend();
       const from = "McGowan Lettings <notifications@mcgowanlettings.co.uk>";
 
       const adminHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1a1a1a; border-bottom: 2px solid #abd300; padding-bottom: 10px;">
-            New Tenant Application
+            ${escapeHtml(copy.adminEmailHeading)}
           </h2>
           <table style="width: 100%; border-collapse: collapse;">
+            ${isGuarantor ? row("Guaranteeing tenant", tenant_name) : ""}
             ${row("Property", property_address)}
             ${row("Rent", rent_pcm || "—")}
             ${row("Full name", full_name)}
@@ -277,7 +294,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
             ${row("Signed as", signed_name)}
           </table>
           <p style="margin-top: 20px; color: #1a1a1a;">
-            The signed application is attached as a PDF (full NI number included).
+            The signed ${isGuarantor ? "guarantor form" : "application"} is attached as a PDF (full NI number included).
           </p>
           <p style="margin-top: 16px;">
             <a href="https://www.mcgowanlettings.co.uk/admin/applications"
@@ -294,11 +311,14 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
       const applicantHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1a1a1a; border-bottom: 2px solid #abd300; padding-bottom: 10px;">
-            Thanks, ${escapeHtml(full_name.split(" ")[0])} — we've received your application
+            Thanks, ${escapeHtml(full_name.split(" ")[0])} — we've received your ${isGuarantor ? "guarantor form" : "application"}
           </h2>
           <p style="color: #1a1a1a; line-height: 1.6;">
-            Thank you for applying for <strong>${escapeHtml(property_address)}</strong>.
-            A copy of your signed application is attached to this email for your records.
+            ${
+              isGuarantor
+                ? `Thank you for agreeing to act as guarantor for <strong>${escapeHtml(tenant_name)}</strong> at <strong>${escapeHtml(property_address)}</strong>. A copy of your signed guarantor form is attached to this email for your records.`
+                : `Thank you for applying for <strong>${escapeHtml(property_address)}</strong>. A copy of your signed application is attached to this email for your records.`
+            }
           </p>
           <p style="color: #1a1a1a; line-height: 1.6;">
             David will review your details and be in touch shortly. If you have any questions in
@@ -319,7 +339,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
           from,
           to: "info@mcgowanlettings.co.uk",
           replyTo: email,
-          subject: `New Tenant Application — ${full_name} — ${property_address}`.replace(/[\r\n]+/g, " "),
+          subject: `${copy.adminEmailHeading} — ${full_name} — ${property_address}`.replace(/[\r\n]+/g, " "),
           html: adminHtml,
           attachments,
         }),
@@ -327,7 +347,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
           from,
           to: email,
           replyTo: "info@mcgowanlettings.co.uk",
-          subject: "Your application to McGowan Lettings — copy for your records",
+          subject: copy.applicantEmailSubject,
           html: applicantHtml,
           attachments,
         }),

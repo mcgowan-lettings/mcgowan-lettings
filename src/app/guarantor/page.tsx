@@ -4,13 +4,12 @@ import { copyFor } from "@/lib/application-copy";
 import { firstParam } from "@/lib/search-param";
 
 /*
- * /apply — tenant application form.
- * Private link David sends to prospective tenants; deliberately noindex and
- * absent from the sitemap/nav. Optional `?property=...&rent=...` prefill.
- * The guarantor twin lives at /guarantor.
+ * /guarantor — the same form as /apply, worded for a guarantor and with a
+ * guarantor declaration. Private link, noindex, not in the nav or sitemap.
+ * Optional `?property=...&rent=...&tenant=...` prefill.
  */
 
-const copy = copyFor("tenant");
+const copy = copyFor("guarantor");
 
 export const metadata: Metadata = {
   title: copy.metaTitle,
@@ -20,7 +19,7 @@ export const metadata: Metadata = {
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
-export default async function ApplyPage({
+export default async function GuarantorPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
@@ -28,9 +27,10 @@ export default async function ApplyPage({
   const params = await searchParams;
   return (
     <ApplicationPage
-      kind="tenant"
+      kind="guarantor"
       initialProperty={firstParam(params.property).slice(0, 200)}
       initialRent={firstParam(params.rent).slice(0, 20)}
+      initialTenant={firstParam(params.tenant).slice(0, 200)}
     />
   );
 }

@@ -275,7 +275,7 @@ export default function AdminDashboardPage() {
             </svg>
           </div>
           <div>
-            <p className="font-medium text-dark">Tenant Applications</p>
+            <p className="font-medium text-dark">Applications</p>
             <p className="text-sm text-text-muted">
               {loading
                 ? "Loading..."

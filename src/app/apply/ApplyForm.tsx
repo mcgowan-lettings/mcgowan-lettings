@@ -14,10 +14,11 @@ import {
 import Link from "next/link";
 import { submitApplication } from "@/app/actions/apply";
 import {
-  DECLARATION_TEXT,
   EMPLOYMENT_STATUSES,
   type ApplicationFormData,
+  type ApplicationKind,
 } from "@/lib/application-types";
+import { copyFor } from "@/lib/application-copy";
 import { ArrowRightIcon, CheckIcon } from "@/components/Icons";
 
 /* ───────────────────────── HELPERS ───────────────────────── */
@@ -84,6 +85,7 @@ const labelClass =
 
 type Fields = {
   property_address: string;
+  tenant_name: string;
   rent_pcm: string;
   full_name: string;
   email: string;
@@ -380,14 +382,22 @@ function SignaturePad({
 /* ───────────────────────── MAIN FORM ───────────────────────── */
 
 export default function ApplyForm({
+  kind = "tenant",
   initialProperty = "",
   initialRent = "",
+  initialTenant = "",
 }: {
+  /** "guarantor" swaps the wording and declaration; the questions are the same. */
+  kind?: ApplicationKind;
   initialProperty?: string;
   initialRent?: string;
+  initialTenant?: string;
 }) {
+  const copy = copyFor(kind);
+  const isGuarantor = kind === "guarantor";
   const [fields, setFields] = useState<Fields>({
     property_address: initialProperty,
+    tenant_name: initialTenant,
     rent_pcm: initialRent,
     full_name: "",
     email: "",
@@ -454,6 +464,7 @@ export default function ApplyForm({
     };
 
     req("property_address", "Please enter the property address.");
+    if (isGuarantor) req("tenant_name", "Please enter the tenant's name.");
     req("full_name", "Please enter your full name.");
     req("email", "Please enter your email address.");
     if (fields.email && !EMAIL_REGEX.test(fields.email.trim())) {
@@ -493,6 +504,7 @@ export default function ApplyForm({
 
   function scrollToFirstError(errs: Errors) {
     const order: ErrorKey[] = [
+      "tenant_name",
       "property_address",
       "full_name",
       "email",
@@ -555,7 +567,9 @@ export default function ApplyForm({
     setSubmitting(true);
 
     const payload: ApplicationFormData = {
+      application_type: kind,
       property_address: fields.property_address.trim(),
+      tenant_name: isGuarantor ? fields.tenant_name.trim() : undefined,
       rent_pcm: fields.rent_pcm.trim() || undefined,
       full_name: fields.full_name.trim(),
       email: fields.email.trim(),
@@ -603,14 +617,14 @@ export default function ApplyForm({
           <CheckIcon className="w-8 h-8 text-brand" />
         </div>
         <h2 className="font-heading text-2xl md:text-3xl font-semibold text-dark mb-3">
-          Application sent
+          {copy.successTitle}
         </h2>
         <p className="text-text-muted leading-relaxed max-w-md mx-auto mb-2">
           Thank you, {fields.full_name.trim().split(" ")[0] || "there"}. David
           will be in touch shortly.
         </p>
         <p className="text-text-muted text-sm max-w-md mx-auto mb-8">
-          A copy of your signed application has been emailed to{" "}
+          {copy.successBody}{" "}
           <span className="text-dark font-medium">{fields.email.trim()}</span>.
         </p>
         <Link
@@ -650,11 +664,26 @@ export default function ApplyForm({
       </div>
 
       {/* ── 1. Property ── */}
-      <Section
-        step={1}
-        title="The property"
-        intro="The home you're applying for. We've filled this in if David sent you a link."
-      >
+      <Section step={1} title={copy.step1Title} intro={copy.step1Intro}>
+        {isGuarantor && (
+          <div>
+            <label htmlFor="apply-tenant_name" className={labelClass}>
+              Tenant you are guaranteeing *
+            </label>
+            <input
+              type="text"
+              id="apply-tenant_name"
+              name="tenant_name"
+              autoComplete="off"
+              value={fields.tenant_name}
+              onChange={set("tenant_name")}
+              className={cls("tenant_name")}
+              placeholder="Full name of the tenant applying"
+              {...aria("tenant_name")}
+            />
+            <FieldError id="apply-tenant_name-error" message={errors.tenant_name} />
+          </div>
+        )}
         <div>
           <label htmlFor="apply-property_address" className={labelClass}>
             Property address *
@@ -699,7 +728,7 @@ export default function ApplyForm({
       </Section>
 
       {/* ── 2. About you ── */}
-      <Section step={2} title="About you" intro="Your contact details and where you live now.">
+      <Section step={2} title="About you" intro={copy.step2Intro}>
         <div>
           <label htmlFor="apply-full_name" className={labelClass}>
             Full name *
@@ -964,13 +993,13 @@ export default function ApplyForm({
       </Section>
 
       {/* ── 4. Declaration ── */}
-      <Section step={4} title="Declaration" intro="Please read this carefully before signing.">
+      <Section step={4} title="Declaration" intro={copy.step4Intro}>
         <div
           className={`rounded-md border p-5 sm:p-6 bg-cream ${
             errors.declaration_agreed ? "border-red-500" : "border-black/10"
           }`}
         >
-          <p className="text-dark text-sm leading-relaxed">{DECLARATION_TEXT}</p>
+          <p className="text-dark text-sm leading-relaxed">{copy.declaration}</p>
         </div>
         <label
           htmlFor="apply-declaration_agreed"
@@ -993,7 +1022,7 @@ export default function ApplyForm({
       </Section>
 
       {/* ── 5. Signature ── */}
-      <Section step={5} title="Your signature" intro="Sign below to confirm your application.">
+      <Section step={5} title="Your signature" intro={copy.step5Intro}>
         <div>
           <span className={labelClass}>Signature *</span>
           <SignaturePad
@@ -1073,18 +1102,17 @@ export default function ApplyForm({
                 <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" className="opacity-25" />
                 <path d="M22 12a10 10 0 0 1-10 10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
               </svg>
-              Sending your application&hellip;
+              {copy.submittingLabel}
             </>
           ) : (
             <>
-              Submit application
+              {copy.submitLabel}
               <ArrowRightIcon className="w-4 h-4 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
             </>
           )}
         </button>
         <p className="text-text-muted text-xs leading-relaxed mt-5">
-          Your details are used only to assess this tenancy application and are
-          handled in line with our{" "}
+          {copy.privacyNote}{" "}
           <Link href="/privacy" className="text-brand-deep underline underline-offset-2 hover:text-brand-dark">
             privacy policy
           </Link>

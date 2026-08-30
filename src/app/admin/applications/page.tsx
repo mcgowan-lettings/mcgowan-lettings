@@ -189,7 +189,7 @@ export default function AdminApplicationsPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-2xl font-semibold text-dark font-[family-name:var(--font-playfair)]">
-            Tenant Applications
+            Applications
           </h2>
           <p className="text-sm text-text-muted mt-1">
             {applications.length} total &middot; {unreadCount} unread
@@ -229,9 +229,9 @@ export default function AdminApplicationsPage() {
           <svg className="mx-auto h-12 w-12 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9zM9 12.75l1.5 1.5 3-3" />
           </svg>
-          <p className="mt-3 text-text-muted">No tenant applications yet.</p>
+          <p className="mt-3 text-text-muted">No applications yet.</p>
           <p className="mt-1 text-xs text-text-muted">
-            Applications submitted through the online form at /apply will appear here.
+            Applications submitted at /apply and /guarantor will appear here.
           </p>
         </div>
       ) : (
@@ -274,6 +274,11 @@ export default function AdminApplicationsPage() {
                               New
                             </span>
                           )}
+                          {app.application_type === "guarantor" && (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 uppercase">
+                              Guarantor
+                            </span>
+                          )}
                           {app.employment_status && (
                             <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-text-muted">
                               {app.employment_status}
@@ -285,6 +290,9 @@ export default function AdminApplicationsPage() {
                         </span>
                       </div>
                       <p className="mt-0.5 text-xs text-text-muted">
+                        {app.application_type === "guarantor" && app.tenant_name
+                          ? `For ${app.tenant_name} · `
+                          : ""}
                         {app.property_address}
                         {app.rent_pcm ? ` · £${app.rent_pcm} pcm` : ""}
                       </p>
@@ -333,8 +341,16 @@ export default function AdminApplicationsPage() {
 
                       {/* Property */}
                       <div className="rounded-lg bg-white border border-gray-200 p-4">
-                        <p className="text-xs text-text-muted uppercase tracking-wider mb-2">Property</p>
+                        <p className="text-xs text-text-muted uppercase tracking-wider mb-2">
+                          {app.application_type === "guarantor" ? "Tenancy guaranteed" : "Property"}
+                        </p>
                         <div className="grid sm:grid-cols-2 gap-3 text-sm">
+                          {app.application_type === "guarantor" && (
+                            <div>
+                              <span className="text-text-muted">Tenant: </span>
+                              <span className="text-dark font-medium">{app.tenant_name || "—"}</span>
+                            </div>
+                          )}
                           <div>
                             <span className="text-text-muted">Address: </span>
                             <span className="text-dark font-medium">{app.property_address}</span>

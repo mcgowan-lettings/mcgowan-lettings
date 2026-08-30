@@ -1,6 +1,8 @@
 /**
- * Builds the branded "Residential Rental Application" PDF that is emailed to
- * David (and the applicant) and downloadable from the admin inbox.
+ * Builds the branded application PDF that is emailed to David (and the
+ * applicant) and downloadable from the admin inbox. Wording follows the row's
+ * `application_type` — "Residential Rental Application" or "Guarantor
+ * Application" — via `application-copy`.
  *
  * Server-only: reads the logo from disk with `fs` and uses pdf-lib, so never
  * import this from a client component.
@@ -9,7 +11,8 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from "pdf-lib";
-import { DECLARATION_TEXT, type TenantApplicationRow } from "@/lib/application-types";
+import { declarationFor, type TenantApplicationRow } from "@/lib/application-types";
+import { copyFor } from "@/lib/application-copy";
 import { isWellFormedPng } from "@/lib/png-check";
 
 // ---------------------------------------------------------------------------
@@ -212,7 +215,7 @@ class Layout {
     this.y -= h;
   }
 
-  header(receivedLabel?: string) {
+  header(title: string, receivedLabel?: string) {
     const logoH = 34;
     if (this.logo) {
       const scale = logoH / this.logo.height;
@@ -232,7 +235,7 @@ class Layout {
     }
     this.y -= logoH + 20;
 
-    this.page.drawText("Residential Rental Application", {
+    this.page.drawText(sanitize(title), {
       x: MARGIN,
       y: this.y,
       size: 19,
@@ -446,7 +449,12 @@ class Layout {
   }
 
   /** Signature on the left, printed name + date on the right — one balanced block. */
-  signatureBlock(image: PDFImage | null, printName: string, dateSigned: string) {
+  signatureBlock(
+    image: PDFImage | null,
+    printName: string,
+    dateSigned: string,
+    caption = "Signature of applicant"
+  ) {
     const lineW = 225;
     const maxW = 205;
     const maxH = 46;
@@ -476,7 +484,7 @@ class Layout {
       thickness: 0.75,
       color: TEXT,
     });
-    this.page.drawText("Signature of applicant", {
+    this.page.drawText(sanitize(caption), {
       x: MARGIN,
       y: baselineY - 11,
       size: 8,
@@ -591,7 +599,9 @@ async function loadSignature(doc: PDFDocument, dataUrl: string): Promise<PDFImag
 
 export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`Rental Application - ${sanitize(app.full_name)}`);
+  const copy = copyFor(app.application_type);
+  const isGuarantor = copy.kind === "guarantor";
+  doc.setTitle(`${copy.documentTitle} - ${sanitize(app.full_name)}`);
   doc.setAuthor("McGowan Residential Lettings Ltd");
   doc.setCreationDate(new Date(app.created_at || Date.now()));
 
@@ -605,13 +615,18 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
     regular,
     bold,
     logo,
-    `Residential Rental Application \u2014 ${sanitize(app.full_name)}`
+    `${copy.documentTitle} \u2014 ${sanitize(app.full_name)}`
   );
-  L.header(`Received ${formatDate(app.created_at)}`);
+  L.header(copy.documentTitle, `Received ${formatDate(app.created_at)}`);
 
-  L.section("Property");
+  L.section(isGuarantor ? "Tenancy Guaranteed" : "Property");
   L.field("Property address", app.property_address);
-  L.fieldPair("Rent", formatRent(app.rent_pcm));
+  // Tenant shares a row with Rent so the guarantor copy still fits one page.
+  if (isGuarantor) {
+    L.fieldPair("Rent", formatRent(app.rent_pcm), "Tenant", app.tenant_name);
+  } else {
+    L.fieldPair("Rent", formatRent(app.rent_pcm));
+  }
 
   L.section("Personal Information");
   L.fieldPair("Full name", app.full_name, "Date of birth", formatDate(app.date_of_birth));
@@ -628,15 +643,20 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
   );
 
   L.section("Declaration");
-  L.panelParagraph(DECLARATION_TEXT, 8.5, {
+  L.panelParagraph(declarationFor(copy.kind), 8.5, {
     text: app.declaration_agreed
-      ? "The applicant has read and agreed to this declaration."
-      : "The applicant did NOT agree to this declaration.",
+      ? `The ${copy.person} has read and agreed to this declaration.`
+      : `The ${copy.person} did NOT agree to this declaration.`,
     checked: app.declaration_agreed,
   });
 
   L.section("Signature");
-  L.signatureBlock(signature, app.signed_name, formatDateTime(app.signed_at));
+  L.signatureBlock(
+    signature,
+    app.signed_name,
+    formatDateTime(app.signed_at),
+    copy.signatureCaption
+  );
 
   L.officeUseBox();
 
