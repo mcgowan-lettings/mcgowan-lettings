@@ -66,3 +66,22 @@ create policy "Admins can manage properties" on public.properties for all to aut
 
 drop policy if exists "Authenticated users can manage blog posts" on public.blog_posts;
 create policy "Admins can manage blog posts" on public.blog_posts for all to authenticated using (public.is_admin()) with check (public.is_admin());
+
+-- storage.objects (property-images bucket) ---------------------------------
+-- Applied 2026-09-16. The bucket's INSERT and DELETE policies were named
+-- "Service role can ..." but declared TO public, so they applied to `anon`:
+-- anyone holding the anon key could upload arbitrary files to, or delete every
+-- object in, the bucket (all property photos, videos, EPCs and blog covers).
+-- The service role bypasses RLS and never needed a policy. Browser uploads and
+-- `cleanupOrphans` run with the logged-in admin session JWT, so gating on
+-- `authenticated` + is_admin() keeps them working. Public SELECT stays: the
+-- bucket is public-read by design (listing photos are served straight from it).
+-- No code path uses `upsert`, so no UPDATE policy is needed.
+drop policy if exists "Service role can upload property images" on storage.objects;
+drop policy if exists "Service role can delete property images" on storage.objects;
+create policy "Admins can upload property images" on storage.objects for insert to authenticated with check (bucket_id = 'property-images' and public.is_admin());
+create policy "Admins can delete property images" on storage.objects for delete to authenticated using (bucket_id = 'property-images' and public.is_admin());
+
+-- site_config is intentionally world-readable ("Allow public read", TO public
+-- USING (true)) — it only holds the Google review count. Never put anything
+-- secret in it.
