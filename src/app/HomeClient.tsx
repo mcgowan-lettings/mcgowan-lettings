@@ -129,9 +129,10 @@ function HomeContactForm() {
         </div>
         <div className="grid sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Name</label>
+            <label htmlFor="home-name" className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Name</label>
             <input
               type="text"
+              id="home-name"
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -140,9 +141,10 @@ function HomeContactForm() {
             />
           </div>
           <div>
-            <label className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Phone</label>
+            <label htmlFor="home-phone" className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Phone</label>
             <input
               type="tel"
+              id="home-phone"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
@@ -151,9 +153,10 @@ function HomeContactForm() {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Email</label>
+          <label htmlFor="home-email" className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Email</label>
           <input
             type="email"
+            id="home-email"
             required
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
@@ -162,10 +165,10 @@ function HomeContactForm() {
           />
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">I am a...</label>
+          <label htmlFor="home-enquiry-type" className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">I am a...</label>
           <div className="relative">
             <select
-              aria-label="I am a"
+              id="home-enquiry-type"
               value={formData.enquiryType}
               onChange={(e) => setFormData({ ...formData, enquiryType: e.target.value })}
               className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm appearance-none cursor-pointer focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
@@ -179,8 +182,9 @@ function HomeContactForm() {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Message</label>
+          <label htmlFor="home-message" className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Message</label>
           <textarea
+            id="home-message"
             rows={4}
             required
             value={formData.message}
@@ -189,10 +193,15 @@ function HomeContactForm() {
             placeholder="Tell us how we can help..."
           />
         </div>
-        {error && <p className="text-red-600 text-sm">{error}</p>}
+        {error && (
+          <p id="home-form-error" role="alert" aria-live="polite" className="text-red-600 text-sm">
+            {error}
+          </p>
+        )}
         <button
           type="submit"
           disabled={submitting}
+          aria-describedby={error ? "home-form-error" : undefined}
           className="w-full bg-brand hover:bg-brand-light text-dark font-semibold py-3 rounded-md transition-all duration-200 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {submitting ? "Sending..." : "Send Message"}
@@ -230,7 +239,7 @@ export default function HomePage({
   return (
     <>
       {/* ─── HERO ─── */}
-      <section className="relative min-h-[90vh] md:min-h-screen flex items-center justify-center overflow-hidden noise-overlay">
+      <section className="relative min-h-[90vh] md:min-h-dvh flex items-center justify-center overflow-hidden noise-overlay">
         {/* Background image */}
         <div className="absolute inset-0">
           <Image

@@ -71,7 +71,10 @@ const GOOGLE_ICON = (
 
 export default function TestimonialsCarousel({ reviewCount }: { reviewCount: number }) {
   const [current, setCurrent] = useState(0);
-  const [isAutoPlaying, setIsAutoPlaying] = useState(true);
+  // Starts false so SSR/first paint never auto-advances; the effect below
+  // enables it after mount unless the user prefers reduced motion.
+  const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  const prefersReducedMotion = useRef(false);
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Show 1 card on mobile, 2 on md, 3 on lg.
@@ -108,6 +111,15 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
     setCurrent((c) => (c <= 0 ? maxIndex : c - 1));
   }, [maxIndex]);
 
+  // Seed autoplay from prefers-reduced-motion (runs only in the browser)
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    prefersReducedMotion.current = mq.matches;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from matchMedia on mount
+    setIsAutoPlaying(!mq.matches);
+  }, []);
+
   // Auto-advance
   useEffect(() => {
     if (!isAutoPlaying) return;
@@ -120,6 +132,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
   const handleInteraction = () => {
     setIsAutoPlaying(false);
     if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    if (prefersReducedMotion.current) return;
     resumeTimer.current = setTimeout(() => setIsAutoPlaying(true), 8000);
   };
   useEffect(() => () => {
@@ -172,18 +185,22 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
         </AnimateIn>
 
         {/* Carousel */}
-        <div className="relative px-2 md:px-14">
+        <div
+          className="relative px-2 md:px-14"
+          onMouseEnter={handleInteraction}
+          onFocus={handleInteraction}
+        >
           {/* Desktop-only side arrows */}
           <button
             onClick={() => { handleInteraction(); prev(); }}
-            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
+            className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
             aria-label="Previous review"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <button
             onClick={() => { handleInteraction(); next(); }}
-            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
+            className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
             aria-label="Next review"
           >
             <ChevronRightIcon className="w-5 h-5" />
@@ -239,17 +256,20 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
           <div className="md:hidden flex items-center justify-center gap-4 mt-8">
             <button
               onClick={() => { handleInteraction(); prev(); }}
-              className="w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
+              className="w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
               aria-label="Previous review"
             >
               <ChevronLeftIcon className="w-5 h-5" />
             </button>
-            <div className="flex items-center justify-center gap-0.5">
+            {/* Dots share the remaining width so all 8 fit beside the arrows on a
+                320px screen; each button is ≥44px tall and as wide as space allows
+                (capped so they don't spread out on wide phones). */}
+            <div className="flex flex-1 items-center justify-center max-w-xs min-w-0">
               {Array.from({ length: maxIndex + 1 }).map((_, i) => (
                 <button
                   key={i}
                   onClick={() => { handleInteraction(); setCurrent(i); }}
-                  className="group flex items-center justify-center h-8 w-5 cursor-pointer"
+                  className="group flex flex-1 items-center justify-center min-h-11 min-w-0 cursor-pointer"
                   aria-label={`Go to slide ${i + 1}`}
                 >
                   <span
@@ -262,7 +282,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
             </div>
             <button
               onClick={() => { handleInteraction(); next(); }}
-              className="w-10 h-10 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
+              className="w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
               aria-label="Next review"
             >
               <ChevronRightIcon className="w-5 h-5" />

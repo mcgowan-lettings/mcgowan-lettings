@@ -30,6 +30,7 @@ export default function VideoLightbox({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const muteBtnRef = useRef<HTMLButtonElement | null>(null);
   const sliderRef = useRef<HTMLInputElement | null>(null);
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const [volume, setVolume] = useState(DEFAULT_VOLUME);
   const lastNonZeroVolumeRef = useRef(DEFAULT_VOLUME);
   const volumeRef = useRef(volume);
@@ -78,6 +79,16 @@ export default function VideoLightbox({
       slider.style.setProperty("--music-vol", String(volume * 100));
     }
   }, [volume]);
+
+  // Focus management: move focus to Close on open, restore it on close
+  useEffect(() => {
+    const previouslyFocused =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    closeBtnRef.current?.focus();
+    return () => {
+      previouslyFocused?.focus();
+    };
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -207,11 +218,15 @@ export default function VideoLightbox({
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Virtual tour"
       className="video-lightbox-backdrop fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8"
       style={{ background: "rgba(24, 24, 27, 0.92)" }}
       onClick={onClose}
     >
       <button
+        ref={closeBtnRef}
         type="button"
         onClick={onClose}
         aria-label="Close"

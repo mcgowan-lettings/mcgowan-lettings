@@ -12,6 +12,13 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function str(v: unknown, max: number): string {
+  return typeof v === "string" ? v.trim().slice(0, max) : "";
+}
+
+const MAX_SHORT = 200;
+const MAX_MESSAGE = 5000;
+
 type ContactResult =
   | { success: true }
   | { success: false; error: string };
@@ -25,12 +32,19 @@ export async function submitContactForm(formData: {
   /** Honeypot — must be empty. Any value indicates a bot. */
   website?: string;
 }): Promise<ContactResult> {
-  const { name, email, phone, type, message, website } = formData;
+  const { website } = formData;
 
   // Honeypot: silently succeed so bots don't retry
   if (website && website.trim()) {
     return { success: true };
   }
+
+  // Truncate rather than reject over-long input (matches apply.ts)
+  const name = str(formData.name, MAX_SHORT);
+  const email = str(formData.email, MAX_SHORT);
+  const phone = str(formData.phone, MAX_SHORT);
+  const type = str(formData.type, MAX_SHORT);
+  const message = str(formData.message, MAX_MESSAGE);
 
   // Validate required fields
   if (!name || !name.trim()) {

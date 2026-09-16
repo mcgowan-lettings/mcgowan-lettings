@@ -12,6 +12,14 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+function str(v: unknown, max: number): string {
+  return typeof v === "string" ? v.trim().slice(0, max) : "";
+}
+
+const MAX_SHORT = 200;
+const MAX_LONG = 500;
+const MAX_MESSAGE = 5000;
+
 type ValuationResult =
   | { success: true }
   | { success: false; error: string };
@@ -27,11 +35,21 @@ export async function submitValuationForm(formData: {
   message?: string;
   website?: string;
 }): Promise<ValuationResult> {
-  const { name, email, phone, address, property_type, bedrooms, situation, message, website } = formData;
+  const { website } = formData;
 
   if (website && website.trim()) {
     return { success: true };
   }
+
+  // Truncate rather than reject over-long input (matches apply.ts)
+  const name = str(formData.name, MAX_SHORT);
+  const email = str(formData.email, MAX_SHORT);
+  const phone = str(formData.phone, MAX_SHORT);
+  const address = str(formData.address, MAX_LONG);
+  const property_type = str(formData.property_type, MAX_SHORT);
+  const bedrooms = str(formData.bedrooms, MAX_SHORT);
+  const situation = str(formData.situation, MAX_SHORT);
+  const message = str(formData.message, MAX_MESSAGE);
 
   // Validate required fields
   if (!name || !name.trim()) {

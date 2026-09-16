@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -18,6 +18,16 @@ const NAV_LINKS = [
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
+
+  // Close the open mobile menu on Escape
+  useEffect(() => {
+    if (!mobileMenuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMobileMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [mobileMenuOpen]);
 
   return (
     <header className="fixed top-0 left-0 right-0 z-50 bg-dark/95 backdrop-blur-md border-b border-white/5">
@@ -59,8 +69,10 @@ export default function Header() {
         {/* Mobile menu toggle */}
         <button
           onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-          className="md:hidden text-white p-2"
+          className="md:hidden text-white min-h-11 min-w-11 inline-flex items-center justify-center"
           aria-label="Toggle menu"
+          aria-expanded={mobileMenuOpen}
+          aria-controls="mobile-nav"
         >
           {mobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
         </button>
@@ -68,7 +80,7 @@ export default function Header() {
 
       {/* Mobile nav dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-dark border-t border-white/10 animate-slide-down">
+        <div id="mobile-nav" className="md:hidden bg-dark border-t border-white/10 animate-slide-down">
           <nav className="px-6 py-4 flex flex-col gap-1">
             {NAV_LINKS.map((link) => (
               <Link

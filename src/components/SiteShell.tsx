@@ -20,8 +20,14 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
 
   return (
     <>
+      <a
+        href="#main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-[100] focus:rounded-full focus:bg-dark focus:px-4 focus:py-2 focus:text-white focus:text-sm focus:font-medium"
+      >
+        Skip to content
+      </a>
       <Header />
-      <main className="flex-1">{children}</main>
+      <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
       <div className={isPropertyDetail ? "pb-20 lg:pb-0" : ""}>
         <Footer />
       </div>
