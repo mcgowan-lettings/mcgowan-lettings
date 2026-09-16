@@ -26,22 +26,47 @@ export async function checkIsAdmin(accessToken: string): Promise<boolean> {
   }
 }
 
-export async function revalidateBlog(slug?: string) {
-  revalidatePath("/blog");
-  if (slug) {
-    revalidatePath(`/blog/${slug}`);
-  }
-}
-
-export async function revalidateProperty(id?: string) {
+/* ── Revalidation helpers (internal — not exported, so not callable as actions) ──
+ *
+ * Property changes affect the list, home (featured), the ISR detail page, the
+ * area pages (they show per-area listing counts, 3600s ISR) and the sitemap.
+ * Blog changes affect the list, the post page(s) and the sitemap. Both the
+ * old and new slug must be busted on a rename, otherwise the old URL keeps
+ * serving cached HTML for up to 60s. */
+function revalidatePropertyPaths(id?: string) {
   revalidatePath("/properties");
   revalidatePath("/");
-  if (id) {
-    revalidatePath(`/properties/${id}`);
+  revalidatePath("/areas/[slug]", "page");
+  revalidatePath("/sitemap.xml");
+  if (id) revalidatePath(`/properties/${id}`);
+}
+
+function revalidateBlogPaths(...slugs: (string | null | undefined)[]) {
+  revalidatePath("/blog");
+  revalidatePath("/sitemap.xml");
+  for (const slug of new Set(slugs)) {
+    if (slug) revalidatePath(`/blog/${slug}`);
   }
 }
 
-export async function deleteProperty(id: string, imageUrls: string[], accessToken: string) {
+/**
+ * Remove storage objects by public URL. Used by the editors to delete photos,
+ * videos, EPCs and covers that were *removed from a saved row* — only after the
+ * row update has succeeded, so cancelling an edit never leaves the saved
+ * listing pointing at a deleted file.
+ */
+export async function removeStorageFiles(urls: string[], accessToken: string) {
+  await requireAdmin(accessToken);
+  const paths = urls.map(extractStoragePath).filter((p): p is string => p !== null);
+  if (!paths.length) return { success: true, error: "" };
+  const { error } = await supabaseAdmin.storage.from("property-images").remove(paths);
+  if (error) return { success: false, error: error.message };
+  return { success: true, error: "" };
+}
+
+/** `fileUrls` should include images, videos and the EPC document so nothing
+ * lingers in storage until cleanupOrphans reaps it. */
+export async function deleteProperty(id: string, fileUrls: string[], accessToken: string) {
   await requireAdmin(accessToken);
   const { error } = await supabaseAdmin
     .from("properties")
@@ -54,14 +79,12 @@ export async function deleteProperty(id: string, imageUrls: string[], accessToke
 
   // Storage cleanup after the row is gone — if removal fails the worst case is
   // an orphaned file (cleanupOrphans reaps it), not a live listing with dead images.
-  const paths = imageUrls.map(extractStoragePath).filter((p): p is string => p !== null);
+  const paths = fileUrls.map(extractStoragePath).filter((p): p is string => p !== null);
   if (paths.length) {
     await supabaseAdmin.storage.from("property-images").remove(paths);
   }
-  revalidatePath("/properties");
-  revalidatePath("/");
   // Detail page is ISR — drop the cached HTML so the deleted URL 404s now.
-  revalidatePath(`/properties/${id}`);
+  revalidatePropertyPaths(id);
   return { success: true, error: "" };
 }
 
@@ -81,10 +104,9 @@ export async function deleteBlogPost(id: string, coverImage: string | null, acce
   if (coverPath) {
     await supabaseAdmin.storage.from("property-images").remove([coverPath]);
   }
-  revalidatePath("/blog");
-  // Blog post page is now ISR — explicitly invalidate the deleted slug so
-  // the cached HTML doesn't keep serving a 404'd post for up to 60s.
-  if (slug) revalidatePath(`/blog/${slug}`);
+  // Blog post page is ISR — explicitly invalidate the deleted slug so the
+  // cached HTML doesn't keep serving a 404'd post for up to 60s.
+  revalidateBlogPaths(slug);
   return { success: true, error: "" };
 }
 
@@ -118,8 +140,7 @@ export async function createProperty(data: PropertyData, accessToken: string) {
   if (data.description) data.description = sanitizeHtml(data.description);
   const { error } = await supabaseAdmin.from("properties").insert(data);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/properties");
-  revalidatePath("/");
+  revalidatePropertyPaths();
   return { success: true, error: "" };
 }
 
@@ -128,9 +149,7 @@ export async function updateProperty(id: string, data: Partial<PropertyData> & {
   if (data.description) data.description = sanitizeHtml(data.description);
   const { error } = await supabaseAdmin.from("properties").update(data).eq("id", id);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/properties");
-  revalidatePath("/");
-  revalidatePath(`/properties/${id}`);
+  revalidatePropertyPaths(id);
   return { success: true, error: "" };
 }
 
@@ -141,10 +160,8 @@ export async function togglePropertyActive(id: string, active: boolean, accessTo
     .update({ active, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/properties");
-  revalidatePath("/");
   // Detail page is ISR — deactivating should 404 immediately, not after 60s.
-  revalidatePath(`/properties/${id}`);
+  revalidatePropertyPaths(id);
   return { success: true, error: "" };
 }
 
@@ -155,8 +172,7 @@ export async function togglePropertyFeatured(id: string, featured: boolean, acce
     .update({ featured, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/properties");
-  revalidatePath("/");
+  revalidatePropertyPaths();
   return { success: true, error: "" };
 }
 
@@ -185,18 +201,23 @@ export async function createBlogPost(data: BlogPostData, accessToken: string) {
   if (data.content) data.content = sanitizeHtml(data.content);
   const { error } = await supabaseAdmin.from("blog_posts").insert(data);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/blog");
-  revalidatePath(`/blog/${data.slug}`);
+  revalidateBlogPaths(data.slug);
   return { success: true, error: "" };
 }
 
-export async function updateBlogPost(id: string, data: Partial<BlogPostData> & { updated_at: string }, accessToken: string) {
+/** Pass `previousSlug` when the slug may have changed so the old URL is
+ * invalidated too (it should 404 immediately, not after the ISR window). */
+export async function updateBlogPost(
+  id: string,
+  data: Partial<BlogPostData> & { updated_at: string },
+  accessToken: string,
+  previousSlug?: string
+) {
   await requireAdmin(accessToken);
   if (data.content) data.content = sanitizeHtml(data.content);
   const { error } = await supabaseAdmin.from("blog_posts").update(data).eq("id", id);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/blog");
-  if (data.slug) revalidatePath(`/blog/${data.slug}`);
+  revalidateBlogPaths(data.slug, previousSlug);
   return { success: true, error: "" };
 }
 
@@ -213,14 +234,16 @@ export async function deleteSubmission(id: string, accessToken: string) {
   return { success: true, error: "" };
 }
 
-export async function toggleBlogPublished(id: string, published: boolean, accessToken: string) {
+/** `slug` lets the post page itself be revalidated: unpublishing should 404
+ * at once and publishing should stop serving a cached 404. */
+export async function toggleBlogPublished(id: string, published: boolean, accessToken: string, slug?: string) {
   await requireAdmin(accessToken);
   const { error } = await supabaseAdmin
     .from("blog_posts")
     .update({ published, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { success: false, error: error.message };
-  revalidatePath("/blog");
+  revalidateBlogPaths(slug);
   return { success: true, error: "" };
 }
 

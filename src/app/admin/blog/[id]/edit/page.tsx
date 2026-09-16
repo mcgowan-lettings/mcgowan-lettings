@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
-import { deleteBlogPost as deleteBlogPostAction, updateBlogPost } from "@/app/actions/admin";
+import { deleteBlogPost as deleteBlogPostAction, updateBlogPost, removeStorageFiles } from "@/app/actions/admin";
 import UnsplashPicker from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 
@@ -33,6 +33,12 @@ export default function EditBlogPostPage() {
   const [success, setSuccess] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [showUnsplash, setShowUnsplash] = useState(false);
+  // Cover URL and slug as loaded from the saved row. The saved cover is only
+  // deleted from storage after a successful save (so Cancel never leaves the
+  // post pointing at a missing file); the slug is passed to updateBlogPost so
+  // the old URL is revalidated when it changes.
+  const savedCover = useRef("");
+  const savedSlug = useRef("");
 
   const [form, setForm] = useState({
     title: "",
@@ -66,6 +72,8 @@ export default function EditBlogPostPage() {
         published: data.published,
       });
       setCoverImage(data.cover_image ?? "");
+      savedCover.current = data.cover_image ?? "";
+      savedSlug.current = data.slug;
       setLoading(false);
     })();
     return () => {
@@ -81,6 +89,15 @@ export default function EditBlogPostPage() {
       }
       return updated;
     });
+  };
+
+  /** Delete a cover from storage only if it was uploaded this session (unsaved). */
+  const removeUnsavedCover = async (url: string) => {
+    if (!url || url === savedCover.current) return;
+    const path = url.split("/property-images/")[1];
+    if (path) {
+      await supabase.storage.from("property-images").remove([path]);
+    }
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -116,13 +133,7 @@ export default function EditBlogPostPage() {
       data: { publicUrl },
     } = supabase.storage.from("property-images").getPublicUrl(filePath);
 
-    // Remove old cover image from storage
-    if (coverImage) {
-      const oldPath = coverImage.split("/property-images/")[1];
-      if (oldPath) {
-        await supabase.storage.from("property-images").remove([oldPath]);
-      }
-    }
+    await removeUnsavedCover(coverImage);
 
     setCoverImage(publicUrl);
     setUploading(false);
@@ -130,12 +141,7 @@ export default function EditBlogPostPage() {
   };
 
   const removeCover = async () => {
-    if (coverImage) {
-      const path = coverImage.split("/property-images/")[1];
-      if (path) {
-        await supabase.storage.from("property-images").remove([path]);
-      }
-    }
+    await removeUnsavedCover(coverImage);
     setCoverImage("");
   };
 
@@ -185,13 +191,21 @@ export default function EditBlogPostPage() {
       cover_image: coverImage || null,
       published: form.published,
       updated_at: new Date().toISOString(),
-    }, session.access_token);
+    }, session.access_token, savedSlug.current);
 
     if (!result.success) {
       setError(result.error);
       setSaving(false);
       return;
     }
+
+    // Row saved — now drop the old saved cover if it was replaced/removed.
+    // Failure is harmless (cleanupOrphans reaps it), so the result is ignored.
+    if (savedCover.current && savedCover.current !== coverImage) {
+      removeStorageFiles([savedCover.current], session.access_token).catch(() => {});
+    }
+    savedCover.current = coverImage;
+    savedSlug.current = form.slug;
 
     setSuccess("Post updated successfully.");
     setSaving(false);
@@ -406,12 +420,7 @@ export default function EditBlogPostPage() {
           {showUnsplash && (
             <UnsplashPicker
               onSelect={async (url) => {
-                if (coverImage) {
-                  const oldPath = coverImage.split("/property-images/")[1];
-                  if (oldPath) {
-                    await supabase.storage.from("property-images").remove([oldPath]);
-                  }
-                }
+                await removeUnsavedCover(coverImage);
                 setCoverImage(url);
                 setShowUnsplash(false);
               }}

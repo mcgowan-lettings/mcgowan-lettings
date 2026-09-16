@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { cleanupOrphans } from "@/lib/cleanup-orphans";
+import { cleanupOrphanedStorage } from "@/app/actions/storage";
 
 const BUCKET = "property-images";
 const LIMIT_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (Supabase Pro)
@@ -20,7 +20,10 @@ export function useStorageUsage(): StorageUsage {
 
   useEffect(() => {
     const calculate = async () => {
-      try { await cleanupOrphans(); } catch {}
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) await cleanupOrphanedStorage(session.access_token);
+      } catch {}
       let total = 0;
 
       // List all files in the bucket across known prefixes (non-recursive, so list subfolders explicitly)

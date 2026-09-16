@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
-import { deleteProperty as deletePropertyAction, updateProperty } from "@/app/actions/admin";
+import { deleteProperty as deletePropertyAction, updateProperty, removeStorageFiles } from "@/app/actions/admin";
 import SortableImageGrid from "../../SortableImageGrid";
 import VideoList from "../../VideoList";
 import { compressImage } from "@/lib/compress-image";
@@ -58,6 +58,7 @@ export default function EditPropertyPage() {
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingEpc, setUploadingEpc] = useState(false);
   const [videoStatus, setVideoStatus] = useState("");
   const [videoProgress, setVideoProgress] = useState(0);
   const [error, setError] = useState("");
@@ -65,6 +66,11 @@ export default function EditPropertyPage() {
   const [success, setSuccess] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
+  // File URLs referenced by the *saved* row. Removing one of these only drops
+  // it from state — the storage object is deleted after a successful save, so
+  // cancelling never leaves the saved listing pointing at a missing file.
+  // Files uploaded during this session are not in here and are deleted at once.
+  const savedFileUrls = useRef<Set<string>>(new Set());
   const storage = useStorageUsage();
 
   const [form, setForm] = useState({
@@ -119,8 +125,22 @@ export default function EditPropertyPage() {
     });
     setImageUrls(data.images ?? []);
     setVideoUrls(data.videos ?? []);
+    savedFileUrls.current = new Set<string>([
+      ...(data.images ?? []),
+      ...(data.videos ?? []),
+      ...(data.epc_document ? [data.epc_document] : []),
+    ]);
     setLoading(false);
   }, [id]);
+
+  /** Delete a file from storage only if it was uploaded this session (unsaved). */
+  const removeUnsavedFile = async (url: string) => {
+    if (savedFileUrls.current.has(url)) return;
+    const path = url.split("/property-images/")[1];
+    if (path) {
+      await supabase.storage.from("property-images").remove([path]);
+    }
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount populates form state
@@ -184,11 +204,7 @@ export default function EditPropertyPage() {
   };
 
   const removeImage = async (index: number) => {
-    const url = imageUrls[index];
-    const path = url.split("/property-images/")[1];
-    if (path) {
-      await supabase.storage.from("property-images").remove([path]);
-    }
+    await removeUnsavedFile(imageUrls[index]);
     setImageUrls((prev) => prev.filter((_, i) => i !== index));
   };
 
@@ -263,12 +279,13 @@ export default function EditPropertyPage() {
   };
 
   const removeVideo = async (index: number) => {
-    const url = videoUrls[index];
-    const path = url.split("/property-images/")[1];
-    if (path) {
-      await supabase.storage.from("property-images").remove([path]);
-    }
+    await removeUnsavedFile(videoUrls[index]);
     setVideoUrls((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeEpc = async () => {
+    if (form.epc_document) await removeUnsavedFile(form.epc_document);
+    updateField("epc_document", "");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -323,6 +340,15 @@ export default function EditPropertyPage() {
       return;
     }
 
+    // Row saved — now delete the saved files David removed. Failure is
+    // harmless (cleanupOrphans reaps them), so the result is ignored.
+    const currentUrls = new Set<string>([...imageUrls, ...videoUrls, ...(form.epc_document ? [form.epc_document] : [])]);
+    const staleUrls = [...savedFileUrls.current].filter((url) => !currentUrls.has(url));
+    if (staleUrls.length > 0) {
+      removeStorageFiles(staleUrls, session.access_token).catch(() => {});
+    }
+    savedFileUrls.current = currentUrls;
+
     setSuccess("Property updated successfully.");
     setSaving(false);
     setTimeout(() => setSuccess(""), 3000);
@@ -334,9 +360,13 @@ export default function EditPropertyPage() {
     }
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) {
+      setError("Session expired. Please sign in again.");
+      return;
+    }
     setDeleting(true);
-    const result = await deletePropertyAction(id, imageUrls, session.access_token);
+    const fileUrls = [...imageUrls, ...videoUrls, form.epc_document].filter(Boolean);
+    const result = await deletePropertyAction(id, fileUrls, session.access_token);
 
     if (!result.success) {
       setError(result.error);
@@ -636,7 +666,7 @@ export default function EditPropertyPage() {
                 </a>
                 <button
                   type="button"
-                  onClick={() => updateField("epc_document", "")}
+                  onClick={removeEpc}
                   className="text-xs text-red-500 hover:text-red-700"
                 >
                   Remove
@@ -666,21 +696,26 @@ export default function EditPropertyPage() {
                       e.target.value = "";
                       return;
                     }
-                    const fileExt = file.name.split(".").pop();
-                    const fileName = `epc-${Date.now()}.${fileExt}`;
-                    const filePath = `epc/${fileName}`;
-                    const { error: upErr } = await supabase.storage
-                      .from("property-images")
-                      .upload(filePath, file);
-                    if (upErr) {
-                      setError(`Failed to upload EPC: ${upErr.message}`);
-                      return;
+                    setUploadingEpc(true);
+                    try {
+                      const fileExt = file.name.split(".").pop();
+                      const fileName = `epc-${Date.now()}.${fileExt}`;
+                      const filePath = `epc/${fileName}`;
+                      const { error: upErr } = await supabase.storage
+                        .from("property-images")
+                        .upload(filePath, file);
+                      if (upErr) {
+                        setError(`Failed to upload EPC: ${upErr.message}`);
+                        return;
+                      }
+                      const { data: { publicUrl } } = supabase.storage
+                        .from("property-images")
+                        .getPublicUrl(filePath);
+                      updateField("epc_document", publicUrl);
+                    } finally {
+                      setUploadingEpc(false);
+                      e.target.value = "";
                     }
-                    const { data: { publicUrl } } = supabase.storage
-                      .from("property-images")
-                      .getPublicUrl(filePath);
-                    updateField("epc_document", publicUrl);
-                    e.target.value = "";
                   }}
                 />
               </label>
@@ -859,7 +894,7 @@ export default function EditPropertyPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving || uploading || uploadingVideo}
+            disabled={saving || uploading || uploadingVideo || uploadingEpc}
             className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Update Property"}

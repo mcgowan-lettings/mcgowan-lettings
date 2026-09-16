@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BUCKET = "property-images";
 const PREFIXES = ["properties", "properties/videos", "epc"];
@@ -34,6 +34,13 @@ function pathFromUrl(url: string | null | undefined): string | null {
  * Delete storage files in `property-images` that aren't referenced by any
  * row in the `properties` table.
  *
+ * Runs server-side via the `cleanupOrphanedStorage` action with the
+ * service-role client. It used to run in the browser with the anon client,
+ * which meant the `properties` read went through RLS: if the admin's JWT ever
+ * failed `is_admin()` (e.g. ADMIN_EMAILS and the SQL allowlist drifting) the
+ * query silently returned only `active = true` rows and every inactive
+ * listing's files looked like orphans. The service role sees every row.
+ *
  * Safety model
  * ------------
  * Earlier this function destructured `data` and ignored the error from
@@ -51,7 +58,7 @@ function pathFromUrl(url: string | null | undefined): string | null {
  *      than that, refuse and throw — something has gone wrong upstream and
  *      the operator needs to investigate manually.
  */
-export async function cleanupOrphans(): Promise<number> {
+export async function cleanupOrphans(supabase: SupabaseClient): Promise<number> {
   const { data: rows, error: rowsError } = await supabase
     .from("properties")
     .select("images, videos, epc_document");

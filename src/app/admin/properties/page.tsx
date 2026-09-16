@@ -18,6 +18,8 @@ interface Property {
   active: boolean;
   featured: boolean;
   images: string[];
+  videos: string[] | null;
+  epc_document: string | null;
   created_at: string;
 }
 
@@ -77,7 +79,10 @@ export default function AdminPropertiesPage() {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
     setDeletingId(property.id);
-    const result = await deletePropertyAction(property.id, property.images || [], session.access_token);
+    const fileUrls = [...(property.images || []), ...(property.videos || []), property.epc_document].filter(
+      (u): u is string => !!u
+    );
+    const result = await deletePropertyAction(property.id, fileUrls, session.access_token);
 
     if (!result.success) {
       setMessage({ text: "Failed to delete property.", type: "error" });

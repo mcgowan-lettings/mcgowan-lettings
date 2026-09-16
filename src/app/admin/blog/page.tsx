@@ -47,12 +47,12 @@ export default function AdminBlogPage() {
     };
   }, []);
 
-  const togglePublished = async (id: string, currentPublished: boolean) => {
+  const togglePublished = async (id: string, currentPublished: boolean, slug: string) => {
     setToggling(id);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setToggling(null); return; }
 
-    const result = await toggleBlogPublished(id, !currentPublished, session.access_token);
+    const result = await toggleBlogPublished(id, !currentPublished, session.access_token, slug);
     if (!result.success) {
       setMessage({ text: "Failed to update post.", type: "error" });
     } else {
@@ -201,7 +201,7 @@ export default function AdminBlogPage() {
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() =>
-                          togglePublished(post.id, post.published)
+                          togglePublished(post.id, post.published, post.slug)
                         }
                         disabled={toggling === post.id}
                         className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -282,7 +282,7 @@ export default function AdminBlogPage() {
                     <div className="mt-2 flex items-center gap-4">
                       <button
                         onClick={() =>
-                          togglePublished(post.id, post.published)
+                          togglePublished(post.id, post.published, post.slug)
                         }
                         disabled={toggling === post.id}
                         className="flex items-center gap-1.5 text-xs"

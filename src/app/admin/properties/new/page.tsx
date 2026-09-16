@@ -53,6 +53,7 @@ export default function NewPropertyPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [uploadingEpc, setUploadingEpc] = useState(false);
   const [videoStatus, setVideoStatus] = useState("");
   const [videoProgress, setVideoProgress] = useState(0);
   const [error, setError] = useState("");
@@ -584,21 +585,26 @@ export default function NewPropertyPage() {
                       e.target.value = "";
                       return;
                     }
-                    const fileExt = file.name.split(".").pop();
-                    const fileName = `epc-${Date.now()}.${fileExt}`;
-                    const filePath = `epc/${fileName}`;
-                    const { error: upErr } = await supabase.storage
-                      .from("property-images")
-                      .upload(filePath, file);
-                    if (upErr) {
-                      setError(`Failed to upload EPC: ${upErr.message}`);
-                      return;
+                    setUploadingEpc(true);
+                    try {
+                      const fileExt = file.name.split(".").pop();
+                      const fileName = `epc-${Date.now()}.${fileExt}`;
+                      const filePath = `epc/${fileName}`;
+                      const { error: upErr } = await supabase.storage
+                        .from("property-images")
+                        .upload(filePath, file);
+                      if (upErr) {
+                        setError(`Failed to upload EPC: ${upErr.message}`);
+                        return;
+                      }
+                      const { data: { publicUrl } } = supabase.storage
+                        .from("property-images")
+                        .getPublicUrl(filePath);
+                      updateField("epc_document", publicUrl);
+                    } finally {
+                      setUploadingEpc(false);
+                      e.target.value = "";
                     }
-                    const { data: { publicUrl } } = supabase.storage
-                      .from("property-images")
-                      .getPublicUrl(filePath);
-                    updateField("epc_document", publicUrl);
-                    e.target.value = "";
                   }}
                 />
               </label>
@@ -777,7 +783,7 @@ export default function NewPropertyPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving || uploading || uploadingVideo}
+            disabled={saving || uploading || uploadingVideo || uploadingEpc}
             className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Create Property"}
