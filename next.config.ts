@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Next 16.3 writes an AGENTS.md into the repo on every dev start; this
+  // project documents itself in CLAUDE.md, so keep the tree clean.
+  agentRules: false,
   images: {
     // Custom loader is a pure pass-through (no server-side resizing) — it
     // serves every image's already-compressed original (≤1600px/q0.75) and
