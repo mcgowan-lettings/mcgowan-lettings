@@ -9,9 +9,12 @@ export const revalidate = 60;
 export default async function BlogPage() {
   const { data: posts } = await supabaseAdmin
     .from("blog_posts")
-    .select("*")
+    // Only the card fields — pulling `content` for every post makes the list
+    // query grow with the total size of the blog for no benefit.
+    .select("id, slug, title, excerpt, cover_image, created_at")
     .eq("published", true)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(200);
 
   return (
     <>

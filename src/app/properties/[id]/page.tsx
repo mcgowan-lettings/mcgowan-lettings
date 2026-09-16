@@ -42,8 +42,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 
   const title = `${property.title} | McGowan Lettings`;
+  // `description` is stored as sanitized HTML; strip tags so <p> etc. don't
+  // land in the meta description (mirrors blog/[slug]).
+  const plainDescription = (property.description ?? "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 160);
   const description =
-    property.description?.slice(0, 160) ||
+    plainDescription ||
     `${property.beds} bed ${property.type?.toLowerCase() || "property"} to rent in ${property.location} — £${property.price?.toLocaleString()}/pcm. View details and book a viewing with McGowan Lettings.`;
   const images: string[] = property.images ?? [];
   const ogImage = images[0] || "/hero.jpg";
