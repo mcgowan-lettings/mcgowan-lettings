@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -23,12 +23,16 @@ interface Property {
   created_at: string;
 }
 
+// Lowercase and drop punctuation so "43 Harvey St, Bury" matches "43 harvey st bury".
+const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
 export default function AdminPropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [togglingFeatured, setTogglingFeatured] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const [message, setMessage] = useState<{
     text: string;
     type: "success" | "error";
@@ -54,6 +58,16 @@ export default function AdminPropertiesPage() {
       cancelled = true;
     };
   }, []);
+
+  // Every word typed must appear somewhere in the address/area/type, in any order.
+  const filteredProperties = useMemo(() => {
+    const terms = normalise(query).split(" ").filter(Boolean);
+    if (terms.length === 0) return properties;
+    return properties.filter((p) => {
+      const haystack = normalise(`${p.title} ${p.location} ${p.area} ${p.type}`);
+      return terms.every((t) => haystack.includes(t));
+    });
+  }, [properties, query]);
 
   const toggleActive = async (id: string, currentActive: boolean) => {
     setToggling(id);
@@ -163,6 +177,51 @@ export default function AdminPropertiesPage() {
         </div>
       )}
 
+      {/* Search */}
+      {properties.length > 0 && (
+        <div className="relative">
+          <label htmlFor="property-search" className="sr-only">
+            Search properties
+          </label>
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-text-muted"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          <input
+            id="property-search"
+            type="text"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setQuery("");
+            }}
+            placeholder="Search by address, area or type…"
+            className="block h-12 w-full rounded-xl border border-gray-200 bg-white pl-11 pr-12 text-base text-dark shadow-sm placeholder:text-text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/30 sm:text-sm"
+          />
+          {query && (
+            <button
+              type="button"
+              onClick={() => setQuery("")}
+              aria-label="Clear search"
+              className="absolute right-1 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-lg text-text-muted transition-colors hover:text-dark"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Properties list */}
       {properties.length === 0 ? (
         <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
@@ -173,6 +232,17 @@ export default function AdminPropertiesPage() {
           >
             Add your first property
           </Link>
+        </div>
+      ) : filteredProperties.length === 0 ? (
+        <div className="rounded-xl bg-white border border-gray-200 p-12 text-center">
+          <p className="text-text-muted">No properties match &ldquo;{query.trim()}&rdquo;.</p>
+          <button
+            type="button"
+            onClick={() => setQuery("")}
+            className="mt-3 inline-block text-sm font-medium text-brand-deep hover:underline"
+          >
+            Clear search
+          </button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl bg-white border border-gray-200 shadow-sm">
@@ -191,7 +261,7 @@ export default function AdminPropertiesPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {properties.map((property) => (
+                {filteredProperties.map((property) => (
                   <tr
                     key={property.id}
                     className={`transition-colors hover:bg-gray-50 ${
@@ -315,7 +385,7 @@ export default function AdminPropertiesPage() {
 
           {/* Mobile cards */}
           <div className="lg:hidden divide-y divide-gray-100">
-            {properties.map((property) => (
+            {filteredProperties.map((property) => (
               <div
                 key={property.id}
                 className={`p-4 ${!property.active ? "opacity-60" : ""}`}
