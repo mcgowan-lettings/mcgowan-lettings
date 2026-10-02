@@ -4,54 +4,70 @@ export const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
 export type TranscodeStage = "loading" | "transcoding";
 
+// Any single step that goes this long without moving forward is treated as a
+// hang. WebCodecs/hardware-decoder setup can stall forever on some machines
+// without ever throwing, which left the UI spinning on "Preparing video...".
+const SETUP_TIMEOUT_MS = 60_000;
+const STALL_TIMEOUT_MS = 60_000;
+
+const SEND_TO_VIKTOR = "Please email the clip to Viktor and he'll get it added to the listing for you.";
+
+function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(message)), ms);
+    }),
+  ]).finally(() => clearTimeout(timer));
+}
+
 async function transcodeWithWebCodecs(
   file: File,
   onProgress?: (stage: TranscodeStage, ratio: number) => void
 ): Promise<File> {
-  const {
-    Input, Output, Conversion,
-    BlobSource, BufferTarget,
-    Mp4OutputFormat,
-    ALL_FORMATS,
-    canDecodeVideo,
-  } = await import("mediabunny");
-
   onProgress?.("loading", 0);
 
-  const input = new Input({
-    source: new BlobSource(file),
-    formats: ALL_FORMATS,
-  });
+  // Everything before the first progress tick — loading the library, reading
+  // the container, probing the decoder, building the pipeline — sits under one
+  // deadline, so no step in the "Preparing video..." phase can hang unbounded.
+  const setup = async () => {
+    const {
+      Input, Output, Conversion,
+      BlobSource, BufferTarget,
+      Mp4OutputFormat,
+      ALL_FORMATS,
+      canDecodeVideo,
+    } = await import("mediabunny");
 
-  const target = new BufferTarget();
-  const output = new Output({
-    format: new Mp4OutputFormat(),
-    target,
-  });
+    const input = new Input({
+      source: new BlobSource(file),
+      formats: ALL_FORMATS,
+    });
 
-  const videoTrack = await input.getPrimaryVideoTrack();
-  if (!videoTrack) {
-    throw new Error("No video track found in this file. Please upload a standard video file (MP4).");
-  }
+    const target = new BufferTarget();
+    const output = new Output({
+      format: new Mp4OutputFormat(),
+      target,
+    });
 
-  // Fail fast on source codecs this browser can't decode (most commonly iPhone
-  // HEVC / H.265 recordings). Without this check Conversion.init() can hang
-  // indefinitely, leaving the UI stuck on "Preparing video..." with no error.
-  const srcCodec = videoTrack.codec;
-  if (!srcCodec || !(await canDecodeVideo(srcCodec))) {
-    throw new Error(
-      "This clip is in a video format that can't be converted here. Please email the clip to Viktor and he'll get it added to the listing for you.",
-    );
-  }
+    const videoTrack = await input.getPrimaryVideoTrack();
+    if (!videoTrack) {
+      throw new Error("No video track found in this file. Please upload a standard video file (MP4).");
+    }
 
-  const srcW = videoTrack.displayWidth ?? 1920;
-  const srcH = videoTrack.displayHeight ?? 1080;
-  const isLandscape = srcW >= srcH;
+    // Fail fast on source codecs this browser can't decode (most commonly
+    // iPhone HEVC / H.265 recordings).
+    const srcCodec = videoTrack.codec;
+    if (!srcCodec || !(await canDecodeVideo(srcCodec))) {
+      throw new Error(`This clip is in a video format that can't be converted here. ${SEND_TO_VIKTOR}`);
+    }
 
-  // Hard safety timeout so an unexpected stall during setup can never leave the
-  // UI hanging on "Preparing video..." forever.
-  const conversion = await Promise.race([
-    Conversion.init({
+    const srcW = videoTrack.displayWidth ?? 1920;
+    const srcH = videoTrack.displayHeight ?? 1080;
+    const isLandscape = srcW >= srcH;
+
+    const conversion = await Conversion.init({
       input,
       output,
       video: {
@@ -60,22 +76,40 @@ async function transcodeWithWebCodecs(
         ...(isLandscape ? { width: Math.min(srcW, 1920) } : { height: Math.min(srcH, 1920) }),
       },
       audio: { discard: true },
-    }),
-    new Promise<never>((_, reject) =>
-      setTimeout(
-        () => reject(new Error("Preparing the video timed out. Please try again — if it keeps happening, email the clip to Viktor and he'll sort it.")),
-        60_000,
-      ),
-    ),
-  ]);
+    });
+
+    return { conversion, target };
+  };
+
+  const { conversion, target } = await withTimeout(
+    setup(),
+    SETUP_TIMEOUT_MS,
+    `Preparing the video timed out. ${SEND_TO_VIKTOR}`,
+  );
 
   onProgress?.("transcoding", 0);
 
+  let lastProgressAt = Date.now();
   conversion.onProgress = (p) => {
+    lastProgressAt = Date.now();
     onProgress?.("transcoding", Math.min(p, 1));
   };
 
-  await conversion.execute();
+  let watchdog: ReturnType<typeof setInterval> | undefined;
+  const stalled = new Promise<never>((_, reject) => {
+    watchdog = setInterval(() => {
+      if (Date.now() - lastProgressAt > STALL_TIMEOUT_MS) {
+        void conversion.cancel().catch(() => {});
+        reject(new Error(`Converting the video stalled. ${SEND_TO_VIKTOR}`));
+      }
+    }, 5_000);
+  });
+
+  try {
+    await Promise.race([conversion.execute(), stalled]);
+  } finally {
+    clearInterval(watchdog);
+  }
 
   const buffer = target.buffer!;
   const newName = file.name.replace(/\.[^.]+$/, "") + ".mp4";
@@ -156,7 +190,7 @@ async function transcodeWithMediaRecorder(
   onProgress?.("transcoding", 0);
 
   try {
-    await video.play();
+    await withTimeout(video.play(), 30_000, "Video playback did not start.");
   } catch {
     recorder.stop();
     throw new Error("Browser blocked video playback during conversion.");
@@ -164,12 +198,22 @@ async function transcodeWithMediaRecorder(
 
   const duration = video.duration;
 
-  await new Promise<void>((resolve) => {
+  let lastTime = -1;
+  let lastAdvanceAt = Date.now();
+  await new Promise<void>((resolve, reject) => {
     video.onended = () => {
       recorder.stop();
       resolve();
     };
     const drawFrame = () => {
+      if (video.currentTime !== lastTime) {
+        lastTime = video.currentTime;
+        lastAdvanceAt = Date.now();
+      } else if (Date.now() - lastAdvanceAt > STALL_TIMEOUT_MS) {
+        recorder.stop();
+        reject(new Error(`Converting the video stalled. ${SEND_TO_VIKTOR}`));
+        return;
+      }
       if (video.ended || video.paused) {
         recorder.stop();
         resolve();
