@@ -123,6 +123,7 @@ export type PropertyData = {
   type: string;
   active: boolean;
   featured: boolean;
+  is_new: boolean;
   images: string[];
   videos: string[];
   status: string;
@@ -173,6 +174,18 @@ export async function togglePropertyFeatured(id: string, featured: boolean, acce
     .eq("id", id);
   if (error) return { success: false, error: error.message };
   revalidatePropertyPaths();
+  return { success: true, error: "" };
+}
+
+export async function togglePropertyNew(id: string, isNew: boolean, accessToken: string) {
+  await requireAdmin(accessToken);
+  const { error } = await supabaseAdmin
+    .from("properties")
+    .update({ is_new: isNew, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) return { success: false, error: error.message };
+  // The "New Property" badge shows on the ISR detail page too.
+  revalidatePropertyPaths(id);
   return { success: true, error: "" };
 }
 

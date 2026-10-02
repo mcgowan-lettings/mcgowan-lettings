@@ -8,7 +8,7 @@ export const revalidate = 60;
 async function getProperties() {
   const { data } = await supabaseAdmin
     .from("properties")
-    .select("id, title, price, location, area, beds, baths, type, images, status")
+    .select("id, title, price, location, area, beds, baths, type, images, status, is_new")
     .eq("active", true)
     .order("price", { ascending: false });
 

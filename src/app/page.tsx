@@ -7,7 +7,7 @@ export const revalidate = 60;
 async function getFeaturedProperties() {
   const { data } = await supabaseAdmin
     .from("properties")
-    .select("id, title, price, location, beds, baths, type, images, status")
+    .select("id, title, price, location, beds, baths, type, images, status, is_new")
     .eq("active", true)
     .eq("featured", true)
     .order("price", { ascending: false })

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import { deleteProperty as deletePropertyAction, togglePropertyActive, togglePropertyFeatured } from "@/app/actions/admin";
+import { deleteProperty as deletePropertyAction, togglePropertyActive, togglePropertyFeatured, togglePropertyNew } from "@/app/actions/admin";
 
 interface Property {
   id: string;
@@ -17,6 +17,7 @@ interface Property {
   type: string;
   active: boolean;
   featured: boolean;
+  is_new: boolean;
   images: string[];
   videos: string[] | null;
   epc_document: string | null;
@@ -31,6 +32,7 @@ export default function AdminPropertiesPage() {
   const [loading, setLoading] = useState(true);
   const [toggling, setToggling] = useState<string | null>(null);
   const [togglingFeatured, setTogglingFeatured] = useState<string | null>(null);
+  const [togglingNew, setTogglingNew] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState<{
@@ -125,6 +127,26 @@ export default function AdminPropertiesPage() {
       );
     }
     setTogglingFeatured(null);
+    setTimeout(() => setMessage(null), 3000);
+  };
+
+  const toggleNew = async (id: string, currentNew: boolean) => {
+    if (togglingNew === id) return;
+    setTogglingNew(id);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setTogglingNew(null); return; }
+
+    const result = await togglePropertyNew(id, !currentNew, session.access_token);
+    if (!result.success) {
+      setMessage({ text: "Failed to update the New Property badge.", type: "error" });
+    } else {
+      setProperties((prev) =>
+        prev.map((p) =>
+          p.id === id ? { ...p, is_new: !currentNew } : p
+        )
+      );
+    }
+    setTogglingNew(null);
     setTimeout(() => setMessage(null), 3000);
   };
 
@@ -257,6 +279,7 @@ export default function AdminPropertiesPage() {
                   <th className="px-4 py-3 font-medium text-text-muted">Beds</th>
                   <th className="px-4 py-3 font-medium text-text-muted text-center">Active</th>
                   <th className="px-4 py-3 font-medium text-text-muted text-center">Featured</th>
+                  <th className="px-4 py-3 font-medium text-text-muted text-center">New</th>
                   <th className="px-4 py-3 font-medium text-text-muted">Actions</th>
                 </tr>
               </thead>
@@ -355,6 +378,24 @@ export default function AdminPropertiesPage() {
                             d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"
                           />
                         </svg>
+                      </button>
+                    </td>
+                    <td className="px-4 py-3 text-center">
+                      <button
+                        onClick={() => toggleNew(property.id, property.is_new)}
+                        disabled={togglingNew === property.id}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                          property.is_new
+                            ? "bg-brand text-dark"
+                            : "bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-500"
+                        }`}
+                        title={
+                          property.is_new
+                            ? "Remove the New Property badge"
+                            : "Show the New Property badge"
+                        }
+                      >
+                        New
                       </button>
                     </td>
                     <td className="px-4 py-3">
@@ -467,6 +508,18 @@ export default function AdminPropertiesPage() {
                           />
                         </svg>
                         Featured
+                      </button>
+
+                      <button
+                        onClick={() => toggleNew(property.id, property.is_new)}
+                        disabled={togglingNew === property.id}
+                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed ${
+                          property.is_new
+                            ? "bg-brand text-dark"
+                            : "bg-gray-100 text-gray-400"
+                        }`}
+                      >
+                        New
                       </button>
 
                       <Link

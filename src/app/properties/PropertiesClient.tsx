@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
 import { StaggerGrid } from "@/components/StaggerGrid";
+import PropertyCardBadge from "@/components/PropertyCardBadge";
 import {
   BedIcon,
   BathIcon,
@@ -34,6 +35,7 @@ type Property = {
   baths: number;
   type: string;
   status: string | null;
+  is_new: boolean | null;
 };
 
 /* ───────────────────────── HELPERS ───────────────────────── */
@@ -257,11 +259,7 @@ function PropertiesContent({ initialProperties }: { initialProperties: Property[
                       <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-dark text-xs font-medium px-2.5 py-1 rounded-sm">
                         {property.type}
                       </div>
-                      {property.status === "Let Agreed" && (
-                        <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow-sm">
-                          Let Agreed
-                        </div>
-                      )}
+                      <PropertyCardBadge status={property.status} isNew={property.is_new} />
                     </div>
                     <div className="p-5">
                       <h3 className="font-semibold text-dark mb-1 group-hover:text-brand-dark transition-colors">

@@ -84,6 +84,7 @@ export default function EditPropertyPage() {
     type: "Terraced",
     active: true,
     featured: false,
+    is_new: false,
     status: "To Let",
     furnished: "Unfurnished",
     available_from: "",
@@ -116,6 +117,7 @@ export default function EditPropertyPage() {
       type: data.type,
       active: data.active,
       featured: data.featured,
+      is_new: data.is_new ?? false,
       status: data.status ?? "To Let",
       furnished: data.furnished ?? "Unfurnished",
       available_from: data.available_from ?? "",
@@ -323,6 +325,7 @@ export default function EditPropertyPage() {
       type: form.type,
       active: form.active,
       featured: form.featured,
+      is_new: form.is_new,
       images: imageUrls,
       videos: videoUrls,
       status: form.status,
@@ -741,6 +744,16 @@ export default function EditPropertyPage() {
                 className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
               />
               <span className="text-sm text-dark">Featured on homepage</span>
+            </label>
+
+            <label className="flex items-center gap-2.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_new}
+                onChange={(e) => updateField("is_new", e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
+              />
+              <span className="text-sm text-dark">Show &ldquo;New Property&rdquo; badge</span>
             </label>
           </div>
         </div>

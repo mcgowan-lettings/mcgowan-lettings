@@ -13,6 +13,7 @@ export const revalidate = 60;
 
 import PropertyGallery from "./PropertyGallery";
 import ExpandableDescription from "./ExpandableDescription";
+import PropertyCardBadge from "@/components/PropertyCardBadge";
 import { isHtml } from "@/lib/rich-text";
 import { sanitizeHtml } from "@/lib/sanitize-html";
 import {
@@ -92,7 +93,7 @@ export default async function PropertyDetailPage({ params }: Props) {
   const similarBase = () =>
     supabaseAdmin
       .from("properties")
-      .select("id, title, price, location, beds, baths, type, images, status")
+      .select("id, title, price, location, beds, baths, type, images, status, is_new")
       .eq("active", true)
       .neq("id", id)
       .limit(3);
@@ -136,6 +137,7 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   const status = property.status || "To Let";
   const isLetAgreed = status === "Let Agreed";
+  const showNew = !isLetAgreed && property.is_new === true;
 
   // Extra details — only fields that aren't already in the price bar
   const extraDetails: { label: string; value: string }[] = [];
@@ -218,15 +220,22 @@ export default async function PropertyDetailPage({ params }: Props) {
           {/* Price bar */}
           <div className="py-8 border-b border-black/5">
             <div>
-              <span
-                className={`inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold uppercase tracking-wide mb-3 ${
-                  isLetAgreed
-                    ? "bg-red-100 text-red-700"
-                    : "bg-brand/15 text-brand-dark"
-                }`}
-              >
-                {status}
-              </span>
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                <span
+                  className={`inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold uppercase tracking-wide ${
+                    isLetAgreed
+                      ? "bg-red-100 text-red-700"
+                      : "bg-brand/15 text-brand-dark"
+                  }`}
+                >
+                  {status}
+                </span>
+                {showNew && (
+                  <span className="inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold bg-brand text-dark">
+                    New Property
+                  </span>
+                )}
+              </div>
               <h1 className="font-heading text-4xl md:text-5xl font-semibold text-dark mb-2">
                 £{property.price?.toLocaleString()}
                 <span className="text-xl text-text-muted font-body font-normal ml-1">pcm</span>
@@ -479,11 +488,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                         <span className="text-lg font-semibold">£{p.price.toLocaleString()}</span>
                         <span className="text-white/50 text-xs ml-1">pcm</span>
                       </div>
-                      {p.status && p.status !== "To Let" && (
-                        <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-semibold px-2.5 py-1 rounded-sm">
-                          {p.status}
-                        </div>
-                      )}
+                      <PropertyCardBadge status={p.status} isNew={p.is_new} />
                     </div>
                     <div className="p-5">
                       <h3 className="font-semibold text-dark mb-1 group-hover:text-brand-dark transition-colors">
