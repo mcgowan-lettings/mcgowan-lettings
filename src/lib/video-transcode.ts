@@ -22,7 +22,38 @@ function withTimeout<T>(promise: Promise<T>, ms: number, message: string): Promi
   ]).finally(() => clearTimeout(timer));
 }
 
+// Safari 27.0.1's H.264 encoder silently produces zero output for the High and
+// Main profiles in quality mode — encode() queues frames forever and flush()
+// never resolves, so every conversion froze at 0%. Baseline profile still
+// works (verified: all frames kept, correct orientation) and plays everywhere,
+// so mediabunny's chosen avc1.PPCCLL string is rewritten to Baseline at the
+// same level for the duration of a conversion. Mediabunny's Conversion API
+// doesn't expose the codec string, hence the scoped prototype patch.
+function forceAvcBaseline(): () => void {
+  if (typeof VideoEncoder === "undefined") return () => {};
+  const original = VideoEncoder.prototype.configure;
+  VideoEncoder.prototype.configure = function (config: VideoEncoderConfig) {
+    const avc = /^avc1\.[0-9a-f]{4}([0-9a-f]{2})$/i.exec(config.codec);
+    return original.call(this, avc ? { ...config, codec: `avc1.4200${avc[1]}` } : config);
+  };
+  return () => {
+    VideoEncoder.prototype.configure = original;
+  };
+}
+
 async function transcodeWithWebCodecs(
+  file: File,
+  onProgress?: (stage: TranscodeStage, ratio: number) => void
+): Promise<File> {
+  const restoreEncoder = forceAvcBaseline();
+  try {
+    return await runWebCodecsConversion(file, onProgress);
+  } finally {
+    restoreEncoder();
+  }
+}
+
+async function runWebCodecsConversion(
   file: File,
   onProgress?: (stage: TranscodeStage, ratio: number) => void
 ): Promise<File> {
@@ -230,6 +261,13 @@ async function transcodeWithMediaRecorder(
 
   const blob = await done;
   URL.revokeObjectURL(video.src);
+
+  // A broken encoder can "finish" with a near-empty file (Safari 27.0.1 gave
+  // 13 KB for a 2-minute clip). Real output is hundreds of KB per second, so
+  // anything under ~20 KB/s is a failed recording, not a video worth uploading.
+  if (blob.size < Math.max(50_000, (isFinite(duration) ? duration : 0) * 20_000)) {
+    throw new Error(`Converting the video failed. ${SEND_TO_VIKTOR}`);
+  }
 
   const outExt = mimeType.startsWith("video/mp4") ? ".mp4" : ".webm";
   const outType = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
