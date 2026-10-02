@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://mcgowanlettings.co.uk/sitemap.xml

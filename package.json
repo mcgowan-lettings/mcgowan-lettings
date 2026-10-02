@@ -19,7 +19,7 @@
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
     "mediabunny": "^1.61.0",
-    "next": "^16.3.5",
+    "next": "^16.3.8",
     "pdf-lib": "^1.17.1",
     "plyr": "^3.8.4",
     "react": "19.2.7",
@@ -34,7 +34,7 @@
     "@types/react-dom": "^19",
     "@types/sanitize-html": "^2.16.1",
     "eslint": "^9",
-    "eslint-config-next": "^16.3.5",
+    "eslint-config-next": "^16.3.8",
     "tailwindcss": "^4",
     "typescript": "^5"
   },
