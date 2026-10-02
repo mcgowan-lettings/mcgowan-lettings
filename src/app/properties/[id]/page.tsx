@@ -122,8 +122,18 @@ export default async function PropertyDetailPage({ params }: Props) {
   const videos: string[] = property.videos ?? [];
   const hasImages = images.length > 0;
 
-  // Show database features, or sensible defaults for showcase
-  const dbFeatures: string[] = property.features ?? [];
+  // Show database features, or sensible defaults for showcase. Features are
+  // hand-typed (often pasted from old listings), so repeats like
+  // "EPC Rating: B" listed twice are dropped — they'd also collide as React keys.
+  const seenFeatures = new Set<string>();
+  const dbFeatures: string[] = (property.features ?? [])
+    .map((f: string) => f.trim())
+    .filter((f: string) => {
+      const k = f.toLowerCase();
+      if (!f || seenFeatures.has(k)) return false;
+      seenFeatures.add(k);
+      return true;
+    });
   const features = dbFeatures.length > 0 ? dbFeatures : [
     "Double glazed throughout",
     "Gas central heating",
