@@ -179,7 +179,10 @@ export default function AdminValuationsPage() {
     // Calendar day in the UK, not "24–48h ago": something from 2 days ago
     // at 23:00 viewed at 00:30 is not "Yesterday".
     const ukDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
-    if (ukDay(date) === ukDay(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
+    // Yesterday's UK date by calendar arithmetic (noon UTC on today's UK date,
+    // minus a day) — "now - 24h" is wrong around the 23/25-hour DST days.
+    const ukYesterday = ukDay(new Date(new Date(`${ukDay(now)}T12:00:00Z`).getTime() - 24 * 60 * 60 * 1000));
+    if (ukDay(date) === ukYesterday) {
       return "Yesterday";
     }
     const londonYear = (d: Date) =>

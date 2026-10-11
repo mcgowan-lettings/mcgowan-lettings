@@ -309,7 +309,7 @@ export default function HomePage({
             {/* Large RETINA desktops: the untouched 3840px original — the
                 2880px file was upscaled ~1.3× on a 1920px-wide 2× screen.
                 1× desktops (≤2560px wide) are sharp with the 2880px file. */}
-            <source media="(min-width: 1280px) and (min-resolution: 1.5dppx)" srcSet="/hero-desktop.jpg" />
+            <source media="(min-width: 1280px) and (-webkit-min-device-pixel-ratio: 1.5), (min-width: 1280px) and (min-resolution: 1.5dppx)" srcSet="/hero-desktop.jpg" />
             <img
               {...heroImgProps}
               alt="Manchester skyline"

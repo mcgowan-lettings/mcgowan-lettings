@@ -40,7 +40,10 @@ function jpegName(name: string): string {
   return /\.\w+$/.test(name) ? name.replace(/\.\w+$/, ".jpg") : `${name || "image"}.jpg`;
 }
 
-export async function compressImage(file: File): Promise<File> {
+export async function compressImage(
+  file: File,
+  opts: { maxWidth?: number; maxHeight?: number; quality?: number } = {}
+): Promise<File> {
   if (file.size > MAX_INPUT_BYTES) {
     throw new Error(
       `Image is too large (${(file.size / 1024 / 1024).toFixed(0)}MB). Maximum is ${MAX_INPUT_BYTES / 1024 / 1024}MB.`
@@ -65,7 +68,7 @@ export async function compressImage(file: File): Promise<File> {
   // phone photos can carry the GPS location of where they were taken, and the
   // originals are public. (It also caps dimensions.) Only if encoding fails
   // outright do we fall back to the original.
-  const blob = await encodeScaledJpeg(file, MAX_WIDTH, MAX_HEIGHT, QUALITY);
+  const blob = await encodeScaledJpeg(file, opts.maxWidth ?? MAX_WIDTH, opts.maxHeight ?? MAX_HEIGHT, opts.quality ?? QUALITY);
   if (!blob) return file;
   return new File([blob], jpegName(file.name), {
     type: "image/jpeg",

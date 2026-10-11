@@ -66,7 +66,10 @@ export function safeExtension(file: File, fallback: "jpg" | "mp4" | "pdf"): stri
 export async function prepareEpcFile(file: File): Promise<File> {
   if (file.type === "application/pdf") return file;
   try {
-    return await compressImage(file);
+    // EPC screenshots are dense text: keep far more resolution and quality
+    // than listing photos so the ratings table stays legible. (Still
+    // re-encoded, which strips any phone-photo GPS metadata.)
+    return await compressImage(file, { maxWidth: 3200, maxHeight: 4000, quality: 0.88 });
   } catch {
     return file;
   }

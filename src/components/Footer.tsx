@@ -2,15 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import FooterYear from "./FooterYear";
 
-const BUILD_YEAR = new Date().getFullYear();
-
 /**
  * `fabClearance`: the WhatsApp FAB is fixed bottom-6 right-6 (56px), so it
  * covers the bottom-most ~80px of the viewport's right edge. Below `sm` the
  * centred "Regulated by … TPO" row reaches under it, so when the FAB is shown
  * pad the footer (inside the dark background) until that row clears it.
  */
-export default function Footer({ fabClearance = false }: { fabClearance?: boolean }) {
+export default function Footer({ fabClearance = false, renderYear }: { fabClearance?: boolean; renderYear: number }) {
   return (
     <footer className={`bg-dark pt-16 ${fabClearance ? "pb-28 sm:pb-8" : "pb-8"}`}>
       <div className="max-w-7xl mx-auto px-6">
@@ -103,7 +101,7 @@ export default function Footer({ fabClearance = false }: { fabClearance?: boolea
         <div className="flex flex-col items-center pt-8 gap-1 text-center">
           <p className="text-white/60 text-xs">
             &copy;{" "}
-            <FooterYear buildYear={BUILD_YEAR} />{" "}
+            <FooterYear renderYear={renderYear} />{" "}
             McGowan Residential Lettings Ltd. All rights reserved.
           </p>
           <p className="text-white/60 text-xs">

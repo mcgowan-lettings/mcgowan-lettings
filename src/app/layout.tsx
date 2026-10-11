@@ -118,7 +118,10 @@ export default async function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }}
         />
-        <SiteShell>{children}</SiteShell>
+        {/* Year computed on the server and serialised to the client, so the
+            footer's first client render matches the prerendered HTML exactly
+            (see FooterYear). */}
+        <SiteShell renderYear={new Date().getFullYear()}>{children}</SiteShell>
         <Analytics />
         <SpeedInsights />
       </body>

@@ -5,7 +5,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import WhatsAppButton from "@/components/WhatsAppButton";
 
-export default function SiteShell({ children }: { children: React.ReactNode }) {
+export default function SiteShell({ children, renderYear }: { children: React.ReactNode; renderYear: number }) {
   const pathname = usePathname();
   const isAdmin = pathname.startsWith("/admin");
 
@@ -30,7 +30,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
       </a>
       <Header />
       <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
-      <Footer fabClearance={!hideFab} />
+      <Footer fabClearance={!hideFab} renderYear={renderYear} />
       {!hideFab && <WhatsAppButton />}
     </>
   );
