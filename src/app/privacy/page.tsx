@@ -40,7 +40,7 @@ export default function PrivacyPage() {
         <div className="max-w-3xl mx-auto px-6">
           <div className="max-w-none">
             <p className="text-text-muted text-sm mb-10">
-              Last updated: April 2026
+              Last updated: August 2026
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">

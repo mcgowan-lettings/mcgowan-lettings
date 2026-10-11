@@ -75,13 +75,21 @@ create policy "Admins can manage blog posts" on public.blog_posts for all to aut
 -- The service role bypasses RLS and never needed a policy. Browser uploads and
 -- the editors' unsaved-file deletes run with the logged-in admin session JWT,
 -- so gating on `authenticated` + is_admin() keeps them working (`cleanupOrphans`
--- now runs server-side with the service role). Public SELECT stays: the
--- bucket is public-read by design (listing photos are served straight from it).
+-- now runs server-side with the service role).
 -- No code path uses `upsert`, so no UPDATE policy is needed.
 drop policy if exists "Service role can upload property images" on storage.objects;
 drop policy if exists "Service role can delete property images" on storage.objects;
 create policy "Admins can upload property images" on storage.objects for insert to authenticated with check (bucket_id = 'property-images' and public.is_admin());
 create policy "Admins can delete property images" on storage.objects for delete to authenticated using (bucket_id = 'property-images' and public.is_admin());
+
+-- Applied 2026-10-11. SELECT was "Anyone can view property images" TO public,
+-- which let the anon key *list* the whole bucket (EPCs, inactive listings'
+-- photos, unsaved uploads). A public bucket serves files by URL without RLS,
+-- so the site never needed it; the only list() caller is the admin storage
+-- meter (useStorageUsage, admin JWT). Verified after applying: anon list → 0
+-- files, public photo/video/EPC URLs still 200/206, admin meter still works.
+drop policy if exists "Anyone can view property images" on storage.objects;
+create policy "Admins can list property images" on storage.objects for select to authenticated using (bucket_id = 'property-images' and public.is_admin());
 
 -- site_config is intentionally world-readable ("Allow public read", TO public
 -- USING (true)) — it only holds the Google review count. Never put anything

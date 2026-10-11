@@ -14,49 +14,41 @@ const TESTIMONIALS = [
     name: "Kesh Athukorala",
     text: "We recently moved into a property through McGowan Residential Lettings Ltd, and the process was very smooth from start to finish. David was professional, friendly, and helpful throughout, he made sure everything was ready for us.",
     rating: 5,
-    date: "5 months ago",
   },
   {
     name: "Gavin Foley",
     text: "Dave at McGowan Lettings has been superb throughout our stay in one of his managed properties. He gets back to you immediately with whatever questions you have and anything that needs attention he\u2019s on it straight away.",
     rating: 5,
-    date: "5 months ago",
   },
   {
     name: "Tracey Mahony",
     text: "I\u2019m a new tenant of one of David McGowan\u2019s lettings. The house is lovely, well cared for and the whole process of letting the house was managed well and explained fully. David ensured everything ran smoothly and any issues were quickly and efficiently resolved.",
     rating: 5,
-    date: "5 months ago",
   },
   {
     name: "Vicky Entwistle",
     text: "Wow! Where do I begin! I can confidently say the experience was exceptional from start to finish. I was worried as a single person I wouldn\u2019t find a private landlord to accept me, David made me feel I had a chance from our first conversation.",
     rating: 5,
-    date: "7 months ago",
   },
   {
     name: "Barbara Wainwright",
     text: "Recently I had to leave my own property due to a severe water leak that made it uninhabitable so I needed to rent a property very quickly. I saw a property listed on McGowan Residential Lettings and the whole process was handled quickly and professionally.",
     rating: 5,
-    date: "7 months ago",
   },
   {
     name: "Rebecca Barron",
     text: "I reached out to McGowan Residential Lettings and spoke with David who assisted me with finding a new home. David was excellent and managed to help me secure a property in little time and was professional and thorough during the whole process.",
     rating: 5,
-    date: "7 months ago",
   },
   {
     name: "Shaun Giblin",
     text: "David made the process of renting and moving in unbelievably easy and stress-free. Communication is fantastic, with any issues getting resolved quickly and with no fuss. I would highly recommend renting with McGowan if you can \u2014 other estate agencies could learn a thing or two!",
     rating: 5,
-    date: "8 months ago",
   },
   {
     name: "Nick Jefferson",
     text: "David has made the process of moving incredibly straightforward and stress free! He is diligent in communication and utterly professional in arranging all the details of what can be a difficult journey. I was able to sort out a move in just days.",
     rating: 5,
-    date: "9 months ago",
   },
 ];
 
@@ -240,8 +232,9 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
                       <p className="text-dark/80 text-sm leading-relaxed mb-6 flex-1">{testimonial.text}</p>
                       <div className="flex items-center justify-between">
                         <div>
+                          {/* No review date: hard-coded relative dates ("5 months
+                              ago") go stale and become false. */}
                           <div className="font-semibold text-dark text-sm">{testimonial.name}</div>
-                          <div className="text-text-light text-xs">{testimonial.date}</div>
                         </div>
                         <div className="text-xs text-text-light flex items-center gap-1">
                           {GOOGLE_ICON}
