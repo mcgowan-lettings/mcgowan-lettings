@@ -1,3 +1,5 @@
+import { THUMB_MAX_PX, THUMB_QUALITY } from "@/lib/thumb";
+
 const MAX_WIDTH = 1600;
 const MAX_HEIGHT = 1600;
 const QUALITY = 0.75;
@@ -62,7 +64,43 @@ export async function compressImage(file: File): Promise<File> {
   // Skip if already small (under 500KB)
   if (file.size < 500 * 1024) return file;
 
-  return new Promise<File>((resolve, reject) => {
+  const blob = await encodeScaledJpeg(file, MAX_WIDTH, MAX_HEIGHT, QUALITY);
+  if (!blob || blob.size >= file.size) {
+    // Compression didn't help, use original
+    return file;
+  }
+  return new File([blob], jpegName(file.name), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+/**
+ * Listing-card thumbnail (see src/lib/thumb.ts): a JPEG at most THUMB_MAX_PX
+ * on the long edge, THUMB_QUALITY, transparent areas painted white. Pass the
+ * already-compressed photo. Never upscales. Throws if the browser can't
+ * produce one — callers treat that as a failed photo upload.
+ */
+export async function makeThumbnail(file: File): Promise<File> {
+  const blob = await encodeScaledJpeg(file, THUMB_MAX_PX, THUMB_MAX_PX, THUMB_QUALITY);
+  if (!blob || blob.size === 0) {
+    throw new Error(`Couldn't create a thumbnail for ${file.name || "this photo"}.`);
+  }
+  return new File([blob], jpegName(file.name), {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
+/** Decode `file`, scale it to fit maxWidth×maxHeight (never up), paint it on
+ * white and encode as JPEG. Resolves null if the browser produced no blob. */
+function encodeScaledJpeg(
+  file: File,
+  maxWidth: number,
+  maxHeight: number,
+  quality: number
+): Promise<Blob | null> {
+  return new Promise<Blob | null>((resolve, reject) => {
     const img = new Image();
     const objectUrl = URL.createObjectURL(file);
     let canvas: HTMLCanvasElement | null = null;
@@ -81,7 +119,7 @@ export async function compressImage(file: File): Promise<File> {
         canvas = null;
       }
     };
-    const succeed = (result: File) => {
+    const succeed = (result: Blob | null) => {
       if (settled) return;
       settled = true;
       cleanup();
@@ -104,10 +142,10 @@ export async function compressImage(file: File): Promise<File> {
         let { width, height } = img;
 
         // Scale down if exceeds max dimensions
-        if (width > MAX_WIDTH || height > MAX_HEIGHT) {
-          const ratio = Math.min(MAX_WIDTH / width, MAX_HEIGHT / height);
-          width = Math.round(width * ratio);
-          height = Math.round(height * ratio);
+        if (width > maxWidth || height > maxHeight) {
+          const ratio = Math.min(maxWidth / width, maxHeight / height);
+          width = Math.max(1, Math.round(width * ratio));
+          height = Math.max(1, Math.round(height * ratio));
         }
 
         canvas = document.createElement("canvas");
@@ -127,23 +165,7 @@ export async function compressImage(file: File): Promise<File> {
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0, width, height);
 
-        canvas.toBlob(
-          (blob) => {
-            if (!blob || blob.size >= file.size) {
-              // Compression didn't help, use original
-              succeed(file);
-              return;
-            }
-            succeed(
-              new File([blob], jpegName(file.name), {
-                type: "image/jpeg",
-                lastModified: Date.now(),
-              })
-            );
-          },
-          "image/jpeg",
-          QUALITY
-        );
+        canvas.toBlob((blob) => succeed(blob), "image/jpeg", quality);
       } catch (err) {
         fail(err instanceof Error ? err : new Error(`Could not process ${file.name}.`));
       }

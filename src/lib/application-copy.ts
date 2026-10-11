@@ -55,15 +55,14 @@ export const APPLICATION_COPY: Record<ApplicationKind, ApplicationCopy> = {
     submitLabel: "Submit application",
     submittingLabel: "Sending your application…",
     successTitle: "Application sent",
-    successBody: "A copy of your signed application has been emailed to",
+    successBody: "We've emailed a confirmation to",
     privacyNote:
       "Your details are used only to assess this tenancy application and are handled in line with our",
     documentTitle: "Residential Rental Application",
     signatureCaption: "Signature of applicant",
     filenamePrefix: "Application",
     adminEmailHeading: "New Tenant Application",
-    applicantEmailSubject:
-      "Your application to McGowan Lettings — copy for your records",
+    applicantEmailSubject: "We've received your application — McGowan Lettings",
   },
   guarantor: {
     kind: "guarantor",
@@ -85,15 +84,14 @@ export const APPLICATION_COPY: Record<ApplicationKind, ApplicationCopy> = {
     submitLabel: "Submit guarantor form",
     submittingLabel: "Sending your form…",
     successTitle: "Guarantor form sent",
-    successBody: "A copy of your signed guarantor form has been emailed to",
+    successBody: "We've emailed a confirmation to",
     privacyNote:
       "Your details are used only to assess this guarantor application and are handled in line with our",
     documentTitle: "Guarantor Application",
     signatureCaption: "Signature of guarantor",
     filenamePrefix: "Guarantor",
     adminEmailHeading: "New Guarantor Application",
-    applicantEmailSubject:
-      "Your guarantor form for McGowan Lettings — copy for your records",
+    applicantEmailSubject: "We've received your guarantor form — McGowan Lettings",
   },
 };
 

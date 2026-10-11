@@ -6,12 +6,24 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { safeJsonLd } from "@/lib/json-ld";
 import { getProperty } from "./get-property";
 import { SITE_URL } from "@/lib/site";
-import { formatPrice } from "../filters";
+import { cardAlt, formatPrice, locationDiffersFromTitle, resolveCounty } from "../filters";
+import { thumbUrl } from "@/lib/thumb";
 
 // Cached statically; updateProperty / togglePropertyActive / deleteProperty
 // all call `revalidatePath(/properties/${id})` so edits, deactivation and
 // deletion go live immediately. The 60s ceiling is a safety net.
 export const revalidate = 60;
+
+// Without generateStaticParams a dynamic segment is rendered per request
+// (ƒ Dynamic, `Cache-Control: private, no-store`) and `revalidate` is
+// ignored. An empty list prerenders nothing at build but opts the route into
+// ISR: each listing is rendered on first visit, cached, and revalidated.
+// dynamicParams stays at its default (true) so new listings still render.
+// Nothing in this route may read cookies()/headers() or it falls back to
+// dynamic again.
+export async function generateStaticParams(): Promise<{ id: string }[]> {
+  return [];
+}
 
 import PropertyGallery from "./PropertyGallery";
 import ExpandableDescription from "./ExpandableDescription";
@@ -36,10 +48,70 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
-// `description` is stored as sanitized HTML; strip tags so <p> etc. don't
-// land in meta descriptions or JSON-LD (mirrors blog/[slug]).
-function stripHtml(html: string | null | undefined): string {
-  return (html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: '"',
+  apos: "'",
+  nbsp: " ",
+  pound: "£",
+  ndash: "–",
+  mdash: "—",
+  hellip: "…",
+  rsquo: "’",
+  lsquo: "‘",
+  rdquo: "”",
+  ldquo: "“",
+};
+
+function decodeEntities(text: string): string {
+  // Loop so double-encoded text ("&amp;amp;") decodes fully.
+  let prev: string;
+  let out = text;
+  let guard = 0;
+  do {
+    prev = out;
+    out = out.replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (m, code: string) => {
+      if (code[0] === "#") {
+        const n = code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
+        return Number.isFinite(n) && n > 0 && n <= 0x10ffff ? String.fromCodePoint(n) : m;
+      }
+      const named = NAMED_ENTITIES[code.toLowerCase()];
+      return named ?? m;
+    });
+  } while (out !== prev && ++guard < 3);
+  return out;
+}
+
+// `description` is stored as sanitized HTML; strip tags and decode entities
+// so <p>, "&amp;" etc. don't land in meta descriptions or JSON-LD. Tags are
+// replaced by spaces (so "</p><p>" doesn't glue words), then the stray
+// space that leaves before punctuation ("property , occupying") is removed.
+function plainText(html: string | null | undefined): string {
+  return decodeEntities((html ?? "").replace(/<[^>]+>/g, " "))
+    .replace(/[\s\u00a0]+/g, " ")
+    .replace(/ +([,.;:!?])/g, "$1")
+    .trim();
+}
+
+/** Trim to `max` chars on a word boundary, adding "…" when cut. */
+function truncateWords(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const cut = text.slice(0, max - 1);
+  const lastSpace = cut.lastIndexOf(" ");
+  const base = lastSpace > max * 0.6 ? cut.slice(0, lastSpace) : cut;
+  return `${base.replace(/[\s,.;:!?\-–—]+$/, "")}…`;
+}
+
+/** Today's date in Europe/London as YYYY-MM-DD. */
+function londonToday(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -49,14 +121,21 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Inactive listings 404 in the page body; don't leak their title/price
   // into <head> either.
   if (!property || !property.active) {
+    // Mirrors not-found.tsx: no inherited canonical (/properties) and no
+    // robots tag of our own — the not-found boundary emits the only
+    // `noindex`, so there aren't conflicting robots metas.
     return {
       title: "Property Not Found | McGowan Residential Lettings",
-      robots: { index: false, follow: false },
+      description: "This property is no longer available. Browse our current rental listings.",
+      robots: null,
+      alternates: { canonical: null },
+      openGraph: null,
+      twitter: null,
     };
   }
 
   const title = `${property.title} | McGowan Residential Lettings`;
-  const plainDescription = stripHtml(property.description).slice(0, 160);
+  const plainDescription = truncateWords(plainText(property.description), 160);
   const description =
     plainDescription ||
     `${property.beds === 0 ? "Studio" : `${property.beds} bed`} ${property.type?.toLowerCase() || "property"} to rent in ${property.location} — £${formatPrice(property.price)}/pcm. View details and book a viewing with McGowan Lettings.`;
@@ -73,9 +152,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title,
       description,
       images: [
+        // Property photo dimensions aren't stored, so don't guess them.
         images[0]
           ? { url: ogImage }
-          : { url: ogImage, width: 2400, height: 1600 },
+          : { url: ogImage, width: 2880, height: 1920 },
       ],
       siteName: "McGowan Residential Lettings",
       type: "website",
@@ -118,6 +198,12 @@ export default async function PropertyDetailPage({ params }: Props) {
     ? await Promise.all(similarPromises)
     : [];
 
+  // Throw on a failed query: a failed ISR regeneration then keeps serving the
+  // last good page instead of caching one with the section silently missing.
+  for (const result of similarResults) {
+    if (result.error) throw new Error(`Failed to load similar properties: ${result.error.message}`);
+  }
+
   const seen = new Set<string>();
   const similarProperties: NonNullable<typeof similarResults[number]["data"]> = [];
   for (const result of similarResults) {
@@ -156,14 +242,25 @@ export default async function PropertyDetailPage({ params }: Props) {
   // Extra details — only fields that aren't already in the price bar
   const extraDetails: { label: string; value: string }[] = [];
   if (property.available_from) {
-    extraDetails.push({
-      label: "Available From",
-      value: new Date(property.available_from).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }),
-    });
+    // Stored as a date ("YYYY-MM-DD"); a past date reads as stale, so show
+    // "Available now" once it's today or earlier (UK time).
+    const availableDate = String(property.available_from).slice(0, 10);
+    const parsed = new Date(`${availableDate}T00:00:00Z`);
+    if (!Number.isNaN(parsed.getTime())) {
+      extraDetails.push(
+        availableDate <= londonToday()
+          ? { label: "Availability", value: "Available now" }
+          : {
+              label: "Available From",
+              value: parsed.toLocaleDateString("en-GB", {
+                day: "numeric",
+                month: "long",
+                year: "numeric",
+                timeZone: "UTC",
+              }),
+            }
+      );
+    }
   }
   if (property.council_tax_band) {
     extraDetails.push({ label: "Council Tax Band", value: property.council_tax_band });
@@ -174,7 +271,11 @@ export default async function PropertyDetailPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
     name: property.title,
-    description: stripHtml(property.description) || `${property.title} in ${property.location}`,
+    description:
+      plainText(property.description) ||
+      (locationDiffersFromTitle(property.title, property.location)
+        ? `${property.title} in ${property.location}`
+        : property.title),
     url: `${SITE_URL}/properties/${id}`,
     image: images[0] || undefined,
     offers: {
@@ -186,7 +287,9 @@ export default async function PropertyDetailPage({ params }: Props) {
     address: {
       "@type": "PostalAddress",
       addressLocality: property.location,
-      addressRegion: "Greater Manchester",
+      // Bury/Bolton/Manchester/Rochdale → Greater Manchester; Rossendale,
+      // Accrington, Burnley, Blackburn, Chorley → Lancashire; else omitted.
+      addressRegion: resolveCounty(property) ?? undefined,
       addressCountry: "GB",
     },
     numberOfRooms: property.beds,
@@ -343,7 +446,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                             href={property.epc_document}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="group inline-flex items-center gap-1.5 text-brand-deep font-semibold text-sm hover:text-brand-dark transition-colors"
+                            className="group inline-flex items-center min-h-11 -my-2 gap-1.5 text-brand-deep font-semibold text-sm hover:text-brand-dark transition-colors"
                           >
                             View EPC
                             <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
@@ -497,8 +600,8 @@ export default async function PropertyDetailPage({ params }: Props) {
                   <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
                       <Image
-                        src={p.images?.[0] || "/hero.jpg"}
-                        alt={p.location ? `${p.title} in ${p.location}` : p.title}
+                        src={p.images?.[0] ? thumbUrl(p.images[0]) : "/hero-banner.jpg"}
+                        alt={cardAlt(p.title, p.location)}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="property-image object-cover transition-transform duration-700 ease-out"
@@ -513,11 +616,13 @@ export default async function PropertyDetailPage({ params }: Props) {
                       <h3 className="font-semibold text-dark mb-1 group-hover:text-brand-dark transition-colors">
                         {p.title}
                       </h3>
-                      <div className="flex items-center gap-1 text-text-muted text-sm mb-4">
-                        <MapPinIcon className="w-3.5 h-3.5" />
-                        {p.location}
-                      </div>
-                      <div className="flex items-center gap-4 pt-4 border-t border-black/5">
+                      {locationDiffersFromTitle(p.title, p.location) && (
+                        <div className="flex items-center gap-1 text-text-muted text-sm">
+                          <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
+                          {p.location}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 pt-4 mt-4 border-t border-black/5">
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BedIcon className="w-4 h-4" />
                           <span>{p.beds === 0 ? "Studio" : `${p.beds} ${p.beds === 1 ? "Bed" : "Beds"}`}</span>

@@ -11,7 +11,9 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    images: [{ url: "/hero.jpg", width: 1200, height: 630 }],
+    url: "/landlords",
+    siteName: "McGowan Residential Lettings",
+    images: [{ url: "/hero.jpg", width: 2880, height: 1920, alt: "McGowan Residential Lettings — Greater Manchester" }],
     type: "website",
   },
   twitter: {

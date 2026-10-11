@@ -188,7 +188,8 @@ export default function EditBlogPostPage() {
 
     const { error: uploadError } = await supabase.storage
       .from("property-images")
-      .upload(filePath, compressed);
+      // Names are unique timestamps and never overwritten, so cache for a year.
+      .upload(filePath, compressed, { cacheControl: "31536000" });
 
     if (uploadError) {
       setError(`Failed to upload image: ${uploadError.message}`);

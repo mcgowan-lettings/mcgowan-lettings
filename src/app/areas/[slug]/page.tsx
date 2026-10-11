@@ -14,6 +14,8 @@ import {
   CheckIcon,
 } from "@/components/Icons";
 import { SITE_URL } from "@/lib/site";
+import { BOROUGHS, type BoroughSlug } from "../areas-data";
+import { isAvailable, resolveArea } from "@/app/properties/filters";
 
 export const revalidate = 3600;
 // Only the slugs in AREAS exist; anything else 404s without rendering.
@@ -41,13 +43,7 @@ const AREAS: Record<string, AreaData> = {
       "Rental demand remains consistently strong thanks to excellent schools, green spaces like Burrs Country Park, and a property mix that suits young professionals, couples and families alike. For landlords, Bury offers reliable yields and low void periods.",
       "With the Metrolink tram network connecting Bury to Manchester in under 30 minutes and easy access to the M60 and M66 motorways, commuting is straightforward whether you work in the city or further afield.",
     ],
-    neighbourhoods: [
-      "Tottington",
-      "Ramsbottom",
-      "Whitefield",
-      "Radcliffe",
-      "Prestwich",
-    ],
+    neighbourhoods: [...BOROUGHS.bury.neighbourhoods],
     amenities: [
       "Bury Market — one of the largest outdoor markets in Europe",
       "The Rock shopping centre",
@@ -81,13 +77,7 @@ const AREAS: Record<string, AreaData> = {
       "Bolton has seen significant investment in recent years, with regeneration projects in the town centre and improved infrastructure. The growing University of Bolton also contributes to steady rental demand, alongside working professionals and families.",
       "Transport links are strong, with Bolton train station providing direct services to Manchester and beyond, while the M61 motorway connects to the wider motorway network including the M6 and M60.",
     ],
-    neighbourhoods: [
-      "Farnworth",
-      "Harwood",
-      "Horwich",
-      "Westhoughton",
-      "Lostock",
-    ],
+    neighbourhoods: [...BOROUGHS.bolton.neighbourhoods],
     amenities: [
       "Bolton Market and town centre shopping",
       "University of Bolton",
@@ -121,13 +111,7 @@ const AREAS: Record<string, AreaData> = {
       "Beyond the centre, suburbs like Ancoats, Salford Quays and Eccles have undergone dramatic regeneration, offering modern living with excellent amenities and strong transport connections. Meanwhile, established neighbourhoods like Chorlton and Didsbury remain favourites for professionals seeking a more relaxed pace with easy city access.",
       "Manchester's transport infrastructure is one of the best outside London, with the Metrolink tram, extensive rail network, frequent bus services and Manchester Airport all providing convenient links locally and internationally.",
     ],
-    neighbourhoods: [
-      "Deansgate",
-      "Ancoats",
-      "Salford",
-      "Eccles",
-      "Chorlton",
-    ],
+    neighbourhoods: [...BOROUGHS.manchester.neighbourhoods],
     amenities: [
       "World-class dining, nightlife and cultural venues",
       "AO Arena and Co-op Live — two of the UK's largest indoor arenas",
@@ -161,13 +145,7 @@ const AREAS: Record<string, AreaData> = {
       "Recent years have brought significant regeneration to the town centre, including the Rochdale Riverside shopping and leisure development and the celebrated daylighting of the River Roch — uncovering a section that had been buried beneath the town for over a century. Combined with growing rental demand, this has put Rochdale firmly back on the map for tenants and investors alike.",
       "Transport is one of Rochdale's strongest assets. The Metrolink tram extension provides a direct service into Manchester city centre, while Rochdale railway station, the M62 and the A627(M) connect the town to Manchester, Leeds and the wider region in minutes.",
     ],
-    neighbourhoods: [
-      "Heywood",
-      "Middleton",
-      "Littleborough",
-      "Milnrow",
-      "Norden",
-    ],
+    neighbourhoods: [...BOROUGHS.rochdale.neighbourhoods],
     amenities: [
       "Rochdale Town Hall — Grade I listed Gothic Revival landmark",
       "Rochdale Riverside shopping and leisure development",
@@ -201,12 +179,7 @@ const AREAS: Record<string, AreaData> = {
       "Growing numbers of commuters are choosing Rossendale thanks to improved motorway access via the M66 and A56, making Manchester city centre reachable in around 40 minutes. Rawtenstall in particular has seen growing investment, with independent shops, cafes and a renewed sense of energy in the town centre.",
       "For landlords, Rossendale offers strong yields and a loyal tenant base. Demand is steady and growing, particularly from families and professionals attracted by the combination of affordability, space and quality of life.",
     ],
-    neighbourhoods: [
-      "Rawtenstall",
-      "Haslingden",
-      "Bacup",
-      "Waterfoot",
-    ],
+    neighbourhoods: [...BOROUGHS.rossendale.neighbourhoods],
     amenities: [
       "Ski Rossendale — the largest dry ski slope in the North West",
       "East Lancashire Railway at Rawtenstall station",
@@ -240,12 +213,7 @@ const AREAS: Record<string, AreaData> = {
       "Accrington sits along the M65 corridor, providing straightforward motorway access to Burnley, Blackburn and the M6, while regular bus and rail services connect to the wider region. The town centre has a growing number of independent businesses, and Hyndburn Leisure Centre offers modern sports facilities.",
       "Regeneration schemes have brought fresh investment to the area, with new housing, improved public spaces and business development. For landlords, the combination of low purchase prices and solid rental demand makes Accrington a particularly attractive proposition for portfolio building.",
     ],
-    neighbourhoods: [
-      "Great Harwood",
-      "Clayton-le-Moors",
-      "Oswaldtwistle",
-      "Rishton",
-    ],
+    neighbourhoods: [...BOROUGHS.accrington.neighbourhoods],
     amenities: [
       "Accrington town centre market and independent shops",
       "Hyndburn Leisure Centre",
@@ -279,12 +247,7 @@ const AREAS: Record<string, AreaData> = {
       "Burnley has attracted national attention for its regeneration efforts, with projects like the Weavers Triangle transforming former industrial buildings into modern living and working spaces. The presence of the University of Central Lancashire (UCLan) Burnley campus also supports a healthy student and young professional rental market.",
       "Transport links are solid, with the M65 motorway providing access across Lancashire and to the M6, while the scenic Leeds-Liverpool canal and surrounding countryside offer a quality of life that punches well above its price point. For landlords seeking strong yields, Burnley consistently ranks among the best in the country.",
     ],
-    neighbourhoods: [
-      "Padiham",
-      "Brierfield",
-      "Nelson",
-      "Colne",
-    ],
+    neighbourhoods: [...BOROUGHS.burnley.neighbourhoods],
     amenities: [
       "Burnley town centre and Charter Walk shopping centre",
       "Towneley Hall and Park",
@@ -310,12 +273,6 @@ const AREAS: Record<string, AreaData> = {
   },
 };
 
-/** Rossendale, Accrington and Burnley are over the border in Lancashire. */
-const COUNTY: Record<string, string> = {
-  rossendale: "Lancashire",
-  accrington: "Lancashire",
-  burnley: "Lancashire",
-};
 
 /** Own-property lookup so "/areas/constructor" etc. can't hit Object.prototype. */
 function getArea(slug: string): AreaData | undefined {
@@ -374,17 +331,21 @@ export default async function AreaGuidePage({
 
   if (!area) notFound();
 
-  /* Count active properties in this area */
-  const { count, error: countError } = await supabaseAdmin
+  /* Count available (non-let) listings in this borough. `area` usually holds
+     a neighbourhood (Ramsbottom, Edenfield, …), so resolve it to its borough
+     in JS with the same resolver /properties filters with, instead of an
+     exact-match ilike that only catches listings tagged with the borough. */
+  const { data: listings, error: listingsError } = await supabaseAdmin
     .from("properties")
-    .select("*", { count: "exact", head: true })
-    .eq("active", true)
-    .ilike("area", area.name);
+    .select("area, location, status")
+    .eq("active", true);
   // Throw rather than cache "0 properties" for an hour on a transient error;
   // ISR keeps serving the last good page.
-  if (countError) throw new Error(`area count query failed: ${countError.message}`);
+  if (listingsError) throw new Error(`area count query failed: ${listingsError.message}`);
 
-  const propertyCount = count ?? 0;
+  const propertyCount = (listings ?? []).filter(
+    (p) => isAvailable(p.status) && resolveArea(p) === area.name
+  ).length;
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -407,7 +368,7 @@ export default async function AreaGuidePage({
       name: area.name,
       containedInPlace: {
         "@type": "AdministrativeArea",
-        name: Object.hasOwn(COUNTY, slug) ? COUNTY[slug] : "Greater Manchester",
+        name: Object.hasOwn(BOROUGHS, slug) ? BOROUGHS[slug as BoroughSlug].county : "Greater Manchester",
       },
     },
     provider: {
@@ -425,7 +386,7 @@ export default async function AreaGuidePage({
       <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
           <Image
-            src="/hero.jpg"
+            src="/hero-banner.jpg"
             alt={`${area.name} area`}
             fill
             sizes="100vw"

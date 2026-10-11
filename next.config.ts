@@ -27,7 +27,33 @@ const nextConfig: NextConfig = {
     ],
   },
   async headers() {
+    // Static brand assets: a day fresh + a week of SWR rather than "immutable",
+    // because these keep their filenames when replaced (hero.jpg was swapped
+    // in place) and a year-long cache would pin the old file on devices.
+    const brandAssetCache = [
+      { key: "Cache-Control", value: "public, max-age=86400, stale-while-revalidate=604800" },
+    ];
     return [
+      {
+        // Baseline security headers. No CSP beyond frame-ancestors: a full
+        // policy would need careful allow-listing for Plyr, Fancybox, Vercel
+        // Analytics/Speed Insights and the Google Maps iframes.
+        source: "/:path*",
+        headers: [
+          { key: "X-Frame-Options", value: "DENY" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=()" },
+        ],
+      },
+      { source: "/hero.jpg", headers: brandAssetCache },
+      { source: "/hero-mobile.jpg", headers: brandAssetCache },
+      { source: "/hero-banner.jpg", headers: brandAssetCache },
+      { source: "/mcgowan-logo.png", headers: brandAssetCache },
+      { source: "/mcgowan-logo-header.png", headers: brandAssetCache },
+      { source: "/logos/:path*", headers: brandAssetCache },
+      { source: "/certificates/:path*", headers: brandAssetCache },
       {
         source: "/admin/:path*",
         headers: [

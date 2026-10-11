@@ -6,7 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { confirmLeaveIfUnsaved } from "@/lib/use-unsaved-guard";
+import { confirmLeaveIfUnsaved, hasUnsavedWork } from "@/lib/use-unsaved-guard";
 import { getAdminSessionStatus } from "@/app/actions/admin-session";
 
 /**
@@ -34,6 +34,10 @@ export default function AdminLayout({
   const [authenticated, setAuthenticated] = useState(false);
   const [checkError, setCheckError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Session vanished (expired, or signed out in another tab) while an editor
+  // had unsaved work: keep the editor mounted and show a banner instead of
+  // bouncing to /admin/login and throwing the work away.
+  const [signedOutWithUnsaved, setSignedOutWithUnsaved] = useState(false);
 
   // Refs so the single long-lived auth subscription below can read the
   // current route / verified user without being torn down on navigation.
@@ -43,6 +47,9 @@ export default function AdminLayout({
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const retryCountRef = useRef(0);
   const recheckRef = useRef<() => Promise<void>>(async () => {});
+  const authenticatedRef = useRef(false);
+  // Set by our own Sign Out button, which has already asked about unsaved work.
+  const intentionalSignOutRef = useRef(false);
 
   useEffect(() => {
     pathnameRef.current = pathname;
@@ -83,13 +90,38 @@ export default function AdminLayout({
       if (!isPublicAdminPath(pathnameRef.current)) router.replace("/admin/login");
     };
 
+    /** If the admin was signed in and an editor holds unsaved work, keep the
+     * page mounted behind the "signed out" banner. Returns true if it did. */
+    const holdForUnsavedWork = () => {
+      if (
+        intentionalSignOutRef.current ||
+        !authenticatedRef.current ||
+        isPublicAdminPath(pathnameRef.current) ||
+        !hasUnsavedWork()
+      ) {
+        return false;
+      }
+      // Forget the verified user so the next SIGNED_IN (e.g. from a login in
+      // another tab) is re-verified and clears the banner.
+      verifiedUserIdRef.current = null;
+      setCheckError(false);
+      setSignedOutWithUnsaved(true);
+      return true;
+    };
+
+    const setAuth = (value: boolean) => {
+      authenticatedRef.current = value;
+      setAuthenticated(value);
+    };
+
     const verify = async (session: Session | null) => {
       const seq = ++checkSeqRef.current;
       clearRetry();
 
       if (!session) {
+        if (holdForUnsavedWork()) return;
         verifiedUserIdRef.current = null;
-        setAuthenticated(false);
+        setAuth(false);
         setCheckError(false);
         goToLogin();
         return;
@@ -107,17 +139,25 @@ export default function AdminLayout({
       if (status !== "error") retryCountRef.current = 0;
       if (status === "admin") {
         verifiedUserIdRef.current = session.user.id;
-        setAuthenticated(true);
+        intentionalSignOutRef.current = false;
+        setAuth(true);
         setCheckError(false);
+        setSignedOutWithUnsaved(false);
       } else if (status === "forbidden" || status === "unauthorized") {
-        // Definite answer: this session is not an admin session.
-        verifiedUserIdRef.current = null;
-        setAuthenticated(false);
-        setCheckError(false);
+        // Definite answer: this session is not an admin session. Local scope:
+        // never revoke the admin's sessions on other devices.
+        const held = holdForUnsavedWork();
+        if (!held) {
+          verifiedUserIdRef.current = null;
+          setAuth(false);
+          setCheckError(false);
+        }
         supabase.auth
-          .signOut()
+          .signOut({ scope: "local" })
           .catch(() => {})
-          .finally(goToLogin);
+          .finally(() => {
+            if (!held) goToLogin();
+          });
       } else {
         // Transient failure: never sign out (would lose unsaved work). If
         // this user was already verified, keep them in silently; otherwise
@@ -166,7 +206,8 @@ export default function AdminLayout({
           // our cached verdict so leaving the page triggers a fresh check.
           if (session?.user.id !== verifiedUserIdRef.current) {
             verifiedUserIdRef.current = null;
-            setAuthenticated(false);
+            setAuth(false);
+            setSignedOutWithUnsaved(false);
           }
           return;
         }
@@ -229,12 +270,24 @@ export default function AdminLayout({
   const handleSignOut = async () => {
     // An open editor with unsaved work would otherwise be discarded silently.
     if (!confirmLeaveIfUnsaved()) return;
-    await supabase.auth.signOut();
+    intentionalSignOutRef.current = true;
+    // Local scope: the default ("global") revokes every session on every
+    // device, e.g. David's phone as well as this laptop.
+    await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+    setSignedOutWithUnsaved(false);
     router.replace("/admin/login");
   };
 
   return (
     <div className="flex min-h-screen flex-col lg:h-screen lg:flex-row bg-gray-50">
+      {signedOutWithUnsaved && (
+        <div
+          role="alert"
+          className="fixed inset-x-0 top-0 z-50 border-b border-amber-300 bg-amber-50 px-4 py-3 text-center text-sm font-medium text-amber-900 shadow-sm"
+        >
+          You&apos;ve been signed out. Sign in again in a new tab, then come back here and press Save.
+        </div>
+      )}
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div

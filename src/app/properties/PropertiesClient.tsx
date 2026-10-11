@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
+import { thumbUrl } from "@/lib/thumb";
 import { StaggerGrid } from "@/components/StaggerGrid";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
 import {
@@ -19,10 +20,12 @@ import {
   MAX_PRICE_VALUES,
   TYPE_FILTER_OPTIONS,
   buildAreaList,
+  cardAlt,
   formatPrice,
+  locationDiffersFromTitle,
+  matchesArea,
   matchesBeds,
   matchesPrice,
-  normaliseArea,
   parseTypeFilter,
   propertyTypeCategory,
 } from "./filters";
@@ -180,12 +183,12 @@ function Listings({
 }) {
   const { area, maxPrice, bedrooms, type: propertyType } = filters;
 
-  // Build the area filter list from actual property data, so any area the admin
-  // types in (e.g. "Rochdale", or anywhere new) automatically appears here.
+  // Build the area filter list from actual property data: boroughs that have
+  // listings first, then any area that doesn't resolve to one.
   const areaOptions = useMemo<Option[]>(
     () => [
       { value: ALL_AREAS, label: ALL_AREAS },
-      ...buildAreaList(properties.map((p) => p.area)).map((a) => ({ value: a, label: a })),
+      ...buildAreaList(properties).map((a) => ({ value: a, label: a })),
     ],
     [properties]
   );
@@ -203,10 +206,9 @@ function Listings({
     propertyType !== ALL_TYPES;
 
   const filteredProperties = useMemo(() => {
-    const areaKey = area === ALL_AREAS ? "" : normaliseArea(area);
     const typeCategory = propertyType === ALL_TYPES ? null : parseTypeFilter(propertyType);
     return properties.filter((p) => {
-      if (areaKey && normaliseArea(p.area) !== areaKey) return false;
+      if (area !== ALL_AREAS && !matchesArea(p, area)) return false;
       if (!matchesPrice(p.price, maxPrice)) return false;
       if (!matchesBeds(p.beds, bedrooms)) return false;
       if (typeCategory && propertyTypeCategory(p.type) !== typeCategory) return false;
@@ -257,8 +259,8 @@ function Listings({
                   <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
                       <Image
-                        src={property.images?.[0] || "/hero.jpg"}
-                        alt={property.location ? `${property.title} in ${property.location}` : property.title}
+                        src={property.images?.[0] ? thumbUrl(property.images[0]) : "/hero-banner.jpg"}
+                        alt={cardAlt(property.title, property.location)}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="property-image object-cover transition-transform duration-700 ease-out"
@@ -278,11 +280,13 @@ function Listings({
                       <h3 className="font-semibold text-dark mb-1 group-hover:text-brand-dark transition-colors">
                         {property.title}
                       </h3>
-                      <div className="flex items-center gap-1 text-text-muted text-sm mb-4">
-                        <MapPinIcon className="w-3.5 h-3.5" />
-                        {property.location}
-                      </div>
-                      <div className="flex items-center gap-4 pt-4 border-t border-black/5">
+                      {locationDiffersFromTitle(property.title, property.location) && (
+                        <div className="flex items-center gap-1 text-text-muted text-sm">
+                          <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
+                          {property.location}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 pt-4 mt-4 border-t border-black/5">
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BedIcon className="w-4 h-4" />
                           <span>
@@ -361,7 +365,7 @@ export default function PropertiesPage({ initialProperties }: { initialPropertie
       <section className="relative h-[40vh] min-h-[320px] flex items-center justify-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
           <Image
-            src="/hero.jpg"
+            src="/hero-banner.jpg"
             alt="Greater Manchester properties"
             fill
             sizes="100vw"

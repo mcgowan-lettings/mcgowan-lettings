@@ -126,6 +126,20 @@ a[data-fancybox]:focus-visible {
   margin: 1rem 0 0.5rem;
 }
 .tiptap-content h2:first-child { margin-top: 0; }
+.tiptap-content h3 {
+  font-family: var(--font-heading), serif;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-dark);
+  margin: 0.75rem 0 0.25rem;
+}
+.tiptap-content h3:first-child { margin-top: 0; }
+/* Tailwind preflight strips list markers; restore them so lists look like
+   lists while editing (they render via .rich-content on the site). */
+.tiptap-content ul, .tiptap-content ol { padding-left: 1.5rem; margin: 0.5rem 0; }
+.tiptap-content ul { list-style-type: disc; }
+.tiptap-content ol { list-style-type: decimal; }
+.tiptap-content li > p { margin: 0.125rem 0; }
 .tiptap-content strong { font-weight: 600; color: var(--color-dark); }
 .tiptap-content em { font-style: italic; }
 .tiptap-content a { color: var(--color-brand-deep); text-decoration: underline; }
@@ -169,6 +183,9 @@ a[data-fancybox]:focus-visible {
 .rich-content ol { list-style-type: decimal; }
 .rich-content li { margin-bottom: 0.3rem; }
 .rich-content li:last-child { margin-bottom: 0; }
+/* The editor saves list items as <li><p>…</p></li>; keep them as tight as
+   hand-written <li>text</li> items. */
+.rich-content li > p { margin: 0; }
 .rich-content strong { font-weight: 600; color: var(--color-dark); }
 .rich-content em { font-style: italic; }
 .rich-content a { color: var(--color-brand-deep); text-decoration: underline; }

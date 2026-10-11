@@ -1177,7 +1177,8 @@ export default function ApplyForm({
           <Link href="/privacy" className="text-brand-deep underline underline-offset-2 hover:text-brand-dark">
             privacy policy
           </Link>
-          . A signed copy is emailed to you and to McGowan Residential Lettings.
+          . Your signed form goes securely to McGowan Residential Lettings, and we&apos;ll email
+          you a confirmation.
         </p>
       </div>
     </form>

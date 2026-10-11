@@ -58,3 +58,8 @@ export function useUnsavedGuard(active: boolean) {
 export function confirmLeaveIfUnsaved(): boolean {
   return activeGuards === 0 || window.confirm(MESSAGE);
 }
+
+/** Read-only: true while any mounted editor has unsaved work. */
+export function hasUnsavedWork(): boolean {
+  return activeGuards > 0;
+}

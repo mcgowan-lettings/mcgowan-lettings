@@ -94,3 +94,9 @@ create policy "Admins can list property images" on storage.objects for select to
 -- site_config is intentionally world-readable ("Allow public read", TO public
 -- USING (true)) — it only holds the Google review count. Never put anything
 -- secret in it.
+
+-- Table privileges (applied 2026-10-11): Supabase grants anon/authenticated
+-- TRUNCATE, REFERENCES and TRIGGER on every public table by default.
+-- TRUNCATE ignores RLS; PostgREST can't issue it, but there's no reason to
+-- hold it. RLS-governed SELECT/INSERT/UPDATE/DELETE grants are unchanged.
+revoke truncate, references, trigger on all tables in schema public from anon, authenticated;

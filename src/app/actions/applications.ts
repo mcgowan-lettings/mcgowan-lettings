@@ -18,12 +18,16 @@ export async function markApplicationRead(id: string, accessToken: string) {
   return { success: true, error: "" };
 }
 
-export async function markAllApplicationsRead(ids: string[], accessToken: string) {
+/** Server-side "mark all read" (see markAllSubmissionsRead): `upTo` is the
+ * newest loaded `created_at`, so applications that arrived since stay unread. */
+export async function markAllApplicationsRead(upTo: string | null, accessToken: string) {
   await requireAdmin(accessToken);
-  const { error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("tenant_applications")
     .update({ read: true })
-    .in("id", ids);
+    .eq("read", false);
+  if (upTo) query = query.lte("created_at", upTo);
+  const { error } = await query;
   if (error) {
     console.error("markAllApplicationsRead error:", error);
     return { success: false, error: "Failed to update applications." };

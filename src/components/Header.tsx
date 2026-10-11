@@ -43,10 +43,10 @@ export default function Header() {
       <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href="/" className="block shrink-0" onClick={() => setMobileMenuOpen(false)}>
           <Image
-            src="/mcgowan-logo.png"
+            src="/mcgowan-logo-header.png"
             alt="McGowan Residential Lettings Ltd."
-            width={1709}
-            height={462}
+            width={444}
+            height={120}
             className="h-10 w-auto"
             priority
           />

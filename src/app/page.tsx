@@ -1,7 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import HomePage from "./HomeClient";
 import { getReviewCount } from "@/lib/get-review-count";
-import { buildAreaList } from "./properties/filters";
+import { buildAreaList, sortByAvailability } from "./properties/filters";
 
 export const revalidate = 60;
 
@@ -13,13 +13,15 @@ async function getFeaturedProperties() {
     .from("properties")
     .select("id, title, price, location, beds, baths, type, images, status, is_new")
     .eq("active", true)
-    .eq("featured", true)
-    .order("price", { ascending: false })
-    .limit(6);
+    .eq("featured", true);
 
   if (error) throw new Error(`Failed to load featured properties: ${error.message}`);
   if (!data) return [];
-  return data.length >= 6 ? data.slice(0, 6) : data.slice(0, 3);
+  // Order in JS (available first, then price desc) *before* capping, so a
+  // Let Agreed listing never pushes an available one out of the grid. Let
+  // Agreed stays eligible — featuring is David's call — it just goes last.
+  const sorted = sortByAvailability(data);
+  return sorted.length >= 6 ? sorted.slice(0, 6) : sorted.slice(0, 3);
 }
 
 // Hero search "Area" options come from live listings, so every option
@@ -27,11 +29,11 @@ async function getFeaturedProperties() {
 async function getSearchAreas() {
   const { data, error } = await supabaseAdmin
     .from("properties")
-    .select("area")
+    .select("area, location")
     .eq("active", true);
 
   if (error) throw new Error(`Failed to load property areas: ${error.message}`);
-  return buildAreaList((data ?? []).map((p) => p.area));
+  return buildAreaList(data ?? []);
 }
 
 export default async function Page() {

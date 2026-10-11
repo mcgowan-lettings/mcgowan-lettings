@@ -125,7 +125,7 @@ export default function LandlordsPage() {
       <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
           <Image
-            src="/hero.jpg"
+            src="/hero-banner.jpg"
             alt="Greater Manchester"
             fill
             sizes="100vw"
@@ -379,7 +379,7 @@ export default function LandlordsPage() {
             {HOW_IT_WORKS.map((item, i) => (
               <AnimateIn key={item.step} delay={i * 0.1}>
                 <div className="bg-white rounded-lg border border-black/5 p-6 h-full relative group hover:shadow-lg transition-shadow duration-300">
-                  <span className="text-5xl font-heading font-bold text-brand/15 absolute top-4 right-5 select-none">
+                  <span aria-hidden="true" className="text-5xl font-heading font-bold text-brand/15 absolute top-4 right-5 select-none">
                     {item.step}
                   </span>
                   <div className="w-12 h-12 bg-brand/10 rounded-full flex items-center justify-center mb-5">

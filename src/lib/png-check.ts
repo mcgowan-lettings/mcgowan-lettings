@@ -9,7 +9,12 @@
  */
 
 const PNG_MAGIC = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
-const MAX_DIMENSION = 4096;
+// Signature pads are at most ~720×240 CSS px at DPR ≤ 3. A tiny but huge-
+// dimension PNG (e.g. blank 4096×4096 ≈ a few KB) would otherwise make
+// pdf-lib decode ~64 MB of pixels per request.
+const MAX_WIDTH = 3000;
+const MAX_HEIGHT = 1200;
+const MAX_PIXELS = 3_000_000;
 
 let crcTable: Uint32Array | null = null;
 function crc32(bytes: Uint8Array, start: number, end: number): number {
@@ -51,7 +56,7 @@ export function isWellFormedPng(bytes: Uint8Array): boolean {
       if (type !== "IHDR" || length !== 13) return false;
       const width = readU32(bytes, dataStart);
       const height = readU32(bytes, dataStart + 4);
-      if (width === 0 || height === 0 || width > MAX_DIMENSION || height > MAX_DIMENSION) return false;
+      if (width === 0 || height === 0 || width > MAX_WIDTH || height > MAX_HEIGHT || width * height > MAX_PIXELS) return false;
       sawIhdr = true;
     } else if (type === "IDAT") {
       sawIdat = true;

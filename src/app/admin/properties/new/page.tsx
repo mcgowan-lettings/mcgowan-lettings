@@ -6,7 +6,6 @@ import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import SortableImageGrid from "../SortableImageGrid";
 import VideoList from "../VideoList";
-import { compressImage } from "@/lib/compress-image";
 import { transcodeVideoToMp4, MAX_VIDEO_BYTES, assertUploadableVideo } from "@/lib/video-transcode";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import RichTextEditor from "@/components/RichTextEditor";
@@ -20,7 +19,9 @@ import {
   mapSettledWithConcurrency,
   parseWholeNumber,
   safeExtension,
-  storagePathFromUrl,
+  storagePathsForUrl,
+  uploadPropertyPhoto,
+  UPLOAD_CACHE_CONTROL,
 } from "../upload-helpers";
 
 const AREAS = [
@@ -133,26 +134,8 @@ export default function NewPropertyPage() {
     const results = await mapSettledWithConcurrency(
       Array.from(files),
       3,
-      async (rawFile) => {
-        const file = await compressImage(rawFile);
-        const fileExt = safeExtension(file, "jpg");
-        const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-        const filePath = `properties/${fileName}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("property-images")
-          .upload(filePath, file);
-
-        if (uploadError) {
-          throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
-        }
-
-        const {
-          data: { publicUrl },
-        } = supabase.storage.from("property-images").getPublicUrl(filePath);
-
-        return publicUrl;
-      }
+      // Photo + its listing-card thumbnail; see uploadPropertyPhoto.
+      uploadPropertyPhoto
     );
 
     const newUrls: string[] = [];
@@ -177,10 +160,11 @@ export default function NewPropertyPage() {
 
   /** Every file on this page is unsaved, so removing one deletes it from storage. */
   const deleteUploadedFile = async (url: string) => {
-    const path = storagePathFromUrl(url);
-    if (!path) return;
+    // Photos take their thumbnail with them.
+    const paths = storagePathsForUrl(url);
+    if (!paths.length) return;
     try {
-      await supabase.storage.from("property-images").remove([path]);
+      await supabase.storage.from("property-images").remove(paths);
     } catch {
       // Harmless — cleanupOrphans reaps it after the 24h grace window.
     }
@@ -204,7 +188,7 @@ export default function NewPropertyPage() {
 
     const { error: uploadError } = await supabase.storage
       .from("property-images")
-      .upload(filePath, file, { contentType });
+      .upload(filePath, file, { contentType, cacheControl: UPLOAD_CACHE_CONTROL });
 
     if (uploadError) {
       // Throw so the caller routes this into videoError — the general form
@@ -701,7 +685,7 @@ export default function NewPropertyPage() {
                       const filePath = `epc/${fileName}`;
                       const { error: upErr } = await supabase.storage
                         .from("property-images")
-                        .upload(filePath, file);
+                        .upload(filePath, file, { cacheControl: UPLOAD_CACHE_CONTROL });
                       if (upErr) {
                         setEpcError(`Failed to upload EPC: ${upErr.message}`);
                         return;
@@ -779,7 +763,7 @@ export default function NewPropertyPage() {
               placeholder={"Double glazed throughout\nGas central heating\nRear garden\nOff-street parking"}
             />
             <p className="text-xs text-text-muted mt-1.5">
-              Enter each feature on a new line. Leave blank to auto-generate from property details.
+              Enter each feature on a new line. Leave blank to hide this section.
             </p>
           </div>
         </div>

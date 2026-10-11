@@ -7,12 +7,17 @@ import { SITE_URL } from "@/lib/site";
  * server action directly (action IDs are public) would. */
 const MAX_PER_EMAIL_PER_HOUR = 5;
 
+/** Per-IP cap: rotating fake email addresses is free, IPs aren't. */
+const MAX_PER_IP_PER_HOUR = 5;
+
 /** Above this many rows in the last hour across a table, leads are still
  * saved but per-lead notification emails are skipped — a flood can't burn
  * the Resend quota or bury David's inbox. The submission that trips the
  * breaker sends one "notifications paused" email instead, so real leads
  * arriving during a flood aren't silently missed (they're in the admin inbox). */
-const EMAIL_CIRCUIT_BREAKER_PER_HOUR = 30;
+// Raised from 30 now that each IP is capped at 5/hour: tripping it takes a
+// distributed flood, not one script.
+const EMAIL_CIRCUIT_BREAKER_PER_HOUR = 60;
 
 function escapeLike(s: string): string {
   return s.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -25,11 +30,12 @@ function escapeLike(s: string): string {
  */
 export async function checkLeadThrottle(
   table: "contact_submissions" | "valuation_requests",
-  email: string
+  email: string,
+  ip: string | null
 ): Promise<{ allowed: boolean; sendEmail: boolean; sendPausedNotice: boolean }> {
   const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
   try {
-    const [byEmail, total] = await Promise.all([
+    const [byEmail, total, byIp] = await Promise.all([
       supabaseAdmin
         .from(table)
         .select("id", { count: "exact", head: true })
@@ -39,14 +45,24 @@ export async function checkLeadThrottle(
         .from(table)
         .select("id", { count: "exact", head: true })
         .gte("created_at", hourAgo),
+      ip
+        ? supabaseAdmin
+            .from(table)
+            .select("id", { count: "exact", head: true })
+            .eq("ip_address", ip)
+            .gte("created_at", hourAgo)
+        : Promise.resolve({ count: 0, error: null }),
     ]);
-    if (byEmail.error || total.error) {
-      console.error(`${table} throttle check error:`, byEmail.error ?? total.error);
+    const queryError = byEmail.error ?? total.error ?? byIp.error;
+    if (queryError) {
+      console.error(`${table} throttle check error:`, queryError);
       return { allowed: true, sendEmail: true, sendPausedNotice: false };
     }
     const recent = total.count ?? 0;
     return {
-      allowed: (byEmail.count ?? 0) < MAX_PER_EMAIL_PER_HOUR,
+      allowed:
+        (byEmail.count ?? 0) < MAX_PER_EMAIL_PER_HOUR &&
+        (byIp.count ?? 0) < MAX_PER_IP_PER_HOUR,
       sendEmail: recent < EMAIL_CIRCUIT_BREAKER_PER_HOUR,
       sendPausedNotice: recent === EMAIL_CIRCUIT_BREAKER_PER_HOUR,
     };
@@ -75,5 +91,16 @@ export async function sendPausedNotice(kind: "contact" | "valuation"): Promise<v
     if (error) console.error("Paused-notice email error:", error);
   } catch (err) {
     console.error("Paused-notice email error:", err);
+  }
+}
+
+/** Client IP from Vercel's x-forwarded-for (first hop), or null. */
+export async function clientIp(): Promise<string | null> {
+  try {
+    const { headers } = await import("next/headers");
+    const fwd = (await headers()).get("x-forwarded-for");
+    return fwd ? fwd.split(",")[0].trim().slice(0, 100) || null : null;
+  } catch {
+    return null;
   }
 }

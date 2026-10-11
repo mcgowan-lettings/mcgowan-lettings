@@ -220,7 +220,7 @@ export default function TenantsPage() {
       <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
           <Image
-            src="/hero.jpg"
+            src="/hero-banner.jpg"
             alt="Greater Manchester"
             fill
             sizes="100vw"

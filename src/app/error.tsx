@@ -22,7 +22,7 @@ export default function AppError({
     <section className="relative min-h-[80vh] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
       <div className="absolute inset-0">
         <Image
-          src="/hero.jpg"
+          src="/hero-banner.jpg"
           alt=""
           fill
           sizes="100vw"

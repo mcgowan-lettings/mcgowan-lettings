@@ -1,5 +1,19 @@
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
+
+// Next resolves a not-found boundary's own `metadata` on top of the layouts.
+// Without this the 404 inherits the parent's canonical (/) and the root's
+// `index, follow`, contradicting the `noindex` Next injects for 404s. Nulling
+// both leaves a single robots tag (Next's noindex) and no canonical.
+export const metadata: Metadata = {
+  title: "Page Not Found | McGowan Residential Lettings",
+  description: null,
+  alternates: { canonical: null },
+  robots: null,
+  openGraph: null,
+  twitter: null,
+};
 
 export default function NotFound() {
   return (
@@ -7,7 +21,7 @@ export default function NotFound() {
       <section className="relative min-h-[80vh] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
           <Image
-            src="/hero.jpg"
+            src="/hero-banner.jpg"
             alt="Greater Manchester"
             fill
             sizes="100vw"

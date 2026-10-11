@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/auth";
 import { sanitizeHtml } from "@/lib/sanitize-html";
 import { generateSlug } from "@/lib/slug";
+import { thumbPathForPhotoPath } from "@/lib/thumb";
 
 // Storage paths are derived from public URLs; warn instead of silently
 // skipping when a URL doesn't contain the expected bucket segment.
@@ -23,6 +24,20 @@ function extractStoragePath(url: string | null | undefined): string | null {
   }
 }
 
+/** Storage paths to delete for these public URLs — each property photo's
+ * listing-card thumbnail goes with it (see src/lib/thumb.ts). */
+function storagePathsWithThumbs(urls: (string | null | undefined)[]): string[] {
+  const paths: string[] = [];
+  for (const url of urls) {
+    const path = extractStoragePath(url);
+    if (!path) continue;
+    paths.push(path);
+    const thumb = thumbPathForPhotoPath(path);
+    if (thumb) paths.push(thumb);
+  }
+  return [...new Set(paths)];
+}
+
 /* ── Revalidation helpers (internal — not exported, so not callable as actions) ──
  *
  * Property changes affect the list, home (featured), the ISR detail page, the
@@ -35,6 +50,9 @@ function revalidatePropertyPaths(id?: string) {
   revalidatePath("/");
   revalidatePath("/areas/[slug]", "page");
   revalidatePath("/sitemap.xml");
+  // Every detail page shows "similar properties" cards, so any listing change
+  // must refresh all of them, not just the edited one.
+  revalidatePath("/properties/[id]", "page");
   if (id) revalidatePath(`/properties/${id}`);
 }
 
@@ -54,7 +72,7 @@ function revalidateBlogPaths(...slugs: (string | null | undefined)[]) {
  */
 export async function removeStorageFiles(urls: string[], accessToken: string) {
   await requireAdmin(accessToken);
-  const paths = urls.map(extractStoragePath).filter((p): p is string => p !== null);
+  const paths = storagePathsWithThumbs(urls);
   if (!paths.length) return { success: true, error: "" };
   const { error } = await supabaseAdmin.storage.from("property-images").remove(paths);
   if (error) return { success: false, error: error.message };
@@ -76,7 +94,7 @@ export async function deleteProperty(id: string, fileUrls: string[], accessToken
 
   // Storage cleanup after the row is gone — if removal fails the worst case is
   // an orphaned file (cleanupOrphans reaps it), not a live listing with dead images.
-  const paths = fileUrls.map(extractStoragePath).filter((p): p is string => p !== null);
+  const paths = storagePathsWithThumbs(fileUrls);
   if (paths.length) {
     await supabaseAdmin.storage.from("property-images").remove(paths);
   }
@@ -178,7 +196,7 @@ export async function togglePropertyFeatured(id: string, featured: boolean, acce
     .update({ featured, updated_at: new Date().toISOString() })
     .eq("id", id);
   if (error) return { success: false, error: error.message };
-  revalidatePropertyPaths();
+  revalidatePropertyPaths(id);
   return { success: true, error: "" };
 }
 
@@ -303,12 +321,18 @@ export async function markSubmissionRead(id: string, accessToken: string) {
   return { success: true, error: "" };
 }
 
-export async function markAllSubmissionsRead(ids: string[], accessToken: string) {
+/** Marks every unread row read server-side (no id list — `.in("id", ids)`
+ * put every id in the request URL and broke at scale). `upTo` is the newest
+ * `created_at` the admin has loaded, so anything that arrived since stays
+ * unread; null marks everything. */
+export async function markAllSubmissionsRead(upTo: string | null, accessToken: string) {
   await requireAdmin(accessToken);
-  const { error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("contact_submissions")
     .update({ read: true })
-    .in("id", ids);
+    .eq("read", false);
+  if (upTo) query = query.lte("created_at", upTo);
+  const { error } = await query;
   if (error) return { success: false, error: error.message };
   return { success: true, error: "" };
 }
@@ -323,12 +347,18 @@ export async function markValuationRead(id: string, accessToken: string) {
   return { success: true, error: "" };
 }
 
-export async function markAllValuationsRead(ids: string[], accessToken: string) {
+/** Marks every unread row read server-side (no id list — `.in("id", ids)`
+ * put every id in the request URL and broke at scale). `upTo` is the newest
+ * `created_at` the admin has loaded, so anything that arrived since stays
+ * unread; null marks everything. */
+export async function markAllValuationsRead(upTo: string | null, accessToken: string) {
   await requireAdmin(accessToken);
-  const { error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from("valuation_requests")
     .update({ read: true })
-    .in("id", ids);
+    .eq("read", false);
+  if (upTo) query = query.lte("created_at", upTo);
+  const { error } = await query;
   if (error) return { success: false, error: error.message };
   return { success: true, error: "" };
 }

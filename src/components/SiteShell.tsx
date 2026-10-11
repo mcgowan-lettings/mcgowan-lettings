@@ -30,7 +30,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
       <Header />
       <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
       <div className={isPropertyDetail ? "pb-20 lg:pb-0" : ""}>
-        <Footer />
+        <Footer fabClearance={!hideFab} />
       </div>
       {!hideFab && <WhatsAppButton />}
     </>

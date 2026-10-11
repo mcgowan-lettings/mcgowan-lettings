@@ -1,7 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { THUMB_PREFIX, thumbPathForPhotoPath } from "@/lib/thumb";
 
 const BUCKET = "property-images";
-const PREFIXES = ["properties", "properties/videos", "epc", "blog"];
+// Thumbnails are referenced implicitly (derived from each live photo below),
+// so a thumb whose photo is gone is an orphan and gets reaped like any other.
+const PREFIXES = ["properties", "properties/videos", THUMB_PREFIX, "epc", "blog"];
 
 /**
  * Hard cap on how many files we'll delete in one pass. Even if every other
@@ -93,6 +96,12 @@ export async function cleanupOrphans(supabase: SupabaseClient): Promise<number> 
   }
 
   const referenced = new Set<string>();
+  /** Mark a path referenced, plus its listing-card thumb if it's a photo. */
+  const reference = (p: string) => {
+    referenced.add(p);
+    const thumb = thumbPathForPhotoPath(p);
+    if (thumb) referenced.add(thumb);
+  };
   for (const post of posts) {
     const cover = pathFromUrl(post.cover_image as string | null);
     if (cover) referenced.add(cover);
@@ -104,13 +113,13 @@ export async function cleanupOrphans(supabase: SupabaseClient): Promise<number> 
       } catch {
         // Malformed escape — keep the raw path rather than abort cleanup.
       }
-      referenced.add(p);
+      reference(p);
     }
   }
   for (const row of rows) {
     for (const u of (row.images as string[] | null) ?? []) {
       const p = pathFromUrl(u);
-      if (p) referenced.add(p);
+      if (p) reference(p);
     }
     for (const u of (row.videos as string[] | null) ?? []) {
       const p = pathFromUrl(u);

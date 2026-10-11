@@ -17,6 +17,8 @@ const LONDON_TZ = "Europe/London";
 export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<TenantApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Lists load at most 1000 rows; say so rather than silently hide the rest.
+  const [capped, setCapped] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
@@ -34,6 +36,7 @@ export default function AdminApplicationsPage() {
         const data = await listApplications(session.access_token);
         if (cancelled) return;
         setApplications(data);
+        setCapped(data.length >= 1000);
       } catch {
         if (cancelled) return;
         setMessage({ text: "Failed to load applications.", type: "error" });
@@ -78,8 +81,9 @@ export default function AdminApplicationsPage() {
   };
 
   const markAllRead = async () => {
-    const unreadIds = applications.filter((a) => !a.read).map((a) => a.id);
-    if (unreadIds.length === 0) return;
+    if (!applications.some((a) => !a.read)) return;
+    // Newest loaded row (list is newest-first): anything newer stays unread.
+    const upTo = applications[0]?.created_at ?? null;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -88,7 +92,7 @@ export default function AdminApplicationsPage() {
         return;
       }
 
-      const result = await markAllApplicationsRead(unreadIds, session.access_token);
+      const result = await markAllApplicationsRead(upTo, session.access_token);
       if (!result.success) {
         flash("Failed to mark all as read.", "error");
       } else {
@@ -146,7 +150,9 @@ export default function AdminApplicationsPage() {
       document.body.appendChild(a);
       a.click();
       a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      // 60s, not 1s: iPad Safari shows a download prompt and reads the blob
+      // only after the user taps it — an early revoke yields an empty file.
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } catch {
       flash("Failed to generate PDF.", "error");
     } finally {
@@ -243,6 +249,12 @@ export default function AdminApplicationsPage() {
       </div>
 
       {/* Notification */}
+      {capped && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Showing the most recent 1000 — older items aren&apos;t shown.
+        </p>
+      )}
+
       {message && (
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${

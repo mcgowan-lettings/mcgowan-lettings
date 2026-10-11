@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import VideoLightbox from "./VideoLightbox";
+import { thumbUrl } from "@/lib/thumb";
 
 export default function PropertyGallery({
   propertyId,
@@ -98,6 +99,7 @@ export default function PropertyGallery({
           <a
             href={images[0]}
             data-fancybox="gallery"
+            data-thumb-src={thumbUrl(images[0])}
             data-no-caption={title}
             target="_blank"
             rel="noopener noreferrer"
@@ -128,6 +130,7 @@ export default function PropertyGallery({
               key={i}
               href={img}
               data-fancybox="gallery"
+              data-thumb-src={thumbUrl(img)}
               data-no-caption={`${title} — ${i + 1} of ${images.length}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -158,6 +161,7 @@ export default function PropertyGallery({
           <a
             href={images[0]}
             data-fancybox="gallery"
+            data-thumb-src={thumbUrl(images[0])}
             data-no-caption={`${title} — 1 of ${images.length}`}
             target="_blank"
             rel="noopener noreferrer"
@@ -181,6 +185,7 @@ export default function PropertyGallery({
                 key={i}
                 href={img}
                 data-fancybox="gallery"
+                data-thumb-src={thumbUrl(img)}
                 data-no-caption={`${title} — ${i + 2} of ${images.length}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -209,6 +214,7 @@ export default function PropertyGallery({
               key={i + 3}
               href={img}
               data-fancybox="gallery"
+              data-thumb-src={thumbUrl(img)}
               data-no-caption={`${title} — ${i + 4} of ${images.length}`}
               target="_blank"
               rel="noopener noreferrer"
@@ -225,7 +231,7 @@ export default function PropertyGallery({
               dedicated SSR /photos page where every image is visible. */}
           <a
             href={`/properties/${propertyId}/photos`}
-            className="absolute bottom-4 right-4 bg-white text-dark text-xs font-semibold px-3 py-2 rounded-md shadow-sm flex items-center gap-1.5 z-10 cursor-pointer hover:bg-gray-50 transition-colors"
+            className="absolute bottom-4 right-4 min-h-11 bg-white text-dark text-xs font-semibold px-3 py-2 rounded-md shadow-sm flex items-center gap-1.5 z-10 cursor-pointer hover:bg-gray-50 transition-colors"
             onClick={(e) => {
               if (!fancyboxReadyRef.current) return;
               const firstLink = document.querySelector<HTMLAnchorElement>('[data-fancybox="gallery"]');

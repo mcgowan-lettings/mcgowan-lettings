@@ -1,6 +1,8 @@
 // Shared property-search helpers used by the /properties filter bar and the
 // home-page hero search, so both map stored types and areas identically.
 
+import { BOROUGH_LIST, type County } from "@/app/areas/areas-data";
+
 /* ───────────────────────── PROPERTY TYPE ───────────────────────── */
 
 // Stored `properties.type` values are specific ("Semi Detached", "Detached
@@ -40,21 +42,106 @@ export function parseTypeFilter(value: string | null | undefined): TypeCategory 
 
 /* ───────────────────────── AREA ───────────────────────── */
 
-// Curated order — known areas appear first; any extra areas (e.g. typed in by
-// admin) are appended alphabetically.
-const KNOWN_AREAS = ["Bury", "Bolton", "Manchester", "Rochdale", "Rossendale", "Accrington", "Burnley"];
+// `properties.area` is hand-typed and usually a neighbourhood ("Ramsbottom",
+// "Edenfield", "Holcombe Brook"), while search and the area guides work in
+// boroughs ("Bury", "Rochdale", …). resolveArea() maps every listing onto one
+// display area so "Bury" finds every Bury-borough home:
+//   1. `area` is itself a borough name → that borough;
+//   2. `area` is a neighbourhood from the area-guide lists (BOROUGHS) or the
+//      extra map below → its borough;
+//   3. otherwise scan `location` ("…, Bamford, Rochdale, OL11 5HH") from the
+//      right for a borough / known neighbourhood segment (rightmost wins, so
+//      "107 Burnley Road, Edenfield, Bury" is Bury, not Burnley);
+//   4. otherwise keep the area as typed (its own option in the dropdown).
+
+/** The seven area-guide boroughs, in display order (Bury = main area). */
+export const KNOWN_AREAS: string[] = BOROUGH_LIST.map((b) => b.name);
+
+// Places outside the seven boroughs that we still group under their town.
+const OUTER_TOWN_COUNTY: Record<string, County> = {
+  blackburn: "Lancashire",
+  chorley: "Lancashire",
+};
+
+// Neighbourhoods that appear in listings but aren't in the guide lists.
+// Values are a borough name or an outer town above.
+const EXTRA_NEIGHBOURHOODS: Record<string, string> = {
+  // Bury borough
+  bury: "Bury",
+  edenfield: "Bury", // Rossendale borough, but BL0 / Bury postal town
+  "holcombe brook": "Bury",
+  holcombe: "Bury",
+  elton: "Bury",
+  brandlesholme: "Bury",
+  ainsworth: "Bury",
+  summerseat: "Bury",
+  walshaw: "Bury",
+  unsworth: "Bury",
+  // Rochdale borough
+  bamford: "Rochdale",
+  // Rossendale
+  helmshore: "Rossendale",
+  // Outer towns
+  pleckgate: "Blackburn",
+  "buckshaw village": "Chorley",
+};
+
+const RESOLVE: Map<string, string> = (() => {
+  const m = new Map<string, string>();
+  for (const [k, v] of Object.entries(EXTRA_NEIGHBOURHOODS)) m.set(k, v);
+  for (const b of BOROUGH_LIST) {
+    for (const n of b.neighbourhoods) m.set(n.toLowerCase(), b.name);
+    m.set(b.name.toLowerCase(), b.name);
+  }
+  for (const town of Object.keys(OUTER_TOWN_COUNTY)) {
+    m.set(town, town.charAt(0).toUpperCase() + town.slice(1));
+  }
+  return m;
+})();
 
 export function normaliseArea(area: string | null | undefined): string {
-  return (area ?? "").trim().toLowerCase();
+  return (area ?? "").trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-/** Distinct, display-ordered areas from live property data (deduped
- *  case-insensitively and trimmed). */
-export function buildAreaList(areas: (string | null | undefined)[]): string[] {
+type Locatable = { area?: string | null; location?: string | null };
+
+/** Display area (borough, outer town, or the area as typed) for a listing. */
+export function resolveArea(p: Locatable): string {
+  const area = normaliseArea(p.area);
+  const direct = area ? RESOLVE.get(area) : undefined;
+  if (direct) return direct;
+  const segments = (p.location ?? "").split(",").map(normaliseArea).filter(Boolean);
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const hit = RESOLVE.get(segments[i]);
+    if (hit) return hit;
+  }
+  return (p.area ?? "").trim().replace(/\s+/g, " ");
+}
+
+/** County for a listing (schema.org addressRegion), or null if unknown. */
+export function resolveCounty(p: Locatable): County | null {
+  const key = normaliseArea(resolveArea(p));
+  const borough = BOROUGH_LIST.find((b) => b.name.toLowerCase() === key);
+  if (borough) return borough.county;
+  return Object.hasOwn(OUTER_TOWN_COUNTY, key) ? OUTER_TOWN_COUNTY[key] : null;
+}
+
+/** Does a listing match an `?area=` value? A borough matches all its
+ *  neighbourhoods; any other value (old links like ?area=Ramsbottom) still
+ *  matches the stored area exactly. */
+export function matchesArea(p: Locatable, value: string | null | undefined): boolean {
+  const key = normaliseArea(value);
+  if (!key || key === "all areas") return true;
+  return normaliseArea(p.area) === key || normaliseArea(resolveArea(p)) === key;
+}
+
+/** Distinct, display-ordered areas for the search dropdowns: boroughs with
+ *  listings first (curated order), then any other resolved areas A–Z. */
+export function buildAreaList(listings: Locatable[]): string[] {
   const byKey = new Map<string, string>();
-  for (const a of areas) {
-    const trimmed = (a ?? "").trim();
-    if (trimmed && !byKey.has(trimmed.toLowerCase())) byKey.set(trimmed.toLowerCase(), trimmed);
+  for (const p of listings) {
+    const resolved = resolveArea(p);
+    if (resolved && !byKey.has(resolved.toLowerCase())) byKey.set(resolved.toLowerCase(), resolved);
   }
   const ordered: string[] = [];
   for (const known of KNOWN_AREAS) {
@@ -67,6 +154,38 @@ export function buildAreaList(areas: (string | null | undefined)[]): string[] {
   }
   const extras = Array.from(byKey.values()).sort((a, b) => a.localeCompare(b));
   return [...ordered, ...extras];
+}
+
+/* ───────────────────────── STATUS / ORDER ───────────────────────── */
+
+// Admin STATUSES are "To Let" and "Let Agreed"; null/empty is treated as
+// "To Let" everywhere on the public site.
+export function isAvailable(status: string | null | undefined): boolean {
+  return (status ?? "").trim().toLowerCase() !== "let agreed";
+}
+
+/** Available listings first, then price high → low. Returns a new array. */
+export function sortByAvailability<T extends { status?: string | null; price?: number | null }>(
+  list: readonly T[]
+): T[] {
+  return [...list].sort((a, b) => {
+    const av = isAvailable(a.status) ? 0 : 1;
+    const bv = isAvailable(b.status) ? 0 : 1;
+    if (av !== bv) return av - bv;
+    return (b.price ?? 0) - (a.price ?? 0);
+  });
+}
+
+/* ───────────────────────── CARD TEXT ───────────────────────── */
+
+/** Title and location are often identical; avoid printing it twice. */
+export function locationDiffersFromTitle(title: string | null | undefined, location: string | null | undefined): boolean {
+  const l = normaliseArea(location);
+  return !!l && l !== normaliseArea(title);
+}
+
+export function cardAlt(title: string, location: string | null | undefined): string {
+  return locationDiffersFromTitle(title, location) ? `${title} in ${location}` : title;
 }
 
 /* ───────────────────────── PRICE / BEDS ───────────────────────── */

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getProperty } from "../get-property";
+import { thumbUrl } from "@/lib/thumb";
 import { ArrowLeftIcon, MapPinIcon } from "@/components/Icons";
 
 export const dynamic = "force-dynamic";
@@ -96,7 +97,7 @@ export default async function PropertyPhotosPage({ params }: Props) {
               className="relative aspect-[4/3] overflow-hidden rounded-lg bg-warm-grey block group hover:opacity-95 transition-opacity"
             >
               <Image
-                src={src}
+                src={thumbUrl(src)}
                 alt={`${property.title} — photo ${i + 1} of ${images.length}`}
                 fill
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"

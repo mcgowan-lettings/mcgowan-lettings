@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import PropertiesPage from "./PropertiesClient";
+import { sortByAvailability } from "./filters";
 
 // Cached statically; admin mutations call `revalidatePath("/properties")`
 // so edits go live immediately. The 60s ceiling is a safety net.
@@ -15,7 +16,8 @@ async function getProperties() {
   // Throw rather than render an empty list: a failed ISR regeneration keeps
   // serving the last good page instead of caching "0 properties" for 60s.
   if (error) throw new Error(`Failed to load properties: ${error.message}`);
-  return data ?? [];
+  // Available ("To Let") homes lead, Let Agreed after; each by price desc.
+  return sortByAvailability(data ?? []);
 }
 
 export default async function Page() {

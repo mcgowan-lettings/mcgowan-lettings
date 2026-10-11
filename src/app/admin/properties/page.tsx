@@ -34,6 +34,8 @@ const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").tri
 export default function AdminPropertiesPage() {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(true);
+  // Lists load at most 1000 rows; say so rather than silently hide the rest.
+  const [capped, setCapped] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [togglingFeatured, setTogglingFeatured] = useState<string | null>(null);
   const [togglingNew, setTogglingNew] = useState<string | null>(null);
@@ -57,6 +59,7 @@ export default function AdminPropertiesPage() {
         setMessage({ text: "Failed to load properties.", type: "error" });
       } else {
         setProperties(data ?? []);
+        setCapped((data ?? []).length >= 1000);
       }
       setLoading(false);
     })();
@@ -223,6 +226,12 @@ export default function AdminPropertiesPage() {
       </div>
 
       {/* Notification */}
+      {capped && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Showing the most recent 1000 — older items aren&apos;t shown.
+        </p>
+      )}
+
       {message && (
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
@@ -360,7 +369,7 @@ export default function AdminPropertiesPage() {
                       {property.area}
                     </td>
                     <td className="px-4 py-3 font-medium text-dark">
-                      &pound;{property.price.toLocaleString()}/mo
+                      &pound;{property.price.toLocaleString("en-GB")}/mo
                     </td>
                     <td className="px-4 py-3 text-text-muted">
                       {property.beds === 0 ? "Studio" : property.beds}
@@ -514,7 +523,7 @@ export default function AdminPropertiesPage() {
                     </p>
                     <p className="text-xs text-text-muted">
                       {property.area} &middot; {property.beds === 0 ? "Studio" : `${property.beds} bed`} &middot;{" "}
-                      &pound;{property.price.toLocaleString()}/mo
+                      &pound;{property.price.toLocaleString("en-GB")}/mo
                     </p>
                     {/* min-h-[44px] tap targets; -ml-2 keeps the toggle visually aligned with the title */}
                     <div className="mt-1 -ml-2 flex flex-wrap items-center gap-x-1">

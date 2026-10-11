@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getResend } from "@/lib/resend";
-import { checkLeadThrottle, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
+import { checkLeadThrottle, clientIp, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -72,7 +72,8 @@ export async function submitValuationForm(formData: {
     return { success: false, error: "Property address is required." };
   }
 
-  const throttle = await checkLeadThrottle("valuation_requests", email.trim());
+  const ip_address = await clientIp();
+  const throttle = await checkLeadThrottle("valuation_requests", email.trim(), ip_address);
   if (!throttle.allowed) {
     return {
       success: false,
@@ -82,6 +83,7 @@ export async function submitValuationForm(formData: {
 
   try {
     const { error } = await supabaseAdmin.from("valuation_requests").insert({
+      ip_address,
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),

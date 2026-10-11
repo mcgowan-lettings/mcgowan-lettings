@@ -15,7 +15,7 @@ import {
 
 const PROPERTY_TYPES = ["House", "Apartment", "Flat", "Bungalow", "Other"];
 
-const BEDROOMS = ["1", "2", "3", "4", "5+"];
+const BEDROOMS = ["Studio", "1", "2", "3", "4", "5+"];
 
 const SITUATIONS = [
   "I'm a new landlord",
@@ -115,7 +115,7 @@ export default function ValuationPage() {
       <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
           <Image
-            src="/hero.jpg"
+            src="/hero-banner.jpg"
             alt="Greater Manchester"
             fill
             sizes="100vw"

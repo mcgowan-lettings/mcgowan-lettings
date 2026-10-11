@@ -293,7 +293,9 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
       .single<TenantApplicationRow>();
 
     if (error || !inserted) {
-      console.error("Supabase tenant_applications insert error:", error);
+      // Code/message only: Postgres "details" can echo the failing row (NI
+      // number, signature) into Vercel logs.
+      console.error("Supabase tenant_applications insert error:", error?.code, error?.message);
       return { success: false, error: "Something went wrong. Please try again." };
     }
 
@@ -364,21 +366,24 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
         </div>
       `;
 
+      // The applicant gets a plain confirmation: NO attachment and NO text
+      // they typed. Their address is unverified — a typo would otherwise send
+      // a stranger their NI number, DOB, income and signature (a reportable
+      // GDPR breach), and echoing free text (e.g. the property address) to an
+      // arbitrary address let anyone send branded phishing from our domain.
+      // David still gets the full PDF; he can send the applicant a copy.
       const applicantHtml = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <h2 style="color: #1a1a1a; border-bottom: 2px solid #abd300; padding-bottom: 10px;">
-            Thanks, ${escapeHtml(full_name.split(" ")[0])} — we've received your ${isGuarantor ? "guarantor form" : "application"}
+            We've received your ${isGuarantor ? "guarantor form" : "application"}
           </h2>
           <p style="color: #1a1a1a; line-height: 1.6;">
-            ${
-              isGuarantor
-                ? `Thank you for agreeing to act as guarantor for <strong>${escapeHtml(tenant_name)}</strong> at <strong>${escapeHtml(property_address)}</strong>. A copy of your signed guarantor form is attached to this email for your records.`
-                : `Thank you for applying for <strong>${escapeHtml(property_address)}</strong>. A copy of your signed application is attached to this email for your records.`
-            }
+            Thank you — your signed ${isGuarantor ? "guarantor form" : "application"} has reached McGowan Residential Lettings.
+            David will review your details and be in touch shortly.
           </p>
           <p style="color: #1a1a1a; line-height: 1.6;">
-            David will review your details and be in touch shortly. If you have any questions in
-            the meantime, just reply to this email or call us on 0161 797 6967.
+            If you'd like a copy of your signed form, or you didn't submit this, just reply to this
+            email or call us on 0161 797 6967.
           </p>
           <p style="color: #1a1a1a; line-height: 1.6; margin-top: 24px;">
             Kind regards,<br />
@@ -405,7 +410,6 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
           replyTo: "info@mcgowanlettings.co.uk",
           subject: copy.applicantEmailSubject,
           html: applicantHtml,
-          attachments,
         }),
       ]);
       results.forEach((r, i) => {

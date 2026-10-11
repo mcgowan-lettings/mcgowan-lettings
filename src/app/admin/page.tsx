@@ -12,6 +12,7 @@ interface Stats {
   active: number;
   inactive: number;
   unreadSubmissions: number;
+  unreadValuations: number;
   unreadApplications: number;
 }
 
@@ -21,6 +22,7 @@ export default function AdminDashboardPage() {
     active: 0,
     inactive: 0,
     unreadSubmissions: 0,
+    unreadValuations: 0,
     unreadApplications: 0,
   });
   const [loading, setLoading] = useState(true);
@@ -104,10 +106,14 @@ export default function AdminDashboardPage() {
 
     const loadStats = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      const [propertiesRes, unreadRes, unreadAppsRes] = await Promise.all([
+      const [propertiesRes, unreadRes, unreadValuationsRes, unreadAppsRes] = await Promise.all([
         supabase.from("properties").select("active").limit(1000),
         supabase
           .from("contact_submissions")
+          .select("id", { count: "exact", head: true })
+          .eq("read", false),
+        supabase
+          .from("valuation_requests")
           .select("id", { count: "exact", head: true })
           .eq("read", false),
         session
@@ -118,7 +124,7 @@ export default function AdminDashboardPage() {
           : Promise.resolve({ count: 0, error: new Error("No session") }),
       ]);
 
-      if (propertiesRes.error || unreadRes.error || unreadAppsRes.error) {
+      if (propertiesRes.error || unreadRes.error || unreadValuationsRes.error || unreadAppsRes.error) {
         setStatsError("Couldn't load dashboard stats. Please refresh the page.");
         setLoading(false);
         return;
@@ -132,6 +138,7 @@ export default function AdminDashboardPage() {
         active: activeCount,
         inactive: properties.length - activeCount,
         unreadSubmissions: unreadRes.count ?? 0,
+        unreadValuations: unreadValuationsRes.count ?? 0,
         unreadApplications: unreadAppsRes.count ?? 0,
       });
       setLoading(false);
@@ -182,6 +189,16 @@ export default function AdminDashboardPage() {
       ),
     },
     {
+      label: "New Valuations",
+      value: stats.unreadValuations,
+      color: "bg-sky-50 text-sky-700",
+      icon: (
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+        </svg>
+      ),
+    },
+    {
       label: "New Applications",
       value: stats.unreadApplications,
       color: "bg-brand/10 text-brand-deep",
@@ -212,7 +229,7 @@ export default function AdminDashboardPage() {
       )}
 
       {/* Stats cards */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         {cards.map((card) => (
           <div
             key={card.label}
@@ -289,6 +306,27 @@ export default function AdminDashboardPage() {
                 ? "Loading..."
                 : stats.unreadSubmissions > 0
                 ? `${stats.unreadSubmissions} unread message${stats.unreadSubmissions !== 1 ? "s" : ""}`
+                : "All caught up"}
+            </p>
+          </div>
+        </Link>
+
+        <Link
+          href="/admin/valuations"
+          className="flex items-center gap-4 rounded-xl bg-white p-6 shadow-sm border border-gray-200/60 transition-all hover:shadow-md hover:border-brand/30"
+        >
+          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-sky-50 text-sky-700">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+            </svg>
+          </div>
+          <div>
+            <p className="font-medium text-dark">Valuation Requests</p>
+            <p className="text-sm text-text-muted">
+              {loading
+                ? "Loading..."
+                : stats.unreadValuations > 0
+                ? `${stats.unreadValuations} new request${stats.unreadValuations !== 1 ? "s" : ""}`
                 : "All caught up"}
             </p>
           </div>

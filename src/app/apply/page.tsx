@@ -19,6 +19,16 @@ export const metadata: Metadata = {
   // noindex: robots.txt also disallows it, so this header/meta is the
   // backstop for anyone who links to it.
   alternates: { canonical: "/apply" },
+  // Next replaces the root openGraph wholesale, so without this a shared
+  // link previews as the homepage (generic title, og:url = /).
+  openGraph: {
+    title: copy.metaTitle,
+    description: copy.metaDescription,
+    url: "/apply",
+    siteName: "McGowan Residential Lettings",
+    type: "website",
+    images: [{ url: "/hero.jpg", width: 2880, height: 1920, alt: "McGowan Residential Lettings — Greater Manchester" }],
+  },
   robots: { index: false, follow: false },
 };
 

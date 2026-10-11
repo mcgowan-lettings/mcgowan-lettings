@@ -1,3 +1,13 @@
+import { supabase } from "@/lib/supabase";
+import { compressImage, makeThumbnail } from "@/lib/compress-image";
+import { thumbPathForPhotoPath } from "@/lib/thumb";
+
+const BUCKET = "property-images";
+
+/** Upload names are unique timestamps and never overwritten, so objects can be
+ * cached for a year (Supabase's default is 1h). */
+export const UPLOAD_CACHE_CONTROL = "31536000";
+
 /**
  * Shown when a server action throws (expired session, network drop, deploy
  * skew). Deliberately doesn't say "refresh" — that would throw away the
@@ -104,4 +114,71 @@ export function parseWholeNumber(value: string): number | null {
   if (trimmed === "") return null;
   const n = Number(trimmed);
   return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+/**
+ * Storage paths to delete for a `property-images` public URL: the object
+ * itself plus, for a property photo, its listing-card thumbnail.
+ */
+export function storagePathsForUrl(url: string): string[] {
+  const path = storagePathFromUrl(url);
+  if (!path) return [];
+  const thumb = thumbPathForPhotoPath(path);
+  return thumb ? [path, thumb] : [path];
+}
+
+/**
+ * Compress a property photo, upload it, and upload its JPEG thumbnail to
+ * thumbPathForPhotoPath(). Listing cards rely on the thumb existing, so if
+ * the thumbnail can't be made or uploaded the photo upload fails as a whole
+ * (the original is deleted again). Returns the photo's public URL.
+ */
+export async function uploadPropertyPhoto(rawFile: File): Promise<string> {
+  const file = await compressImage(rawFile);
+  const fileExt = safeExtension(file, "jpg");
+  const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+  const filePath = `properties/${fileName}`;
+  const thumbPath = thumbPathForPhotoPath(filePath);
+  if (!thumbPath) throw new Error(`Failed to upload ${rawFile.name}: bad storage path.`);
+
+  // Make the thumbnail first: a decode failure then costs no upload at all.
+  let thumb: File;
+  try {
+    thumb = await makeThumbnail(file);
+  } catch (err) {
+    const why = err instanceof Error ? err.message : "unknown error";
+    throw new Error(`Failed to upload ${rawFile.name}: couldn't create its thumbnail (${why})`);
+  }
+
+  const { error: uploadError } = await supabase.storage
+    .from(BUCKET)
+    .upload(filePath, file, { cacheControl: UPLOAD_CACHE_CONTROL });
+  if (uploadError) {
+    throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+  }
+
+  let thumbError: string | null = null;
+  try {
+    const { error } = await supabase.storage.from(BUCKET).upload(thumbPath, thumb, {
+      cacheControl: UPLOAD_CACHE_CONTROL,
+      contentType: "image/jpeg",
+      upsert: false,
+    });
+    if (error) thumbError = error.message;
+  } catch (err) {
+    thumbError = err instanceof Error ? err.message : "network error";
+  }
+  if (thumbError) {
+    // Roll back the original so no photo is ever saved without its thumb.
+    // If this delete also fails, cleanupOrphans reaps it after 24h.
+    try {
+      await supabase.storage.from(BUCKET).remove([filePath]);
+    } catch {}
+    throw new Error(`Failed to upload ${rawFile.name}: its thumbnail didn't upload (${thumbError}). Please try again.`);
+  }
+
+  const {
+    data: { publicUrl },
+  } = supabase.storage.from(BUCKET).getPublicUrl(filePath);
+  return publicUrl;
 }

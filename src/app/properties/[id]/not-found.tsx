@@ -1,4 +1,19 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+// Used for the <head> when getProperty() finds nothing and the page calls
+// notFound(). Without this the 404 inherits canonical=/properties from
+// properties/layout.tsx and robots "index, follow" from the root layout,
+// contradicting the automatic <meta name="robots" content="noindex"> Next adds
+// for 404s. `robots: null` leaves that automatic tag as the only one.
+export const metadata: Metadata = {
+  title: "Property Not Found | McGowan Residential Lettings",
+  description: "This property is no longer available. Browse our current rental listings.",
+  robots: null,
+  alternates: { canonical: null },
+  openGraph: null,
+  twitter: null,
+};
 
 export default function PropertyNotFound() {
   return (

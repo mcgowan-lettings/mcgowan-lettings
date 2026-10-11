@@ -9,7 +9,9 @@ import { AnimateIn, CountUp } from "@/components/AnimateIn";
 import LogoRow from "@/components/LogoRow";
 import TestimonialsCarousel from "@/components/TestimonialsCarousel";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
-import { TYPE_FILTER_OPTIONS, formatPrice } from "@/app/properties/filters";
+import { TYPE_FILTER_OPTIONS, cardAlt, formatPrice, locationDiffersFromTitle } from "@/app/properties/filters";
+import { BOROUGH_LIST } from "@/app/areas/areas-data";
+import { thumbUrl } from "@/lib/thumb";
 import { submitContactForm } from "@/app/actions/contact";
 
 const { props: heroImgProps } = getImageProps({
@@ -57,15 +59,12 @@ type FeaturedProperty = {
   is_new: boolean | null;
 };
 
-const AREAS: { name: string; neighbourhoods: string[]; main?: boolean }[] = [
-  { name: "Bury", neighbourhoods: ["Tottington", "Ramsbottom", "Whitefield", "Radcliffe", "Prestwich"], main: true },
-  { name: "Bolton", neighbourhoods: ["Farnworth", "Harwood", "Horwich", "Westhoughton", "Lostock"] },
-  { name: "Manchester", neighbourhoods: ["Deansgate", "Ancoats", "Salford", "Eccles", "Chorlton"] },
-  { name: "Rochdale", neighbourhoods: ["Heywood", "Middleton", "Littleborough", "Milnrow", "Norden"] },
-  { name: "Rossendale", neighbourhoods: ["Rawtenstall", "Haslingden", "Bacup", "Waterfoot"] },
-  { name: "Accrington", neighbourhoods: ["Great Harwood", "Clayton-le-Moors", "Oswaldtwistle", "Rishton"] },
-  { name: "Burnley", neighbourhoods: ["Padiham", "Brierfield", "Nelson", "Colne"] },
-];
+// Same neighbourhood lists as the area guides (and the search resolver).
+const AREAS: { name: string; neighbourhoods: string[]; main?: boolean }[] = BOROUGH_LIST.map((b) => ({
+  name: b.name,
+  neighbourhoods: b.neighbourhoods,
+  main: b.slug === "bury",
+}));
 
 const STATS = [
   { value: 400, suffix: "+", label: "Properties Managed" },
@@ -542,7 +541,7 @@ export default function HomePage({
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center min-h-11 gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
                   Learn more about Fully Managed
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
@@ -575,7 +574,7 @@ export default function HomePage({
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center min-h-11 gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
                   Learn more about Let Only
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
@@ -607,7 +606,7 @@ export default function HomePage({
                     </li>
                   ))}
                 </ul>
-                <Link href="/landlords" className="inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
+                <Link href="/landlords" className="inline-flex items-center min-h-11 gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors group/link">
                   Learn more about Rent Collection
                   <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover/link:translate-x-0.5" />
                 </Link>
@@ -646,8 +645,8 @@ export default function HomePage({
                   <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
                       <Image
-                        src={property.images?.[0] || "/hero.jpg"}
-                        alt={property.location ? `${property.title} in ${property.location}` : property.title}
+                        src={property.images?.[0] ? thumbUrl(property.images[0]) : "/hero-banner.jpg"}
+                        alt={cardAlt(property.title, property.location)}
                         fill
                         sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                         className="property-image object-cover transition-transform duration-700 ease-out"
@@ -665,11 +664,13 @@ export default function HomePage({
                       <h3 className="font-semibold text-dark mb-1 group-hover:text-brand-dark transition-colors">
                         {property.title}
                       </h3>
-                      <div className="flex items-center gap-1 text-text-muted text-sm mb-4">
-                        <MapPinIcon className="w-3.5 h-3.5" />
-                        {property.location}
-                      </div>
-                      <div className="flex items-center gap-4 pt-4 border-t border-black/5">
+                      {locationDiffersFromTitle(property.title, property.location) && (
+                        <div className="flex items-center gap-1 text-text-muted text-sm">
+                          <MapPinIcon className="w-3.5 h-3.5 shrink-0" />
+                          {property.location}
+                        </div>
+                      )}
+                      <div className="flex items-center gap-4 pt-4 mt-4 border-t border-black/5">
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BedIcon className="w-4 h-4" />
                           <span>{property.beds === 0 ? "Studio" : `${property.beds} ${property.beds === 1 ? "Bed" : "Beds"}`}</span>

@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getResend } from "@/lib/resend";
-import { checkLeadThrottle, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
+import { checkLeadThrottle, clientIp, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -65,7 +65,8 @@ export async function submitContactForm(formData: {
     return { success: false, error: "Message is required." };
   }
 
-  const throttle = await checkLeadThrottle("contact_submissions", email.trim());
+  const ip_address = await clientIp();
+  const throttle = await checkLeadThrottle("contact_submissions", email.trim(), ip_address);
   if (!throttle.allowed) {
     return {
       success: false,
@@ -75,6 +76,7 @@ export async function submitContactForm(formData: {
 
   try {
     const { error } = await supabaseAdmin.from("contact_submissions").insert({
+      ip_address,
       name: name.trim(),
       email: email.trim(),
       phone: phone?.trim() || null,

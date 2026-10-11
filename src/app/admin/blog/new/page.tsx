@@ -11,7 +11,12 @@ import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
-import { safeExtension, storagePathFromUrl } from "@/app/admin/properties/upload-helpers";
+import {
+  STALE_UPLOAD_CHECK_MS,
+  findMissingUploads,
+  safeExtension,
+  storagePathFromUrl,
+} from "@/app/admin/properties/upload-helpers";
 
 export default function NewBlogPostPage() {
   const router = useRouter();
@@ -35,6 +40,13 @@ export default function NewBlogPostPage() {
     content: "",
     published: false,
   });
+
+  // When the page was opened — unsaved uploads older than ~24h get reaped by
+  // cleanupOrphans, so a long-open page re-checks its cover before saving.
+  const openedAt = useRef(0);
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
 
   // Revoke the local preview object URL whenever it's replaced or on unmount.
   const previewRef = useRef("");
@@ -89,7 +101,8 @@ export default function NewBlogPostPage() {
 
     const { error: uploadError } = await supabase.storage
       .from("property-images")
-      .upload(filePath, compressed);
+      // Names are unique timestamps and never overwritten, so cache for a year.
+      .upload(filePath, compressed, { cacheControl: "31536000" });
 
     if (uploadError) {
       setError(`Failed to upload image: ${uploadError.message}`);
@@ -144,6 +157,26 @@ export default function NewBlogPostPage() {
       setError("Slug is empty. The title needs to contain letters or numbers — or edit the slug manually.");
       setSaving(false);
       return;
+    }
+
+    // An uploaded cover isn't referenced by any saved row until now, so
+    // cleanupOrphans reaps it after 24h. If the page has been open that long,
+    // check it still exists rather than saving a dead link.
+    if (
+      openedAt.current &&
+      Date.now() - openedAt.current > STALE_UPLOAD_CHECK_MS &&
+      coverImage &&
+      storagePathFromUrl(coverImage)
+    ) {
+      const missing = await findMissingUploads([coverImage]);
+      if (missing.length > 0) {
+        setCoverImage("");
+        setCoverCredit(null);
+        setPreview("");
+        setError("The cover image uploaded more than a day ago was cleaned up — please re-upload it.");
+        setSaving(false);
+        return;
+      }
     }
 
     let session;

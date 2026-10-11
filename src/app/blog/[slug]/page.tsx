@@ -13,6 +13,14 @@ import { SITE_URL } from "@/lib/site";
 // slug, so edits go live immediately. The 60s ceiling is a safety net.
 export const revalidate = 60;
 
+// Without generateStaticParams a dynamic segment is rendered per request
+// (ƒ in the build output, `Cache-Control: no-store` live) and `revalidate`
+// does nothing. Returning [] builds no posts up front but makes every slug
+// ISR: rendered on first visit, then cached and regenerated every 60s.
+export async function generateStaticParams() {
+  return [];
+}
+
 type Props = {
   params: Promise<{ slug: string }>;
 };
@@ -22,6 +30,8 @@ export async function generateMetadata({ params }: Props) {
   const post = await getPost(slug);
 
   if (!post) {
+    // The page body calls notFound(); the 404's head comes from
+    // ./not-found.tsx's `metadata`, not from here.
     return { title: "Post Not Found | McGowan Residential Lettings" };
   }
 
@@ -42,7 +52,11 @@ export async function generateMetadata({ params }: Props) {
       title,
       description,
       url: `/blog/${slug}`,
-      images: [{ url: image, width: 1200, height: 630 }],
+      // Covers are arbitrary uploads/Unsplash crops, so don't declare
+      // dimensions we can't vouch for; the fallback hero is 2880×1920.
+      images: post.cover_image
+        ? [{ url: image, alt: post.title }]
+        : [{ url: image, width: 2880, height: 1920, alt: "McGowan Residential Lettings — Greater Manchester" }],
       type: "article",
     },
     twitter: {
@@ -136,7 +150,7 @@ export default async function BlogPostPage({ params }: Props) {
             />
           ) : (
             <Image
-              src="/hero.jpg"
+              src="/hero-banner.jpg"
               alt="Greater Manchester"
               fill
               sizes="100vw"
@@ -281,7 +295,7 @@ export default async function BlogPostPage({ params }: Props) {
             <div className="mt-10 pt-8 border-t border-black/5">
               <Link
                 href="/blog"
-                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors"
+                className="group inline-flex items-center gap-1.5 min-h-11 text-sm font-semibold text-brand-deep hover:text-brand-dark transition-colors"
               >
                 <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-0.5" />
                 Back to all posts

@@ -27,6 +27,8 @@ interface BlogPost {
 export default function AdminBlogPage() {
   const [posts, setPosts] = useState<BlogPost[]>([]);
   const [loading, setLoading] = useState(true);
+  // Lists load at most 1000 rows; say so rather than silently hide the rest.
+  const [capped, setCapped] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{
@@ -47,6 +49,7 @@ export default function AdminBlogPage() {
         setMessage({ text: "Failed to load blog posts.", type: "error" });
       } else {
         setPosts(data ?? []);
+        setCapped((data ?? []).length >= 1000);
       }
       setLoading(false);
     })();
@@ -141,6 +144,12 @@ export default function AdminBlogPage() {
       </div>
 
       {/* Notification */}
+      {capped && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Showing the most recent 1000 — older items aren&apos;t shown.
+        </p>
+      )}
+
       {message && (
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${

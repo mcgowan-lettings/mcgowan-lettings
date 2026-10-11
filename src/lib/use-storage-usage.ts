@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { cleanupOrphanedStorage } from "@/app/actions/storage";
+import { THUMB_PREFIX } from "@/lib/thumb";
 
 const BUCKET = "property-images";
 const LIMIT_BYTES = 100 * 1024 * 1024 * 1024; // 100 GB (Supabase Pro)
@@ -28,8 +29,9 @@ export function useStorageUsage(): StorageUsage {
       let total = 0;
 
       // List all files in the bucket across known prefixes (non-recursive, so list subfolders explicitly)
-      // Blog covers live under blog/ in the same bucket.
-      for (const prefix of ["properties", "properties/videos", "epc", "blog"]) {
+      // Blog covers live under blog/ in the same bucket; listing-card
+      // thumbnails under THUMB_PREFIX.
+      for (const prefix of ["properties", "properties/videos", THUMB_PREFIX, "epc", "blog"]) {
         let offset = 0;
         const pageSize = 1000;
         let hasMore = true;

@@ -42,6 +42,8 @@ interface Submission {
 export default function AdminSubmissionsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading, setLoading] = useState(true);
+  // Lists load at most 1000 rows; say so rather than silently hide the rest.
+  const [capped, setCapped] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{
@@ -62,6 +64,7 @@ export default function AdminSubmissionsPage() {
         setMessage({ text: "Failed to load submissions.", type: "error" });
       } else {
         setSubmissions(data ?? []);
+        setCapped((data ?? []).length >= 1000);
       }
       setLoading(false);
     })();
@@ -98,8 +101,9 @@ export default function AdminSubmissionsPage() {
   };
 
   const markAllRead = async () => {
-    const unreadIds = submissions.filter((s) => !s.read).map((s) => s.id);
-    if (unreadIds.length === 0) return;
+    if (!submissions.some((s) => !s.read)) return;
+    // Newest loaded row (list is newest-first): anything newer stays unread.
+    const upTo = submissions[0]?.created_at ?? null;
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -108,7 +112,7 @@ export default function AdminSubmissionsPage() {
         return;
       }
 
-      const result = await markAllSubmissionsRead(unreadIds, session.access_token);
+      const result = await markAllSubmissionsRead(upTo, session.access_token);
       if (!result.success) {
         setMessage({ text: "Failed to mark all as read.", type: "error" });
       } else {
@@ -205,7 +209,8 @@ export default function AdminSubmissionsPage() {
     document.body.appendChild(a);
     a.click();
     a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    // 60s, not 1s: iPad Safari reads the blob only after the download prompt is tapped.
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   const unreadCount = submissions.filter((s) => !s.read).length;
@@ -254,6 +259,12 @@ export default function AdminSubmissionsPage() {
       </div>
 
       {/* Notification */}
+      {capped && (
+        <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Showing the most recent 1000 — older items aren&apos;t shown.
+        </p>
+      )}
+
       {message && (
         <div
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
