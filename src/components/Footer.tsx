@@ -4,13 +4,13 @@ import FooterYear from "./FooterYear";
 
 /**
  * `fabClearance`: the WhatsApp FAB is fixed bottom-6 right-6 (56px), so it
- * covers the bottom-most ~80px of the viewport's right edge. Below `sm` the
- * centred "Regulated by … TPO" row reaches under it, so when the FAB is shown
+ * covers the bottom-most ~80px of the viewport's right edge. Below `md` the
+ * centred bottom rows (regulators, company number) reach under it, so when the FAB is shown
  * pad the footer (inside the dark background) until that row clears it.
  */
 export default function Footer({ fabClearance = false, renderYear }: { fabClearance?: boolean; renderYear: number }) {
   return (
-    <footer className={`bg-dark pt-16 ${fabClearance ? "pb-28 sm:pb-8" : "pb-8"}`}>
+    <footer className={`bg-dark pt-16 ${fabClearance ? "pb-28 md:pb-8" : "pb-8"}`}>
       <div className="max-w-7xl mx-auto px-6">
         <div className="grid sm:grid-cols-2 lg:grid-cols-[1.5fr_1fr_1fr_1fr] gap-x-8 gap-y-10 pb-12 border-b border-white/10">
           {/* Brand */}

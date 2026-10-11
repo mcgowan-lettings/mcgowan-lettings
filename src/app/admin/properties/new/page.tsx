@@ -293,7 +293,7 @@ export default function NewPropertyPage() {
     const beds = parseWholeNumber(form.beds);
     const baths = parseWholeNumber(form.baths);
     if (price === null || price <= 0) {
-      setError("Price must be a whole number of pounds greater than 0 (e.g. 850).");
+      setError("Price must be a whole number of pounds between £1 and £1,000,000 (e.g. 850).");
       return;
     }
     if (beds === null || baths === null) {

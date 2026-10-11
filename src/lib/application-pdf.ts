@@ -315,8 +315,10 @@ class Layout {
     this.y -= 14;
   }
 
-  section(title: string) {
-    this.ensure(70);
+  /** `keepWithNext`: height of the content that must follow the heading on
+   * the same page (so a heading is never stranded at a page bottom). */
+  section(title: string, keepWithNext = 0) {
+    this.ensure(Math.max(70, keepWithNext + 40));
     this.space(8);
     this.page.drawText(sanitize(title).toUpperCase(), {
       x: MARGIN,
@@ -512,6 +514,18 @@ class Layout {
   }
 
   /** Signature on the left, printed name + date on the right — one balanced block. */
+  /** Wrapped right-column text and total height of the signature block. */
+  signatureLayout(printName: string, dateSigned: string) {
+    const valueW = CONTENT_W / 2 - LABEL_W - 8;
+    const pairs: [string, string][] = [
+      ["Print name", printName],
+      ["Date signed", dateSigned],
+    ];
+    const wrapped = pairs.map(([, value]) => wrapText(sanitize(value) || "\u2014", this.regular, 10, valueW));
+    const rightH = 6 + wrapped.reduce((h, lines) => h + lines.length * 13.5 + 8, 0);
+    return { pairs, wrapped, blockH: Math.max(70, Math.ceil(rightH)) };
+  }
+
   signatureBlock(
     image: PDFImage | null,
     printName: string,
@@ -525,14 +539,7 @@ class Layout {
     // and used to push "Date signed" onto the office-use box; size the block
     // to whichever column is taller.
     const colX = MARGIN + CONTENT_W / 2 + 6;
-    const valueW = CONTENT_W / 2 - LABEL_W - 8;
-    const pairs: [string, string][] = [
-      ["Print name", printName],
-      ["Date signed", dateSigned],
-    ];
-    const wrapped = pairs.map(([, value]) => wrapText(sanitize(value) || "\u2014", this.regular, 10, valueW));
-    const rightH = 6 + wrapped.reduce((h, lines) => h + lines.length * 13.5 + 8, 0);
-    const blockH = Math.max(70, Math.ceil(rightH));
+    const { pairs, wrapped, blockH } = this.signatureLayout(printName, dateSigned);
     this.ensure(blockH + 6);
     const top = this.y;
 
@@ -729,7 +736,7 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
     checked: app.declaration_agreed,
   });
 
-  L.section("Signature");
+  L.section("Signature", L.signatureLayout(app.signed_name, formatDateTime(app.signed_at)).blockH);
   L.signatureBlock(
     signature,
     app.signed_name,

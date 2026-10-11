@@ -134,7 +134,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   const job_title = str(data.job_title, MAX_SHORT);
   const employment_start_date = str(data.employment_start_date, 10);
   const monthly_income = str(data.monthly_income, 50);
-  const signed_name = str(data.signed_name, 80); // matches the client cap; long names broke the PDF signature block
+  const signed_name = str(data.signed_name, MAX_SHORT); // same cap as the form; the PDF signature block grows to fit
   const signature_data_url = typeof data.signature_data_url === "string" ? data.signature_data_url : "";
   const declaration_agreed = data.declaration_agreed === true;
 

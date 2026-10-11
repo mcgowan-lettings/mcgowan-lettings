@@ -111,12 +111,10 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
     const q = query.trim();
     if (!q) return;
     const seq = ++requestSeqRef.current;
-    searchedQueryRef.current = q;
 
     setLoading(true);
     setError("");
     setSearched(true);
-    setPage(1);
 
     try {
       const res = await fetch(
@@ -126,6 +124,9 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
       if (seq !== requestSeqRef.current) return;
+      // Only now do the visible results belong to the new query.
+      searchedQueryRef.current = q;
+      setPage(1);
       setPhotos(data.results);
       setTotalPages(data.totalPages);
     } catch {
@@ -167,6 +168,7 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
       setPage(nextPage);
       setError("");
     } catch {
+      if (seq !== requestSeqRef.current) return;
       setError("Failed to load more photos.");
     } finally {
       setLoadingMore(false);
@@ -276,7 +278,7 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
                   <button
                     type="button"
                     onClick={loadMore}
-                    disabled={loadingMore}
+                    disabled={loadingMore || loading}
                     className="min-h-11 rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark disabled:opacity-50"
                   >
                     {loadingMore ? "Loading..." : "Load more"}

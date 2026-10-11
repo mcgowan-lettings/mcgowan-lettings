@@ -236,6 +236,7 @@ export default function AdminLoginPage() {
 
               {resetMessage && (
                 <div
+                  role={resetMessage.type === "success" ? "status" : "alert"}
                   className={`rounded-lg px-4 py-3 text-sm ${
                     resetMessage.type === "success"
                       ? "bg-green-500/10 border border-green-500/20 text-green-400"

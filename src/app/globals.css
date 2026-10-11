@@ -417,8 +417,10 @@ a[data-fancybox]:focus-visible {
    Keyed on the bar being rendered, so the property 404/error pages keep the
    FAB and normal footer. :has() is Safari 15.4+/Chrome 105+/Firefox 121+;
    older browsers just keep the FAB. */
+/* Hidden at every width: on desktop the property sidebar has its own
+   WhatsApp button and the FAB could cover it. */
+html:has(.property-sticky-bar) .wa-fab { display: none; }
 @media (max-width: 1023.98px) {
-  html:has(.property-sticky-bar) .wa-fab { display: none; }
   html:has(.property-sticky-bar) footer {
     padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
   }
