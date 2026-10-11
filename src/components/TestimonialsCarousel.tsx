@@ -180,7 +180,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
             href="https://search.google.com/local/writereview?placeid=ChIJ7-uGq-eke0gRBKbenjpoV4E"
             target="_blank"
             rel="noopener noreferrer"
-            className="group inline-flex items-center gap-2 text-sm font-semibold text-brand-dark border border-brand/30 px-5 py-2 rounded-sm hover:bg-brand/10 transition-all duration-200"
+            className="group inline-flex items-center min-h-11 gap-2 text-sm font-semibold text-brand-deep border border-brand/30 px-5 py-2 rounded-sm hover:bg-brand/10 transition-all duration-200"
           >
             Leave Us a Review
             <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
@@ -293,12 +293,12 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
           </div>
 
           {/* Desktop: dots only (side arrows handle nav) */}
-          <div className="hidden md:flex items-center justify-center gap-1 mt-8">
+          <div className="hidden md:flex items-center justify-center mt-8">
             {Array.from({ length: maxIndex + 1 }).map((_, i) => (
               <button
                 key={i}
                 onClick={() => { handleInteraction(); setCurrent(i); }}
-                className="group p-3 -m-1 cursor-pointer"
+                className="group inline-flex items-center justify-center min-w-11 min-h-11 cursor-pointer"
                 aria-label={`Go to slide ${i + 1}`}
               >
                 <span

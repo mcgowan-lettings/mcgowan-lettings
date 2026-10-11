@@ -220,7 +220,7 @@ export default function ContactPage() {
                       Office Address
                     </p>
                     <p className="text-dark font-medium leading-relaxed">
-                      McGowan Lettings Ltd
+                      McGowan Residential Lettings Ltd
                       <br />
                       PO Box 546
                       <br />
@@ -516,7 +516,7 @@ export default function ContactPage() {
           <AnimateIn delay={0.1}>
             <div className="rounded-lg overflow-hidden border border-black/5 shadow-sm">
               <iframe
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d9490!2d-2.2975!3d53.5935!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x487bb7e8c9a6f0e1%3A0x1!2sBury+BL8+9HB!5e0!3m2!1sen!2suk!4v1"
+                src="https://www.google.com/maps?q=Bury+BL8+9HB&output=embed"
                 width="100%"
                 height="450"
                 style={{ border: 0 }}

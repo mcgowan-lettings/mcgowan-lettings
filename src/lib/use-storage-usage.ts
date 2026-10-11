@@ -19,6 +19,7 @@ export function useStorageUsage(): StorageUsage {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const calculate = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -27,7 +28,8 @@ export function useStorageUsage(): StorageUsage {
       let total = 0;
 
       // List all files in the bucket across known prefixes (non-recursive, so list subfolders explicitly)
-      for (const prefix of ["properties", "properties/videos", "epc"]) {
+      // Blog covers live under blog/ in the same bucket.
+      for (const prefix of ["properties", "properties/videos", "epc", "blog"]) {
         let offset = 0;
         const pageSize = 1000;
         let hasMore = true;
@@ -55,11 +57,22 @@ export function useStorageUsage(): StorageUsage {
         }
       }
 
-      setUsedBytes(total);
-      setLoading(false);
+      return total;
     };
 
-    calculate();
+    // A thrown list() (network drop) must not leave the meter spinning forever;
+    // show whatever is known (0) rather than "Calculating..." indefinitely.
+    calculate()
+      .then((total) => {
+        if (!cancelled) setUsedBytes(total);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const percentage = Math.min((usedBytes / LIMIT_BYTES) * 100, 100);

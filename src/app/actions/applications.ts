@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/auth";
-import { buildApplicationPdf } from "@/lib/application-pdf";
+import { buildApplicationPdf, londonDateParts } from "@/lib/application-pdf";
 import type { TenantApplicationRow } from "@/lib/application-types";
 
 export async function markApplicationRead(id: string, accessToken: string) {
@@ -99,7 +99,9 @@ export async function getApplicationPdf(
   }
   const app = data as TenantApplicationRow;
   const pdf = await buildApplicationPdf(app);
-  const date = new Date(app.created_at).toISOString().split("T")[0];
+  // UK local date, so a 00:30 BST submission isn't filed under the day before.
+  const parts = londonDateParts(app.created_at);
+  const date = parts ? `${parts.year}-${parts.month}-${parts.day}` : "undated";
   return {
     base64: Buffer.from(pdf).toString("base64"),
     filename: `application-${slugify(app.full_name)}-${date}.pdf`,

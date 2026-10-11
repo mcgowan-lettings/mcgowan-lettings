@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
@@ -11,8 +11,10 @@ import { compressImage } from "@/lib/compress-image";
 import { transcodeVideoToMp4, MAX_VIDEO_BYTES, assertUploadableVideo } from "@/lib/video-transcode";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import RichTextEditor from "@/components/RichTextEditor";
+import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import {
   ACTION_THREW_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
   STALE_UPLOAD_CHECK_MS,
   findMissingUploads,
   mapSettledWithConcurrency,
@@ -66,12 +68,25 @@ function sameTimestamp(a: string | null, b: string | null): boolean {
   return !Number.isNaN(ta) && ta === tb;
 }
 
+/** Serialised editable state, compared against the last loaded/saved copy to detect unsaved work. */
+function snapshotOf(form: object, images: string[], videos: string[]): string {
+  return JSON.stringify({ form, images, videos });
+}
+
 export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const id = params.id as string;
 
   const [loading, setLoading] = useState(true);
+  // Set when the row couldn't be loaded. The form is NOT rendered then:
+  // saving a blank form would wipe the listing's photos/videos, and
+  // cleanupOrphans would later delete the real files as orphans.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  // Snapshot of the last loaded/saved state; null until loaded.
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  // Set once the property is deleted, so the guard is off before navigating.
+  const [leaving, setLeaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -119,19 +134,33 @@ export default function EditPropertyPage() {
   });
 
   const fetchProperty = useCallback(async () => {
-    const { data, error: fetchError } = await supabase
-      .from("properties")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !data) {
-      setError("Property not found.");
+    let data;
+    try {
+      const res = await supabase
+        .from("properties")
+        .select("*")
+        .eq("id", id)
+        .single();
+      if (res.error || !res.data) {
+        // PGRST116 = no row; 22P02 = malformed id in the URL. Anything else
+        // (network, expired session, RLS) is a load failure, not "missing".
+        const code = res.error?.code;
+        setLoadError(
+          !res.error || code === "PGRST116" || code === "22P02"
+            ? "Property not found. It may have been deleted."
+            : "Couldn't load this property — check your connection and try again."
+        );
+        setLoading(false);
+        return;
+      }
+      data = res.data;
+    } catch {
+      setLoadError("Couldn't load this property — check your connection and try again.");
       setLoading(false);
       return;
     }
 
-    setForm({
+    const loadedForm = {
       title: data.title,
       description: data.description ?? "",
       price: data.price.toString(),
@@ -149,9 +178,12 @@ export default function EditPropertyPage() {
       council_tax_band: data.council_tax_band ?? "",
       epc_document: data.epc_document ?? "",
       features: (data.features ?? []).join("\n"),
-    });
+    };
+    setForm(loadedForm);
     setImageUrls(data.images ?? []);
     setVideoUrls(data.videos ?? []);
+    setSavedSnapshot(snapshotOf(loadedForm, data.images ?? [], data.videos ?? []));
+    setLoadError(null);
     savedFileUrls.current = new Set<string>([
       ...(data.images ?? []),
       ...(data.videos ?? []),
@@ -160,6 +192,18 @@ export default function EditPropertyPage() {
     loadedUpdatedAt.current = data.updated_at ?? null;
     setLoading(false);
   }, [id]);
+
+  const retryLoad = () => {
+    setLoadError(null);
+    setLoading(true);
+    fetchProperty();
+  };
+
+  const dirty = useMemo(
+    () => savedSnapshot !== null && snapshotOf(form, imageUrls, videoUrls) !== savedSnapshot,
+    [savedSnapshot, form, imageUrls, videoUrls]
+  );
+  useUnsavedGuard(!leaving && (dirty || uploading || uploadingVideo || uploadingEpc || saving));
 
   /** Delete a file from storage only if it was uploaded this session (unsaved). */
   const removeUnsavedFile = async (url: string) => {
@@ -401,7 +445,7 @@ export default function EditPropertyPage() {
 
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setError("Session expired. Please sign in again.");
+        setError(SESSION_EXPIRED_MESSAGE);
         return;
       }
 
@@ -443,6 +487,7 @@ export default function EditPropertyPage() {
         removeStorageFiles(staleUrls, session.access_token).catch(() => {});
       }
       savedFileUrls.current = currentUrls;
+      setSavedSnapshot(snapshotOf(form, imageUrls, videoUrls));
 
       setSuccess("Property updated successfully.");
       setTimeout(() => setSuccess(""), 3000);
@@ -467,7 +512,7 @@ export default function EditPropertyPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setError("Session expired. Please sign in again.");
+        setError(SESSION_EXPIRED_MESSAGE);
         return;
       }
       const fileUrls = [...imageUrls, ...videoUrls, form.epc_document].filter(Boolean);
@@ -479,6 +524,7 @@ export default function EditPropertyPage() {
       }
 
       navigating = true;
+      setLeaving(true);
       router.push("/admin/properties");
     } catch {
       setError("Couldn't delete — your session may have expired. Refresh and sign in again.");
@@ -495,6 +541,31 @@ export default function EditPropertyPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-sm text-red-700" role="alert">
+          <p className="font-medium">{loadError}</p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={retryLoad}
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg bg-brand px-5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light"
+            >
+              Retry
+            </button>
+            <Link
+              href="/admin/properties"
+              className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-300 bg-white px-5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            >
+              Back to properties
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       {/* Header */}
@@ -502,9 +573,10 @@ export default function EditPropertyPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin/properties"
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-text-muted transition-colors hover:bg-gray-200 hover:text-dark"
+            aria-label="Back to properties"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-text-muted transition-colors hover:bg-gray-200 hover:text-dark"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </Link>
@@ -518,7 +590,8 @@ export default function EditPropertyPage() {
         <button
           onClick={handleDelete}
           disabled={deleting || saving}
-          className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          type="button"
+          className="min-h-[44px] shrink-0 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {deleting ? "Deleting..." : "Delete"}
         </button>
@@ -544,27 +617,31 @@ export default function EditPropertyPage() {
           </h3>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="property-title" className="mb-1.5 block text-sm font-medium text-dark">
               Title <span className="text-red-500">*</span>
             </label>
             <input
+              id="property-title"
               type="text"
               required
               value={form.title}
               onChange={(e) => updateField("title", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <p id="property-description-label" className="mb-1.5 block text-sm font-medium text-dark">
               Description
-            </label>
-            <RichTextEditor
-              rows={6}
-              value={form.description}
-              onChange={(v) => updateField("description", v)}
-            />
+            </p>
+            <div role="group" aria-labelledby="property-description-label">
+              <RichTextEditor
+                labelledBy="property-description-label"
+                rows={6}
+                value={form.description}
+                onChange={(v) => updateField("description", v)}
+              />
+            </div>
             <p className="text-xs text-text-muted mt-1.5">
               Use the toolbar for <strong>bold</strong>, <em>italic</em> and links.
             </p>
@@ -572,7 +649,7 @@ export default function EditPropertyPage() {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-price" className="mb-1.5 block text-sm font-medium text-dark">
                 Price (per month) <span className="text-red-500">*</span>
               </label>
               <div className="relative">
@@ -580,24 +657,26 @@ export default function EditPropertyPage() {
                   &pound;
                 </span>
                 <input
+                  id="property-price"
                   type="number"
                   required
                   min="0"
                   value={form.price}
                   onChange={(e) => updateField("price", e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 pl-8 pr-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-lg border border-gray-300 pl-8 pr-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
                 />
               </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-type" className="mb-1.5 block text-sm font-medium text-dark">
                 Property Type <span className="text-red-500">*</span>
               </label>
               <select
+                id="property-type"
                 value={form.type}
                 onChange={(e) => updateField("type", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
               >
                 {TYPES.map((type) => (
                   <option key={type} value={type}>
@@ -617,30 +696,32 @@ export default function EditPropertyPage() {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-location" className="mb-1.5 block text-sm font-medium text-dark">
                 Address / Location <span className="text-red-500">*</span>
               </label>
               <input
+                id="property-location"
                 type="text"
                 required
                 value={form.location}
                 onChange={(e) => updateField("location", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-area" className="mb-1.5 block text-sm font-medium text-dark">
                 Area <span className="text-red-500">*</span>
               </label>
               <input
+                id="property-area"
                 type="text"
                 required
                 list="area-suggestions"
                 value={form.area}
                 onChange={(e) => updateField("area", e.target.value)}
                 onBlur={(e) => updateField("area", e.target.value.trim())}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
                 placeholder="e.g. Bury"
               />
               <datalist id="area-suggestions">
@@ -663,14 +744,15 @@ export default function EditPropertyPage() {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-beds" className="mb-1.5 block text-sm font-medium text-dark">
                 Bedrooms <span className="text-red-500">*</span>
               </label>
               <select
+                id="property-beds"
                 required
                 value={form.beds}
                 onChange={(e) => updateField("beds", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
               >
                 <option value="" disabled>
                   Select…
@@ -684,29 +766,31 @@ export default function EditPropertyPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-baths" className="mb-1.5 block text-sm font-medium text-dark">
                 Bathrooms <span className="text-red-500">*</span>
               </label>
               <input
+                id="property-baths"
                 type="number"
                 required
                 min="0"
                 value={form.baths}
                 onChange={(e) => updateField("baths", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
               />
             </div>
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-status" className="mb-1.5 block text-sm font-medium text-dark">
                 Status
               </label>
               <select
+                id="property-status"
                 value={form.status}
                 onChange={(e) => updateField("status", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
               >
                 {STATUSES.map((s) => (
                   <option key={s} value={s}>{s}</option>
@@ -715,13 +799,14 @@ export default function EditPropertyPage() {
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-furnished" className="mb-1.5 block text-sm font-medium text-dark">
                 Furnished
               </label>
               <select
+                id="property-furnished"
                 value={form.furnished}
                 onChange={(e) => updateField("furnished", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
               >
                 {FURNISHED_OPTIONS.map((f) => (
                   <option key={f} value={f}>{f}</option>
@@ -732,25 +817,27 @@ export default function EditPropertyPage() {
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-available-from" className="mb-1.5 block text-sm font-medium text-dark">
                 Available From
               </label>
               <input
+                id="property-available-from"
                 type="date"
                 value={form.available_from}
                 onChange={(e) => updateField("available_from", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
               />
             </div>
 
             <div>
-              <label className="mb-1.5 block text-sm font-medium text-dark">
+              <label htmlFor="property-council-tax" className="mb-1.5 block text-sm font-medium text-dark">
                 Council Tax Band
               </label>
               <select
+                id="property-council-tax"
                 value={form.council_tax_band}
                 onChange={(e) => updateField("council_tax_band", e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
+                className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand bg-white"
               >
                 <option value="">Not specified</option>
                 {COUNCIL_TAX_BANDS.filter(Boolean).map((b) => (
@@ -761,29 +848,30 @@ export default function EditPropertyPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <p className="mb-1.5 block text-sm font-medium text-dark">
               EPC Certificate
-            </label>
+            </p>
             {form.epc_document ? (
               <div className="flex items-center gap-3">
                 <a
                   href={form.epc_document}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-sm text-brand-dark font-medium hover:underline truncate"
+                  className="inline-flex min-h-[44px] items-center text-sm text-brand-dark font-medium hover:underline truncate"
                 >
                   View uploaded EPC →
                 </a>
                 <button
                   type="button"
                   onClick={removeEpc}
-                  className="text-xs text-red-500 hover:text-red-700"
+                  aria-label="Remove EPC certificate"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs text-red-500 hover:text-red-700"
                 >
                   Remove
                 </button>
               </div>
             ) : (
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-center transition-colors hover:border-brand/50 hover:bg-brand/5">
+              <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-3 text-center transition-colors hover:border-brand/50 hover:bg-brand/5">
                 <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
                 </svg>
@@ -842,7 +930,7 @@ export default function EditPropertyPage() {
           </div>
 
           <div className="flex flex-wrap gap-6">
-            <label className="flex items-center gap-2.5 cursor-pointer">
+            <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.active}
@@ -852,7 +940,7 @@ export default function EditPropertyPage() {
               <span className="text-sm text-dark">Active (visible on site)</span>
             </label>
 
-            <label className="flex items-center gap-2.5 cursor-pointer">
+            <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.featured}
@@ -862,7 +950,7 @@ export default function EditPropertyPage() {
               <span className="text-sm text-dark">Featured on homepage</span>
             </label>
 
-            <label className="flex items-center gap-2.5 cursor-pointer">
+            <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
               <input
                 type="checkbox"
                 checked={form.is_new}
@@ -880,14 +968,15 @@ export default function EditPropertyPage() {
             Key Features
           </h3>
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="property-features" className="mb-1.5 block text-sm font-medium text-dark">
               Features (one per line)
             </label>
             <textarea
+              id="property-features"
               rows={5}
               value={form.features}
               onChange={(e) => updateField("features", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
               placeholder={"Double glazed throughout\nGas central heating\nRear garden\nOff-street parking"}
             />
             <p className="text-xs text-text-muted mt-1.5">
@@ -1017,14 +1106,14 @@ export default function EditPropertyPage() {
         <div className="flex flex-col-reverse gap-3 pb-6 sm:flex-row sm:items-center sm:justify-end">
           <Link
             href="/admin/properties"
-            className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            className="inline-flex min-h-[44px] items-center justify-center rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving || deleting || uploading || uploadingVideo || uploadingEpc}
-            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-[44px] rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Update Property"}
           </button>

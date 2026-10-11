@@ -17,7 +17,7 @@ export default function Footer() {
                 className="h-10 w-auto"
               />
             </Link>
-            <p className="text-white/40 text-sm mt-4 leading-relaxed max-w-xs">
+            <p className="text-white/60 text-sm mt-4 leading-relaxed max-w-xs">
               Professional letting agents based in Bury, covering Bolton, Manchester,
               Rochdale, Rossendale, Accrington, Burnley &amp; beyond. Trusted by landlords and tenants for over 25 years.
             </p>
@@ -25,8 +25,8 @@ export default function Footer() {
 
           {/* Quick links */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-4">Quick Links</h4>
-            <ul className="space-y-2.5">
+            <h4 className="text-white font-semibold text-sm mb-2">Quick Links</h4>
+            <ul>
               {[
                 { label: "Properties", href: "/properties" },
                 { label: "Landlords", href: "/landlords" },
@@ -34,7 +34,7 @@ export default function Footer() {
                 { label: "Contact", href: "/contact" },
               ].map((link) => (
                 <li key={link.label}>
-                  <Link href={link.href} className="text-white/40 hover:text-white text-sm transition-colors">
+                  <Link href={link.href} className="inline-flex items-center min-h-11 text-white/60 hover:text-white text-sm transition-colors">
                     {link.label}
                   </Link>
                 </li>
@@ -44,8 +44,8 @@ export default function Footer() {
 
           {/* Areas */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-4">Areas</h4>
-            <ul className="space-y-2.5">
+            <h4 className="text-white font-semibold text-sm mb-2">Areas</h4>
+            <ul>
               {[
                 { name: "Bury", slug: "bury" },
                 { name: "Bolton", slug: "bolton" },
@@ -56,7 +56,7 @@ export default function Footer() {
                 { name: "Burnley", slug: "burnley" },
               ].map((area) => (
                 <li key={area.slug}>
-                  <Link href={`/areas/${area.slug}`} className="text-white/40 hover:text-white text-sm transition-colors">
+                  <Link href={`/areas/${area.slug}`} className="inline-flex items-center min-h-11 text-white/60 hover:text-white text-sm transition-colors">
                     {area.name}
                   </Link>
                 </li>
@@ -66,8 +66,8 @@ export default function Footer() {
 
           {/* Legal */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-4">Legal</h4>
-            <ul className="space-y-2.5">
+            <h4 className="text-white font-semibold text-sm mb-2">Legal</h4>
+            <ul>
               {[
                 { label: "Privacy Policy", href: "/privacy" },
                 { label: "Terms of Service", href: "/terms" },
@@ -80,7 +80,7 @@ export default function Footer() {
                     href={link.href}
                     target={link.href.endsWith(".pdf") ? "_blank" : undefined}
                     rel={link.href.endsWith(".pdf") ? "noopener noreferrer" : undefined}
-                    className="text-white/40 hover:text-white text-sm transition-colors"
+                    className="inline-flex items-center min-h-11 text-white/60 hover:text-white text-sm transition-colors"
                   >
                     {link.label}
                   </a>
@@ -91,8 +91,8 @@ export default function Footer() {
         </div>
 
         {/* Bottom bar */}
-        <div className="flex flex-col items-center pt-8 gap-4 text-center">
-          <p className="text-white/30 text-xs">
+        <div className="flex flex-col items-center pt-8 gap-1 text-center">
+          <p className="text-white/60 text-xs">
             &copy;{" "}
             {/* Prerendered pages bake in the build year; after New Year the
                 client's year differs until the next rebuild. Suppress the
@@ -100,13 +100,13 @@ export default function Footer() {
             <span suppressHydrationWarning>{new Date().getFullYear()}</span>{" "}
             McGowan Residential Lettings Ltd. All rights reserved.
           </p>
-          <div className="flex items-center justify-center gap-2 text-white/30 text-xs">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 text-white/60 text-xs">
             <span>Regulated by</span>
-            <a href="https://www.tenancydepositscheme.com" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">TDS</a>
+            <a href="https://www.tenancydepositscheme.com" target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-11 px-1 text-white/70 hover:text-white transition-colors">TDS</a>
             <span className="text-white/40">•</span>
-            <a href="https://safeagents.co.uk" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">SafeAgent</a>
+            <a href="https://safeagents.co.uk" target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-11 px-1 text-white/70 hover:text-white transition-colors">SafeAgent</a>
             <span className="text-white/40">•</span>
-            <a href="https://www.tpos.co.uk" target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">TPO</a>
+            <a href="https://www.tpos.co.uk" target="_blank" rel="noopener noreferrer" className="inline-flex items-center min-h-11 px-1 text-white/70 hover:text-white transition-colors">TPO</a>
           </div>
         </div>
       </div>

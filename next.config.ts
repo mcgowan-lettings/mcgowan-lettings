@@ -5,16 +5,16 @@ const nextConfig: NextConfig = {
   // project documents itself in CLAUDE.md, so keep the tree clean.
   agentRules: false,
   images: {
-    // Custom loader is a pure pass-through (no server-side resizing) — it
-    // serves every image's already-compressed original (≤1600px/q0.75) and
-    // appends a per-width marker so Next's srcset stays valid. This sidesteps
-    // BOTH Vercel's image-optimization quota AND Supabase's 100-origin-image/mo
-    // transform quota. See src/lib/image-loader.ts for the full rationale.
-    loader: "custom",
-    loaderFile: "./src/lib/image-loader.ts",
-    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
-    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    qualities: [75, 80, 85, 90],
+    // `unoptimized` = every <Image> renders a plain `src` of the original file
+    // (no srcset, no /_next/image, no transform URL). All uploads are already
+    // compressed in the browser (≤1600px / q0.75, see src/lib/compress-image.ts),
+    // so server-side resizing buys almost nothing — and both resizing options
+    // cost money: Vercel's optimizer quota once 402'd the whole site, and
+    // Supabase's transform endpoint only includes 100 origin images/month on
+    // Pro. A single URL per image also means the browser downloads each photo
+    // once, however many sizes it's shown at (card, gallery, lightbox).
+    // Don't reintroduce a loader / transform endpoint without revisiting this.
+    unoptimized: true,
     remotePatterns: [
       {
         protocol: "https",

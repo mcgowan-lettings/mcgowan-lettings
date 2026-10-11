@@ -18,6 +18,10 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
     setDragIndex(index);
     dragNode.current = e.currentTarget;
     e.dataTransfer.effectAllowed = "move";
+    // Firefox won't start an HTML5 drag unless some data is set.
+    // Custom type: Firefox needs *some* data to start a drag, but text/plain
+    // would get typed into a field if the tile is dropped on an input.
+    e.dataTransfer.setData("application/x-photo-index", String(index));
     setTimeout(() => {
       if (dragNode.current) dragNode.current.style.opacity = "0.4";
     }, 0);
@@ -41,6 +45,12 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
     setOverIndex(index);
   };
 
+  // Without preventDefault, Firefox treats the drop as a navigation to the
+  // "text/plain" payload; reordering itself happens in dragend.
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
   const moveImage = (from: number, to: number) => {
     if (to < 0 || to >= images.length) return;
     const reordered = [...images];
@@ -52,7 +62,9 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
   if (images.length === 0) return null;
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+    // One column under 360px: two-column tiles there are too short for the
+    // 44px remove + move buttons without them overlapping.
+    <div className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:grid-cols-3 md:grid-cols-4">
       {images.map((url, index) => (
         <div
           key={`${url}-${index}`}
@@ -60,6 +72,7 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
           onDragStart={(e) => handleDragStart(index, e)}
           onDragEnd={handleDragEnd}
           onDragOver={(e) => handleDragOver(index, e)}
+          onDrop={handleDrop}
           className={`group relative aspect-[4/3] overflow-hidden rounded-lg bg-gray-100 cursor-grab active:cursor-grabbing transition-transform ${
             overIndex === index && dragIndex !== index
               ? "ring-2 ring-brand scale-[1.02]"
@@ -73,38 +86,50 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
             className="object-cover pointer-events-none"
             sizes="200px"
           />
-          {/* Remove button */}
+          {/* Remove button — always visible on touch devices (incl. iPad);
+              only hidden until hover where a real hover exists. The 44px
+              button is transparent with a smaller visual circle inside. */}
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white opacity-100 sm:opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/80"
+            aria-label={`Remove photo ${index + 1}`}
+            className="group/btn absolute right-0 top-0 flex h-11 w-11 items-center justify-center opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white group-hover/btn:bg-black/80">
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </span>
           </button>
-          {/* Move buttons — always visible on mobile, hover on desktop */}
+          {/* Move buttons — shown on touch devices (phones and iPads), where
+              drag-and-drop isn't available; mouse users drag instead. */}
           {images.length > 1 && (
-            <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-center justify-between sm:hidden">
+            <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between [@media(hover:hover)]:hidden">
               <button
                 type="button"
                 onClick={() => moveImage(index, index - 1)}
                 disabled={index === 0}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label={`Move photo ${index + 1} left`}
+                className="group/btn flex h-11 w-11 items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
-                </svg>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white group-hover/btn:bg-black/80">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                  </svg>
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => moveImage(index, index + 1)}
                 disabled={index === images.length - 1}
-                className="flex h-7 w-7 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 disabled:opacity-30 disabled:cursor-not-allowed"
+                aria-label={`Move photo ${index + 1} right`}
+                className="group/btn flex h-11 w-11 items-center justify-center disabled:opacity-30 disabled:cursor-not-allowed"
               >
-                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
-                </svg>
+                <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white group-hover/btn:bg-black/80">
+                  <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5} aria-hidden="true">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                  </svg>
+                </span>
               </button>
             </div>
           )}

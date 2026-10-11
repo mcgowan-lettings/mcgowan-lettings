@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { deleteSubmission as deleteSubmissionAction, markSubmissionRead, markAllSubmissionsRead } from "@/app/actions/admin";
+import { mailtoAddress } from "@/lib/mailto";
 
 const LONDON_TZ = "Europe/London";
 
@@ -14,6 +15,8 @@ function whatsappNumber(phone: string): string {
   let digits = phone.replace(/\D/g, "");
   if (digits.startsWith("00")) digits = digits.slice(2);
   else if (digits.startsWith("0")) digits = `44${digits.slice(1)}`;
+  // "+44 (0)7700 900123" → 4407700… — drop the trunk 0 after the country code.
+  if (digits.startsWith("440")) digits = `44${digits.slice(3)}`;
   return digits;
 }
 
@@ -349,7 +352,7 @@ export default function AdminSubmissionsPage() {
                         <div>
                           <span className="text-text-muted">Email: </span>
                           <a
-                            href={`mailto:${submission.email}`}
+                            href={`mailto:${mailtoAddress(submission.email)}`}
                             className="text-brand-dark hover:underline break-all"
                           >
                             {submission.email}
@@ -378,7 +381,7 @@ export default function AdminSubmissionsPage() {
                       {/* Actions */}
                       <div className="flex flex-wrap items-center gap-3">
                         <a
-                          href={`mailto:${submission.email}?subject=Re: Your enquiry to McGowan Lettings`}
+                          href={`mailto:${mailtoAddress(submission.email)}?subject=${encodeURIComponent("Re: Your enquiry to McGowan Lettings")}`}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-brand-light"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

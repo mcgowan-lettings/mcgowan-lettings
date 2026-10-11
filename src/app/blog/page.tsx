@@ -107,7 +107,7 @@ export default async function BlogPage() {
                           {post.excerpt}
                         </p>
                       )}
-                      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-dark">
+                      <span className="mt-5 inline-flex items-center gap-1.5 text-sm font-semibold text-brand-deep">
                         Read more
                         <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                       </span>

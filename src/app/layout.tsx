@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     url: SITE_URL,
     siteName: "McGowan Residential Lettings",
     type: "website",
-    images: [{ url: "/hero.jpg", width: 1200, height: 630, alt: "McGowan Residential Lettings — Greater Manchester" }],
+    images: [{ url: "/hero.jpg", width: 1920, height: 1280, alt: "McGowan Residential Lettings — Greater Manchester" }],
   },
   twitter: { card: "summary_large_image", images: ["/hero.jpg"] },
   robots: { index: true, follow: true },
@@ -71,6 +71,7 @@ export default async function RootLayout({
       "@type": "PostalAddress",
       addressLocality: "Bury",
       addressRegion: "Greater Manchester",
+      postalCode: "BL8 9HB",
       addressCountry: "GB",
     },
     geo: {
@@ -94,9 +95,6 @@ export default async function RootLayout({
         opens: "10:00",
         closes: "14:00",
       },
-    ],
-    sameAs: [
-      "https://wa.me/447457428720",
     ],
   };
 

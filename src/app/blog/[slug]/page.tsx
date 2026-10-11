@@ -120,7 +120,9 @@ export default async function BlogPostPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: safeJsonLd(blogJsonLd) }}
       />
       {/* ─── HERO ─── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-end overflow-hidden noise-overlay bg-dark pt-16">
+      {/* min-h (not a fixed height) so long titles on small phones grow the
+          hero instead of being clipped by overflow-hidden. */}
+      <section className="relative min-h-[max(40vh,320px)] flex items-end overflow-hidden noise-overlay bg-dark pt-24">
         <div className="absolute inset-0">
           {post.cover_image ? (
             <Image
@@ -204,16 +206,16 @@ export default async function BlogPostPage({ params }: Props) {
         <div className="max-w-3xl mx-auto px-6">
           {/* Breadcrumb */}
           <AnimateIn>
-            <nav className="mb-10 flex items-center gap-2 text-sm text-text-muted">
-              <Link href="/" className="hover:text-dark transition-colors">
+            <nav aria-label="Breadcrumb" className="mb-10 flex items-center gap-2 text-sm text-text-muted">
+              <Link href="/" className="inline-flex items-center min-h-11 -my-3 hover:text-dark transition-colors">
                 Home
               </Link>
-              <span>/</span>
-              <Link href="/blog" className="hover:text-dark transition-colors">
+              <span aria-hidden="true">/</span>
+              <Link href="/blog" className="inline-flex items-center min-h-11 -my-3 hover:text-dark transition-colors">
                 Blog
               </Link>
-              <span>/</span>
-              <span className="text-dark font-medium truncate max-w-[200px] sm:max-w-none">
+              <span aria-hidden="true">/</span>
+              <span aria-current="page" className="text-dark font-medium truncate max-w-[200px] sm:max-w-none">
                 {post.title}
               </span>
             </nav>

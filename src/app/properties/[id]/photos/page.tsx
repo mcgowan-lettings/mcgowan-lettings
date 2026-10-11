@@ -24,12 +24,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // Inactive listings 404 in the page body; don't leak their title in <head>.
   if (!property || !property.active) {
     return {
-      title: "Property Not Found | McGowan Lettings",
+      title: "Property Not Found | McGowan Residential Lettings",
       robots: { index: false, follow: false },
     };
   }
   return {
-    title: `Photos — ${property.title} | McGowan Lettings`,
+    title: `Photos — ${property.title} | McGowan Residential Lettings`,
     // Don't index the gallery view; the canonical entity is the property page.
     robots: { index: false, follow: true },
     alternates: { canonical: `/properties/${id}` },
@@ -54,23 +54,23 @@ export default async function PropertyPhotosPage({ params }: Props) {
     <section className="bg-cream pt-24 md:pt-28 pb-20">
       <div className="max-w-6xl mx-auto px-6">
         {/* Breadcrumb */}
-        <nav className="flex items-center gap-1.5 text-sm text-text-muted mb-6">
-          <Link href="/" className="hover:text-brand transition-colors">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-text-muted mb-6">
+          <Link href="/" className="inline-flex items-center min-h-11 -my-3 hover:text-brand-deep transition-colors">
             Home
           </Link>
-          <span className="text-text-light">/</span>
-          <Link href="/properties" className="hover:text-brand transition-colors">
+          <span className="text-text-light" aria-hidden="true">/</span>
+          <Link href="/properties" className="inline-flex items-center min-h-11 -my-3 hover:text-brand-deep transition-colors">
             Properties
           </Link>
-          <span className="text-text-light">/</span>
+          <span className="text-text-light" aria-hidden="true">/</span>
           <Link
             href={`/properties/${id}`}
-            className="hover:text-brand transition-colors truncate max-w-[200px]"
+            className="block py-3 -my-3 hover:text-brand-deep transition-colors truncate max-w-[200px]"
           >
             {property.title}
           </Link>
-          <span className="text-text-light">/</span>
-          <span className="text-dark font-medium">Photos</span>
+          <span className="text-text-light" aria-hidden="true">/</span>
+          <span aria-current="page" className="text-dark font-medium">Photos</span>
         </nav>
 
         {/* Heading */}
@@ -115,7 +115,7 @@ export default async function PropertyPhotosPage({ params }: Props) {
         <div className="mt-12">
           <Link
             href={`/properties/${id}`}
-            className="group inline-flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-brand transition-colors"
+            className="group inline-flex items-center min-h-11 gap-1.5 text-sm font-medium text-text-muted hover:text-brand-deep transition-colors"
           >
             <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-0.5" />
             Back to {property.title}

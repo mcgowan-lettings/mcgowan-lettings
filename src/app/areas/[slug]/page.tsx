@@ -130,7 +130,7 @@ const AREAS: Record<string, AreaData> = {
     ],
     amenities: [
       "World-class dining, nightlife and cultural venues",
-      "Manchester Arena and AO Arena",
+      "AO Arena and Co-op Live — two of the UK's largest indoor arenas",
       "The Trafford Centre and Arndale Centre",
       "University of Manchester and Manchester Metropolitan University",
       "Manchester Royal Infirmary and multiple NHS trusts",
@@ -310,6 +310,13 @@ const AREAS: Record<string, AreaData> = {
   },
 };
 
+/** Rossendale, Accrington and Burnley are over the border in Lancashire. */
+const COUNTY: Record<string, string> = {
+  rossendale: "Lancashire",
+  accrington: "Lancashire",
+  burnley: "Lancashire",
+};
+
 /** Own-property lookup so "/areas/constructor" etc. can't hit Object.prototype. */
 function getArea(slug: string): AreaData | undefined {
   return Object.hasOwn(AREAS, slug) ? AREAS[slug] : undefined;
@@ -336,8 +343,9 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      images: [{ url: "/hero.jpg", width: 1200, height: 630 }],
+      images: [{ url: "/hero.jpg", width: 1920, height: 1280 }],
       type: "website",
+      siteName: "McGowan Residential Lettings",
     },
     twitter: {
       card: "summary_large_image",
@@ -397,7 +405,10 @@ export default async function AreaGuidePage({
     about: {
       "@type": "Place",
       name: area.name,
-      containedInPlace: { "@type": "AdministrativeArea", name: "Greater Manchester" },
+      containedInPlace: {
+        "@type": "AdministrativeArea",
+        name: Object.hasOwn(COUNTY, slug) ? COUNTY[slug] : "Greater Manchester",
+      },
     },
     provider: {
       "@type": "RealEstateAgent",
@@ -446,16 +457,16 @@ export default async function AreaGuidePage({
       {/* ─── BREADCRUMB ─── */}
       <div className="bg-white border-b border-black/5">
         <div className="max-w-7xl mx-auto px-6 py-3">
-          <nav className="flex items-center gap-2 text-sm text-text-muted">
-            <Link href="/" className="hover:text-dark transition-colors">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm text-text-muted">
+            <Link href="/" className="inline-flex items-center min-h-11 -my-3 hover:text-dark transition-colors">
               Home
             </Link>
-            <span>/</span>
-            <Link href="/areas" className="hover:text-dark transition-colors">
+            <span aria-hidden="true">/</span>
+            <Link href="/areas" className="inline-flex items-center min-h-11 -my-3 hover:text-dark transition-colors">
               Area Guides
             </Link>
-            <span>/</span>
-            <span className="text-dark font-medium">{area.name}</span>
+            <span aria-hidden="true">/</span>
+            <span aria-current="page" className="text-dark font-medium">{area.name}</span>
           </nav>
         </div>
       </div>

@@ -53,7 +53,7 @@ export default function ExpandableDescription(props: Props) {
   // it, Space toggles it, and the visible label shows the focus ring via
   // peer-focus-visible. Still CSS-only (no hydration needed on old iPads).
   const labelClass =
-    "mt-2 min-h-11 items-center text-sm font-semibold text-brand-dark hover:underline cursor-pointer rounded-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2";
+    "mt-2 min-h-11 items-center text-sm font-semibold text-brand-deep hover:underline cursor-pointer rounded-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2";
 
   return (
     <div className="relative">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,30 @@ import { deleteBlogPost as deleteBlogPostAction, updateBlogPost, removeStorageFi
 import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
+import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
+import {
+  STALE_UPLOAD_CHECK_MS,
+  findMissingUploads,
+  safeExtension,
+  storagePathFromUrl,
+} from "@/app/admin/properties/upload-helpers";
+
+type PostForm = {
+  title: string;
+  slug: string;
+  excerpt: string;
+  content: string;
+  published: boolean;
+};
+
+/** Timestamps from Postgres and from JS ISO strings differ in format. */
+function sameTimestamp(a: string | null, b: string | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  return !Number.isNaN(ta) && ta === tb;
+}
 
 export default function EditBlogPostPage() {
   const router = useRouter();
@@ -21,6 +45,11 @@ export default function EditBlogPostPage() {
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  // Set when the post couldn't be loaded — the form is not rendered then, so
+  // an empty form can never be saved over the real post.
+  const [loadError, setLoadError] = useState("");
+  // Turned off just before navigating away after a successful delete.
+  const [leaving, setLeaving] = useState(false);
   const [success, setSuccess] = useState("");
   const [coverImage, setCoverImage] = useState("");
   const [showUnsplash, setShowUnsplash] = useState(false);
@@ -34,53 +63,91 @@ export default function EditBlogPostPage() {
   const [liveSlug, setLiveSlug] = useState("");
   // Set only for Unsplash covers; an uploaded photo has no credit.
   const [coverCredit, setCoverCredit] = useState<PhotoCredit | null>(null);
+  // The row's updated_at when loaded (or last saved here) — used to warn
+  // before overwriting changes made elsewhere, e.g. in another tab.
+  const loadedUpdatedAt = useRef<string | null>(null);
+  // When the page was opened; after ~20h an unsaved uploaded cover may have
+  // been reaped by cleanupOrphans (24h grace window).
+  const openedAt = useRef(0);
 
-  const [form, setForm] = useState({
-    title: "",
-    slug: "",
-    excerpt: "",
-    content: "",
-    published: false,
-  });
+  const emptyForm: PostForm = { title: "", slug: "", excerpt: "", content: "", published: false };
+  const [form, setForm] = useState<PostForm>(emptyForm);
+  // Snapshot of the form + cover as last loaded/saved, for the unsaved guard.
+  const [baseline, setBaseline] = useState<{ form: PostForm; cover: string }>({ form: emptyForm, cover: "" });
+
+  const dirty =
+    !loading &&
+    !loadError &&
+    (form.title !== baseline.form.title ||
+      form.slug !== baseline.form.slug ||
+      form.excerpt !== baseline.form.excerpt ||
+      form.content !== baseline.form.content ||
+      form.published !== baseline.form.published ||
+      coverImage !== baseline.cover);
+  useUnsavedGuard(!leaving && (dirty || uploading || saving));
 
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const { data, error: fetchError } = await supabase
+    openedAt.current = Date.now();
+  }, []);
+
+  const loadPost = useCallback(async (isCancelled: () => boolean = () => false) => {
+    setLoading(true);
+    setLoadError("");
+    setError("");
+    let data;
+    let fetchError;
+    try {
+      ({ data, error: fetchError } = await supabase
         .from("blog_posts")
         .select("*")
         .eq("id", id)
-        .single();
-      if (cancelled) return;
+        .single());
+    } catch (err) {
+      fetchError = { code: "", message: err instanceof Error ? err.message : "Network error" };
+    }
+    if (isCancelled()) return;
 
-      if (fetchError || !data) {
-        setError("Blog post not found.");
-        setLoading(false);
-        return;
-      }
-
-      setForm({
-        title: data.title,
-        slug: data.slug,
-        excerpt: data.excerpt ?? "",
-        content: data.content ?? "",
-        published: data.published,
-      });
-      setCoverImage(data.cover_image ?? "");
-      setCoverCredit(
-        data.cover_credit_name && data.cover_credit_url
-          ? { name: data.cover_credit_name, url: data.cover_credit_url }
-          : null
+    if (fetchError || !data) {
+      // PGRST116 = .single() matched no rows: the post genuinely doesn't exist.
+      setLoadError(
+        !fetchError || fetchError.code === "PGRST116"
+          ? "Blog post not found — it may have been deleted."
+          : "Couldn't load this post — check your connection and try again."
       );
-      savedCover.current = data.cover_image ?? "";
-      savedSlug.current = data.slug;
-      setLiveSlug(data.slug);
       setLoading(false);
-    })();
+      return;
+    }
+
+    const loaded: PostForm = {
+      title: data.title,
+      slug: data.slug,
+      excerpt: data.excerpt ?? "",
+      content: data.content ?? "",
+      published: data.published,
+    };
+    setForm(loaded);
+    setBaseline({ form: loaded, cover: data.cover_image ?? "" });
+    setCoverImage(data.cover_image ?? "");
+    setCoverCredit(
+      data.cover_credit_name && data.cover_credit_url
+        ? { name: data.cover_credit_name, url: data.cover_credit_url }
+        : null
+    );
+    savedCover.current = data.cover_image ?? "";
+    savedSlug.current = data.slug;
+    loadedUpdatedAt.current = data.updated_at ?? null;
+    setLiveSlug(data.slug);
+    setLoading(false);
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial data load
+    loadPost(() => cancelled);
     return () => {
       cancelled = true;
     };
-  }, [id]);
+  }, [loadPost]);
 
   // Unlike the new-post page, the title never rewrites the slug here: the post
   // may already be live and indexed, and a silent slug change 404s the old URL.
@@ -91,9 +158,12 @@ export default function EditBlogPostPage() {
   /** Delete a cover from storage only if it was uploaded this session (unsaved). */
   const removeUnsavedCover = async (url: string) => {
     if (!url || url === savedCover.current) return;
-    const path = url.split("/property-images/")[1];
-    if (path) {
+    const path = storagePathFromUrl(url);
+    if (!path) return;
+    try {
       await supabase.storage.from("property-images").remove([path]);
+    } catch {
+      // Harmless — cleanupOrphans reaps it after the 24h grace window.
     }
   };
 
@@ -112,7 +182,7 @@ export default function EditBlogPostPage() {
       setUploading(false);
       return;
     }
-    const fileExt = compressed.name.split(".").pop();
+    const fileExt = safeExtension(compressed, "jpg");
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
     const filePath = `blog/${fileName}`;
 
@@ -162,7 +232,57 @@ export default function EditBlogPostPage() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    // An uploaded cover isn't referenced by the saved row until now, so
+    // cleanupOrphans reaps it after 24h. If the page has been open that long,
+    // check it still exists rather than saving a dead link.
+    if (
+      openedAt.current &&
+      Date.now() - openedAt.current > STALE_UPLOAD_CHECK_MS &&
+      coverImage &&
+      coverImage !== savedCover.current &&
+      storagePathFromUrl(coverImage)
+    ) {
+      const missing = await findMissingUploads([coverImage]);
+      if (missing.length > 0) {
+        setCoverImage("");
+        setCoverCredit(null);
+        setError("The cover image uploaded more than a day ago was cleaned up — please re-upload it.");
+        setSaving(false);
+        return;
+      }
+    }
+
+    // Optimistic concurrency: warn if the row changed since it was loaded
+    // (another tab, or the publish toggle on the list page). A failed read
+    // doesn't block the save.
+    try {
+      const { data: current } = await supabase
+        .from("blog_posts")
+        .select("updated_at")
+        .eq("id", id)
+        .maybeSingle();
+      const remoteUpdatedAt: string | null = current?.updated_at ?? null;
+      if (current && !sameTimestamp(remoteUpdatedAt, loadedUpdatedAt.current)) {
+        const overwrite = window.confirm(
+          "This post was changed elsewhere since you opened it (e.g. another tab). Save anyway and overwrite those changes?"
+        );
+        if (!overwrite) {
+          setSaving(false);
+          return;
+        }
+      }
+    } catch {
+      // Network hiccup — fall through; the save itself will surface errors.
+    }
+
+    let session;
+    try {
+      ({ data: { session } } = await supabase.auth.getSession());
+    } catch {
+      setError("Couldn't check your session — check your connection and try again.");
+      setSaving(false);
+      return;
+    }
     if (!session) {
       setError("Session expired. Please sign in again.");
       setSaving(false);
@@ -170,18 +290,19 @@ export default function EditBlogPostPage() {
     }
 
     // The action checks for duplicate slugs server-side.
+    const updatedAt = new Date().toISOString();
     let result: Awaited<ReturnType<typeof updateBlogPost>>;
     try {
       result = await updateBlogPost(id, {
         title: form.title,
         slug,
-      excerpt: form.excerpt || null,
-      content: form.content || null,
+        excerpt: form.excerpt || null,
+        content: form.content || null,
         cover_image: coverImage || null,
         cover_credit_name: coverImage && coverCredit ? coverCredit.name : null,
         cover_credit_url: coverImage && coverCredit ? coverCredit.url : null,
         published: form.published,
-        updated_at: new Date().toISOString(),
+        updated_at: updatedAt,
       }, session.access_token, savedSlug.current);
     } catch {
       setError("Couldn't save — your session may have expired. Copy any unsaved text, then refresh and sign in again.");
@@ -194,6 +315,7 @@ export default function EditBlogPostPage() {
       setSaving(false);
       return;
     }
+    loadedUpdatedAt.current = result.updated_at ?? updatedAt;
 
     // Row saved — now drop the old saved cover if it was replaced/removed.
     // Failure is harmless (cleanupOrphans reaps it), so the result is ignored.
@@ -204,6 +326,7 @@ export default function EditBlogPostPage() {
     savedSlug.current = slug;
     setLiveSlug(slug);
     setForm((prev) => ({ ...prev, slug }));
+    setBaseline({ form: { ...form, slug }, cover: coverImage });
 
     setSuccess("Post updated successfully.");
     setSaving(false);
@@ -215,12 +338,20 @@ export default function EditBlogPostPage() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setError("Session expired. Please sign in again.");
+    setDeleting(true);
+    let session;
+    try {
+      ({ data: { session } } = await supabase.auth.getSession());
+    } catch {
+      setError("Couldn't check your session — check your connection and try again.");
+      setDeleting(false);
       return;
     }
-    setDeleting(true);
+    if (!session) {
+      setError("Session expired. Please sign in again.");
+      setDeleting(false);
+      return;
+    }
     // Use the *saved* cover and slug: those are what's live. An unsaved
     // replacement cover is removed separately.
     let result: Awaited<ReturnType<typeof deleteBlogPostAction>>;
@@ -239,6 +370,8 @@ export default function EditBlogPostPage() {
     }
     await removeUnsavedCover(coverImage).catch(() => {});
 
+    // Deleted — the guard must not prompt on the redirect.
+    setLeaving(true);
     router.push("/admin/blog");
   };
 
@@ -250,6 +383,31 @@ export default function EditBlogPostPage() {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="mx-auto max-w-3xl">
+        <div className="rounded-xl border border-red-200 bg-red-50 px-6 py-8 text-center">
+          <p className="text-sm text-red-700">{loadError}</p>
+          <div className="mt-5 flex flex-col items-center justify-center gap-3 sm:flex-row">
+            <button
+              type="button"
+              onClick={() => loadPost()}
+              className="min-h-11 rounded-lg bg-brand px-5 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light"
+            >
+              Retry
+            </button>
+            <Link
+              href="/admin/blog"
+              className="inline-flex min-h-11 items-center rounded-lg border border-gray-300 px-5 py-2.5 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            >
+              Back to blog posts
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-3xl">
       {/* Header */}
@@ -257,7 +415,8 @@ export default function EditBlogPostPage() {
         <div className="flex items-center gap-3">
           <Link
             href="/admin/blog"
-            className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-text-muted transition-colors hover:bg-gray-200 hover:text-dark"
+            aria-label="Back to blog posts"
+            className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-100 text-text-muted transition-colors hover:bg-gray-200 hover:text-dark"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -271,8 +430,9 @@ export default function EditBlogPostPage() {
           </div>
         </div>
         <button
+          type="button"
           onClick={handleDelete}
-          disabled={deleting}
+          disabled={deleting || saving}
           className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {deleting ? "Deleting..." : "Delete"}
@@ -299,28 +459,30 @@ export default function EditBlogPostPage() {
           </h3>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="edit-post-title" className="mb-1.5 block text-sm font-medium text-dark">
               Title <span className="text-red-500">*</span>
             </label>
             <input
+              id="edit-post-title"
               type="text"
               required
               value={form.title}
               onChange={(e) => updateField("title", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="edit-post-slug" className="mb-1.5 block text-sm font-medium text-dark">
               Slug
             </label>
             <input
+              id="edit-post-slug"
               type="text"
               value={form.slug}
               onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))}
               onBlur={(e) => setForm((prev) => ({ ...prev, slug: generateSlug(e.target.value) }))}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-text-muted outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-text-muted outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
             />
             <p className="text-xs text-text-muted mt-1.5">
               {form.slug !== liveSlug
@@ -330,23 +492,25 @@ export default function EditBlogPostPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="edit-post-excerpt" className="mb-1.5 block text-sm font-medium text-dark">
               Excerpt
             </label>
             <textarea
+              id="edit-post-excerpt"
               rows={2}
               value={form.excerpt}
               onChange={(e) => updateField("excerpt", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
               placeholder="A short summary shown on the blog listing page..."
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <p id="edit-post-content-label" className="mb-1.5 block text-sm font-medium text-dark">
               Content
-            </label>
+            </p>
             <RichTextEditor
+              labelledBy="edit-post-content-label"
               rows={12}
               value={form.content}
               onChange={(v) => updateField("content", v)}
@@ -361,6 +525,7 @@ export default function EditBlogPostPage() {
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
+              aria-label="Published (visible on site)"
               checked={form.published}
               onChange={(e) => updateField("published", e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
@@ -389,7 +554,7 @@ export default function EditBlogPostPage() {
               <button
                 type="button"
                 onClick={removeCover}
-                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                className="inline-flex min-h-11 items-center text-xs text-red-500 hover:text-red-700 font-medium"
               >
                 Remove cover image
               </button>
@@ -454,7 +619,7 @@ export default function EditBlogPostPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving || uploading}
+            disabled={saving || uploading || deleting}
             className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Update Post"}

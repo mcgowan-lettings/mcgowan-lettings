@@ -1,6 +1,13 @@
-/** Shown when a server action throws (expired session, network drop, deploy skew). */
+/**
+ * Shown when a server action throws (expired session, network drop, deploy
+ * skew). Deliberately doesn't say "refresh" — that would throw away the
+ * unsaved form, so signing in happens in a second tab instead.
+ */
 export const ACTION_THREW_MESSAGE =
-  "Couldn't save — your session may have expired. Refresh and sign in again.";
+  "Couldn't save — your session may have expired. Open the admin in a new tab, sign in there, then come back and press Save again.";
+
+/** Shown when there is no Supabase session at all before calling an action. */
+export const SESSION_EXPIRED_MESSAGE = "Session expired. Please sign in again.";
 
 /**
  * Storage object path for a `property-images` public URL, or null. Strips any

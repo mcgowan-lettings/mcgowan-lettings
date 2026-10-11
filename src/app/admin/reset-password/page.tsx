@@ -108,7 +108,7 @@ export default function AdminResetPasswordPage() {
   };
 
   const inputClass =
-    "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand";
+    "w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base sm:text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-dark px-4">

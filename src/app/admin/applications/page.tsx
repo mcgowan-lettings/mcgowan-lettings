@@ -10,6 +10,7 @@ import {
   listApplications,
 } from "@/app/actions/applications";
 import type { TenantApplicationRow } from "@/lib/application-types";
+import { mailtoAddress } from "@/lib/mailto";
 
 const LONDON_TZ = "Europe/London";
 
@@ -353,7 +354,7 @@ export default function AdminApplicationsPage() {
                         <div>
                           <span className="text-text-muted">Email: </span>
                           <a
-                            href={`mailto:${app.email}`}
+                            href={`mailto:${mailtoAddress(app.email)}`}
                             className="text-brand-dark hover:underline break-all"
                           >
                             {app.email}
@@ -512,7 +513,7 @@ export default function AdminApplicationsPage() {
                           {downloadingId === app.id ? "Preparing…" : "Download PDF"}
                         </button>
                         <a
-                          href={`mailto:${app.email}?subject=Re: Your tenancy application — McGowan Lettings`}
+                          href={`mailto:${mailtoAddress(app.email)}?subject=${encodeURIComponent("Re: Your tenancy application — McGowan Lettings")}`}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                         >
                           Reply

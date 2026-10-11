@@ -137,6 +137,30 @@ function formatDate(iso: string | null | undefined): string {
   return iso;
 }
 
+/**
+ * Calendar date of a timestamp in UK local time as { day, month, year }
+ * (zero-padded). A UTC ISO prefix would put e.g. 00:30 BST on the day before.
+ */
+export function londonDateParts(iso: string): { day: string; month: string; year: string } | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Europe/London",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return { day: get("day"), month: get("month"), year: get("year") };
+}
+
+/** Timestamp (e.g. created_at) → "dd/mm/yyyy" in UK local time. */
+function formatTimestampDate(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  const p = londonDateParts(iso);
+  return p ? `${p.day}/${p.month}/${p.year}` : iso;
+}
+
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   const d = new Date(iso);
@@ -642,7 +666,7 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
     logo,
     `${copy.documentTitle} \u2014 ${sanitize(app.full_name)}`
   );
-  L.header(copy.documentTitle, `Received ${formatDate(app.created_at)}`);
+  L.header(copy.documentTitle, `Received ${formatTimestampDate(app.created_at)}`);
 
   L.section(isGuarantor ? "Tenancy Guaranteed" : "Property");
   L.field("Property address", app.property_address);

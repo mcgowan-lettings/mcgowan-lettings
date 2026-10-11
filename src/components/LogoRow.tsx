@@ -19,7 +19,8 @@ const LOGOS = [
  * each logo via `el.style.opacity = "0"`, then fades them back in with a
  * per-logo transition delay on intersect or `pageshow`. No React state,
  * so the React 19 cascading-render warning doesn't fire and there's no
- * iPad bfcache failure mode to worry about.
+ * iPad bfcache failure mode to worry about. A 1.5s failsafe timer
+ * force-reveals in case IntersectionObserver never fires.
  */
 export default function LogoRow() {
   const ref = useRef<HTMLDivElement>(null);
@@ -31,10 +32,12 @@ export default function LogoRow() {
     if (rect.top < window.innerHeight) return;
 
     let cancelled = false;
+    let revealed = false;
     const childArr = Array.from(el.children) as HTMLElement[];
 
     const reveal = () => {
-      if (cancelled) return;
+      if (cancelled || revealed) return;
+      revealed = true;
       childArr.forEach((child, i) => {
         child.style.transition = `opacity 0.5s ease-out ${i * 0.15}s`;
         child.style.opacity = "1";
@@ -57,6 +60,11 @@ export default function LogoRow() {
     };
     window.addEventListener("pageshow", handlePageShow);
 
+    // Failsafe: if IntersectionObserver never fires (the iPad Safari
+    // failure mode after client-side navigation — same guard as AnimateIn /
+    // StaggerGrid), force-reveal so the logos can't stay invisible.
+    const failsafe = setTimeout(reveal, 1500);
+
     // Hide imperatively after the reveal mechanisms are wired. Any setup
     // failure leaves the logos visible (the SSR default).
     childArr.forEach((child) => {
@@ -65,6 +73,7 @@ export default function LogoRow() {
 
     return () => {
       cancelled = true;
+      clearTimeout(failsafe);
       observer.disconnect();
       window.removeEventListener("pageshow", handlePageShow);
     };

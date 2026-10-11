@@ -14,6 +14,10 @@ const copy = copyFor("guarantor");
 export const metadata: Metadata = {
   title: copy.metaTitle,
   description: copy.metaDescription,
+  // Own canonical (otherwise the root layout's "/" is inherited). Stays
+  // noindex: robots.txt also disallows it, so this header/meta is the
+  // backstop for anyone who links to it.
+  alternates: { canonical: "/guarantor" },
   robots: { index: false, follow: false },
 };
 

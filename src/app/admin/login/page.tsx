@@ -144,10 +144,11 @@ export default function AdminLoginPage() {
               <input
                 id="email"
                 type="email"
+                autoComplete="username"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base sm:text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
                 placeholder="Email address"
               />
             </div>
@@ -162,10 +163,11 @@ export default function AdminLoginPage() {
               <input
                 id="password"
                 type="password"
+                autoComplete="current-password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base sm:text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
                 placeholder="Enter your password"
               />
             </div>
@@ -200,7 +202,7 @@ export default function AdminLoginPage() {
                 setShowReset(!showReset);
                 setResetMessage(null);
               }}
-              className="text-sm text-gray-400 transition-colors hover:text-brand"
+              className="inline-flex min-h-11 items-center px-2 text-sm text-gray-400 transition-colors hover:text-brand"
             >
               Forgot password?
             </button>
@@ -218,10 +220,11 @@ export default function AdminLoginPage() {
                 <input
                   id="reset-email"
                   type="email"
+                  autoComplete="email"
                   required
                   value={resetEmail}
                   onChange={(e) => setResetEmail(e.target.value)}
-                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+                  className="w-full rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-base sm:text-sm text-white placeholder-gray-500 outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
                   placeholder="Email address"
                 />
               </div>

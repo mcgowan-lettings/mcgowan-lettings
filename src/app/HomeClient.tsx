@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -45,6 +45,7 @@ const AREAS: { name: string; neighbourhoods: string[]; main?: boolean }[] = [
   { name: "Bury", neighbourhoods: ["Tottington", "Ramsbottom", "Whitefield", "Radcliffe", "Prestwich"], main: true },
   { name: "Bolton", neighbourhoods: ["Farnworth", "Harwood", "Horwich", "Westhoughton", "Lostock"] },
   { name: "Manchester", neighbourhoods: ["Deansgate", "Ancoats", "Salford", "Eccles", "Chorlton"] },
+  { name: "Rochdale", neighbourhoods: ["Heywood", "Middleton", "Littleborough", "Milnrow", "Norden"] },
   { name: "Rossendale", neighbourhoods: ["Rawtenstall", "Haslingden", "Bacup", "Waterfoot"] },
   { name: "Accrington", neighbourhoods: ["Great Harwood", "Clayton-le-Moors", "Oswaldtwistle", "Rishton"] },
   { name: "Burnley", neighbourhoods: ["Padiham", "Brierfield", "Nelson", "Colne"] },
@@ -71,38 +72,65 @@ function HomeContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // On success, move focus to the confirmation heading (screen readers
+  // announce it) and make sure it's on screen. Mirrors contact/page.tsx.
+  useEffect(() => {
+    if (!submitted) return;
+    const el = successHeadingRef.current;
+    if (!el) return;
+    const reduce =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }, [submitted]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
     setError("");
 
-    const result = await submitContactForm({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      type: formData.enquiryType,
-      message: formData.message,
-      website: formData.company_url,
-    });
+    // try/finally so a thrown action (network drop, server error) can't
+    // leave the button stuck on "Sending...".
+    try {
+      const result = await submitContactForm({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        type: formData.enquiryType,
+        message: formData.message,
+        website: formData.company_url,
+      });
 
-    setSubmitting(false);
-
-    if (result.success) {
-      setSubmitted(true);
-    } else {
-      setError(result.error);
+      if (result.success) {
+        setSubmitted(true);
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
   if (submitted) {
     return (
       <div className="bg-white rounded-lg p-6 sm:p-8 md:p-10 border border-black/5 shadow-sm">
-        <div className="text-center py-8 flex flex-col items-center justify-center min-h-[300px]">
+        <div role="status" className="text-center py-8 flex flex-col items-center justify-center min-h-[300px]">
           <div className="w-14 h-14 rounded-full bg-brand/10 flex items-center justify-center mx-auto mb-4">
             <MailIcon className="w-7 h-7 text-brand" />
           </div>
-          <h3 className="font-heading text-xl text-dark mb-2">Message Sent</h3>
+          <h3
+            ref={successHeadingRef}
+            tabIndex={-1}
+            className="font-heading text-xl text-dark mb-2 focus:outline-none"
+          >
+            Message Sent
+          </h3>
           <p className="text-text-muted text-sm max-w-sm mx-auto">
             Thank you for getting in touch. David will respond to your enquiry shortly.
           </p>
@@ -139,7 +167,7 @@ function HomeContactForm() {
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
               placeholder="Your name"
             />
           </div>
@@ -150,7 +178,7 @@ function HomeContactForm() {
               id="home-phone"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
               placeholder="Your number"
             />
           </div>
@@ -163,7 +191,7 @@ function HomeContactForm() {
             required
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
             placeholder="your@email.com"
           />
         </div>
@@ -174,7 +202,7 @@ function HomeContactForm() {
               id="home-enquiry-type"
               value={formData.enquiryType}
               onChange={(e) => setFormData({ ...formData, enquiryType: e.target.value })}
-              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm appearance-none cursor-pointer focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm appearance-none cursor-pointer focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
             >
               <option>Tenant looking for a property</option>
               <option>Landlord seeking management</option>
@@ -192,7 +220,7 @@ function HomeContactForm() {
             required
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white resize-none"
+            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white resize-none"
             placeholder="Tell us how we can help..."
           />
         </div>
@@ -289,9 +317,9 @@ export default function HomePage({
           <div className="animate-fade-in-up stagger-4 bg-white/10 backdrop-blur-xl rounded-lg border border-white/10 p-4 md:p-5 max-w-4xl">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div className="relative">
-                <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Area</label>
+                <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Area</label>
                 <div className="relative">
-                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">All Areas</option>
                     {searchAreas.map((a) => (
                       <option key={a} value={a}>{a}</option>
@@ -302,9 +330,9 @@ export default function HomePage({
               </div>
 
               <div className="relative">
-                <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Max Price</label>
+                <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Max Price</label>
                 <div className="relative">
-                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">Any Price</option>
                     <option value="£500">£500 pcm</option>
                     <option value="£750">£750 pcm</option>
@@ -318,9 +346,9 @@ export default function HomePage({
               </div>
 
               <div className="relative">
-                <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Bedrooms</label>
+                <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Bedrooms</label>
                 <div className="relative">
-                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">Any</option>
                     <option value="Studio">Studio</option>
                     <option value="1">1</option>
@@ -333,9 +361,9 @@ export default function HomePage({
               </div>
 
               <div className="relative">
-                <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Type</label>
+                <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Type</label>
                 <div className="relative">
-                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">All Types</option>
                     {TYPE_FILTER_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -689,7 +717,7 @@ export default function HomePage({
                   </div>
                   <ul className="space-y-2">
                     {area.neighbourhoods.map((n) => (
-                      <li key={n} className="text-white/40 text-sm flex items-center gap-2">
+                      <li key={n} className="text-white/60 text-sm flex items-center gap-2">
                         <div className="w-1 h-1 bg-brand/50 rounded-full" />
                         {n}
                       </li>
@@ -840,7 +868,7 @@ export default function HomePage({
                     <div>
                       <div className="font-semibold text-dark text-sm mb-0.5">{label}</div>
                       {href ? (
-                        <a href={href} className="text-text-muted text-sm hover:text-brand-dark transition-colors">{value}</a>
+                        <a href={href} className="inline-flex items-center min-h-11 -my-3 text-text-muted text-sm hover:text-brand-deep transition-colors">{value}</a>
                       ) : (
                         <div className="text-text-muted text-sm">{value}</div>
                       )}

@@ -38,7 +38,7 @@ export const APPLICATION_COPY: Record<ApplicationKind, ApplicationCopy> = {
   tenant: {
     kind: "tenant",
     person: "applicant",
-    metaTitle: "Tenant Application Form | McGowan Lettings",
+    metaTitle: "Tenant Application Form | McGowan Residential Lettings",
     metaDescription:
       "Complete and sign your tenancy application for McGowan Residential Lettings.",
     heroKicker: "Tenants",
@@ -68,7 +68,7 @@ export const APPLICATION_COPY: Record<ApplicationKind, ApplicationCopy> = {
   guarantor: {
     kind: "guarantor",
     person: "guarantor",
-    metaTitle: "Guarantor Application Form | McGowan Lettings",
+    metaTitle: "Guarantor Application Form | McGowan Residential Lettings",
     metaDescription:
       "Complete and sign your guarantor form for McGowan Residential Lettings.",
     heroKicker: "Guarantors",

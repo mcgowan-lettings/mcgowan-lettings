@@ -6,6 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { confirmLeaveIfUnsaved } from "@/lib/use-unsaved-guard";
 import { getAdminSessionStatus } from "@/app/actions/admin-session";
 
 /**
@@ -226,6 +227,8 @@ export default function AdminLayout({
   ];
 
   const handleSignOut = async () => {
+    // An open editor with unsaved work would otherwise be discarded silently.
+    if (!confirmLeaveIfUnsaved()) return;
     await supabase.auth.signOut();
     router.replace("/admin/login");
   };
@@ -269,7 +272,7 @@ export default function AdminLayout({
                   key={item.href}
                   href={item.href}
                   onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  className={`flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                     isActive
                       ? "bg-brand/10 text-brand-dark"
                       : "text-text-muted hover:bg-gray-100 hover:text-dark"
@@ -286,7 +289,7 @@ export default function AdminLayout({
           <div className="border-t border-gray-200 p-3 space-y-1">
             <Link
               href="/"
-              className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-muted hover:bg-gray-100 hover:text-dark transition-colors"
+              className="flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-text-muted hover:bg-gray-100 hover:text-dark transition-colors"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
@@ -294,8 +297,9 @@ export default function AdminLayout({
               View Site
             </Link>
             <button
+              type="button"
               onClick={handleSignOut}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+              className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
@@ -311,8 +315,9 @@ export default function AdminLayout({
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 sm:px-6">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="lg:hidden text-text-muted hover:text-dark"
+            className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-gray-100 hover:text-dark lg:hidden"
             aria-label="Open menu"
           >
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>

@@ -41,7 +41,7 @@ const BENEFITS = [
     icon: CheckIcon,
     title: "25+ Years Experience",
     description:
-      "With over two decades in the Greater Manchester lettings market, we know exactly what tenants are looking for.",
+      "With over 25 years in the Greater Manchester lettings market, we know exactly what tenants are looking for.",
   },
 ];
 

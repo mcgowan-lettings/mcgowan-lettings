@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -10,6 +10,8 @@ import { createBlogPost } from "@/app/actions/admin";
 import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
+import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
+import { safeExtension, storagePathFromUrl } from "@/app/admin/properties/upload-helpers";
 
 export default function NewBlogPostPage() {
   const router = useRouter();
@@ -23,6 +25,8 @@ export default function NewBlogPostPage() {
   const [coverCredit, setCoverCredit] = useState<PhotoCredit | null>(null);
   // Once the slug is edited by hand, the title stops overwriting it.
   const [slugTouched, setSlugTouched] = useState(false);
+  // Turned off just before navigating away after a successful create.
+  const [leaving, setLeaving] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -31,6 +35,28 @@ export default function NewBlogPostPage() {
     content: "",
     published: false,
   });
+
+  // Revoke the local preview object URL whenever it's replaced or on unmount.
+  const previewRef = useRef("");
+  const setPreview = (url: string) => {
+    if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    previewRef.current = url;
+    setCoverPreview(url);
+  };
+  useEffect(() => {
+    return () => {
+      if (previewRef.current) URL.revokeObjectURL(previewRef.current);
+    };
+  }, []);
+
+  const dirty =
+    form.title !== "" ||
+    form.slug !== "" ||
+    form.excerpt !== "" ||
+    form.content !== "" ||
+    form.published ||
+    coverImage !== "";
+  useUnsavedGuard(!leaving && (dirty || uploading || saving));
 
   const updateField = (field: string, value: string | boolean) => {
     setForm((prev) => {
@@ -57,7 +83,7 @@ export default function NewBlogPostPage() {
       setUploading(false);
       return;
     }
-    const fileExt = compressed.name.split(".").pop();
+    const fileExt = safeExtension(compressed, "jpg");
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
     const filePath = `blog/${fileName}`;
 
@@ -75,23 +101,32 @@ export default function NewBlogPostPage() {
       data: { publicUrl },
     } = supabase.storage.from("property-images").getPublicUrl(filePath);
 
+    // Replacing an earlier (unsaved) upload — drop the old object.
+    await removeStoredCover(coverImage);
+
     setCoverImage(publicUrl);
     setCoverCredit(null);
-    setCoverPreview(URL.createObjectURL(compressed));
+    setPreview(URL.createObjectURL(compressed));
     setUploading(false);
     e.target.value = "";
   };
 
-  const removeCover = async () => {
-    if (coverImage) {
-      const path = coverImage.split("/property-images/")[1];
-      if (path) {
-        await supabase.storage.from("property-images").remove([path]);
-      }
+  /** Remove an uploaded cover from storage (no-op for Unsplash URLs). */
+  async function removeStoredCover(url: string) {
+    const path = url ? storagePathFromUrl(url) : null;
+    if (!path) return;
+    try {
+      await supabase.storage.from("property-images").remove([path]);
+    } catch {
+      // Harmless — cleanupOrphans reaps it after the 24h grace window.
     }
+  }
+
+  const removeCover = async () => {
+    await removeStoredCover(coverImage);
     setCoverImage("");
     setCoverCredit(null);
-    setCoverPreview("");
+    setPreview("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -111,7 +146,14 @@ export default function NewBlogPostPage() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
+    let session;
+    try {
+      ({ data: { session } } = await supabase.auth.getSession());
+    } catch {
+      setError("Couldn't check your session — check your connection and try again.");
+      setSaving(false);
+      return;
+    }
     if (!session) {
       setError("Session expired. Please sign in again.");
       setSaving(false);
@@ -142,6 +184,8 @@ export default function NewBlogPostPage() {
       return;
     }
 
+    // Saved — the guard must not prompt on the redirect.
+    setLeaving(true);
     router.push("/admin/blog");
   };
 
@@ -151,7 +195,8 @@ export default function NewBlogPostPage() {
       <div className="mb-6 flex items-center gap-3">
         <Link
           href="/admin/blog"
-          className="flex h-9 w-9 items-center justify-center rounded-lg bg-gray-100 text-text-muted transition-colors hover:bg-gray-200 hover:text-dark"
+          aria-label="Back to blog posts"
+          className="flex h-11 w-11 items-center justify-center rounded-lg bg-gray-100 text-text-muted transition-colors hover:bg-gray-200 hover:text-dark"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
@@ -179,24 +224,26 @@ export default function NewBlogPostPage() {
           </h3>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="new-post-title" className="mb-1.5 block text-sm font-medium text-dark">
               Title <span className="text-red-500">*</span>
             </label>
             <input
+              id="new-post-title"
               type="text"
               required
               value={form.title}
               onChange={(e) => updateField("title", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="e.g. 5 Things Landlords Must Do Before Letting a Property"
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="new-post-slug" className="mb-1.5 block text-sm font-medium text-dark">
               Slug
             </label>
             <input
+              id="new-post-slug"
               type="text"
               value={form.slug}
               onChange={(e) => {
@@ -204,7 +251,7 @@ export default function NewBlogPostPage() {
                 setForm((prev) => ({ ...prev, slug: e.target.value }));
               }}
               onBlur={(e) => setForm((prev) => ({ ...prev, slug: generateSlug(e.target.value) }))}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-text-muted outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-text-muted outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="auto-generated-from-title"
             />
             <p className="text-xs text-text-muted mt-1.5">
@@ -213,23 +260,25 @@ export default function NewBlogPostPage() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <label htmlFor="new-post-excerpt" className="mb-1.5 block text-sm font-medium text-dark">
               Excerpt
             </label>
             <textarea
+              id="new-post-excerpt"
               rows={2}
               value={form.excerpt}
               onChange={(e) => updateField("excerpt", e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
+              className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-base sm:text-sm text-dark outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand resize-none"
               placeholder="A short summary shown on the blog listing page..."
             />
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-dark">
+            <p id="new-post-content-label" className="mb-1.5 block text-sm font-medium text-dark">
               Content
-            </label>
+            </p>
             <RichTextEditor
+              labelledBy="new-post-content-label"
               rows={12}
               value={form.content}
               onChange={(v) => updateField("content", v)}
@@ -244,6 +293,7 @@ export default function NewBlogPostPage() {
           <label className="flex items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
+              aria-label="Published (visible on site)"
               checked={form.published}
               onChange={(e) => updateField("published", e.target.checked)}
               className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
@@ -272,7 +322,7 @@ export default function NewBlogPostPage() {
               <button
                 type="button"
                 onClick={removeCover}
-                className="text-xs text-red-500 hover:text-red-700 font-medium"
+                className="inline-flex min-h-11 items-center text-xs text-red-500 hover:text-red-700 font-medium"
               >
                 Remove cover image
               </button>
@@ -316,7 +366,9 @@ export default function NewBlogPostPage() {
 
           {showUnsplash && (
             <UnsplashPicker
-              onSelect={(url, credit) => {
+              onSelect={async (url, credit) => {
+                await removeStoredCover(coverImage);
+                setPreview("");
                 setCoverImage(url);
                 setCoverCredit(credit);
                 setShowUnsplash(false);

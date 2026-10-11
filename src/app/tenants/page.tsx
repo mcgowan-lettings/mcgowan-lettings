@@ -77,7 +77,7 @@ const MOVE_IN_COSTS = [
 
 const RESPONSIBILITIES = [
   "Gas, electricity and water bills",
-  "TV license",
+  "TV licence",
   "Council Tax",
   "Telephone and broadband",
   "Keeping the property clean and in good condition",
@@ -114,7 +114,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "What protections are in place?",
-    a: "McGowan Residential Lettings is a member of The Property Ombudsman and holds client money protection via Safeagent. This means your money is protected and you have access to an independent redress scheme if needed.",
+    a: "McGowan Residential Lettings is a member of The Property Ombudsman and holds client money protection via SafeAgent. This means your money is protected and you have access to an independent redress scheme if needed.",
   },
 ];
 
@@ -325,7 +325,7 @@ export default function TenantsPage() {
                   <h3 className="font-heading text-xl font-semibold text-dark mb-1">
                     {cost.title}
                   </h3>
-                  <p className="text-brand font-semibold text-sm mb-3">
+                  <p className="text-brand-deep font-semibold text-sm mb-3">
                     {cost.amount}
                   </p>
                   <p className="text-text-muted leading-relaxed text-sm">
@@ -451,7 +451,7 @@ export default function TenantsPage() {
                   <div className="font-semibold text-dark mb-1 md:mb-0">
                     {fee.item}
                   </div>
-                  <div className="text-brand font-semibold mb-1 md:mb-0">
+                  <div className="text-brand-deep font-semibold mb-1 md:mb-0">
                     {fee.cost}
                   </div>
                   <div className="text-text-muted text-sm">{fee.note}</div>

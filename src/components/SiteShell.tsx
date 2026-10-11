@@ -15,8 +15,9 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
 
   // Hide floating WhatsApp on property detail pages — the sticky CTA bar has it
   const isPropertyDetail = /^\/properties\/[^/]+$/.test(pathname);
-  // Also hide on the application form — the FAB overlaps the signature pad / submit on small phones
-  const hideFab = isPropertyDetail || pathname === "/apply";
+  // Also hide on the application forms (tenant + guarantor twin) — the FAB
+  // overlaps the signature pad / submit on small phones
+  const hideFab = isPropertyDetail || pathname === "/apply" || pathname === "/guarantor";
 
   return (
     <>

@@ -273,7 +273,7 @@ export default function VideoLightbox({
         type="button"
         onClick={onClose}
         aria-label="Close"
-        className="absolute top-2 right-2 md:top-3 md:right-3 h-11 w-11 md:h-10 md:w-10 rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white transition-colors flex items-center justify-center"
+        className="absolute top-2 right-2 md:top-3 md:right-3 h-11 w-11 rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white transition-colors flex items-center justify-center"
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

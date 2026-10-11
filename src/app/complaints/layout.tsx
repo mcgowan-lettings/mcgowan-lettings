@@ -13,6 +13,11 @@ export const metadata: Metadata = {
     title,
     description,
     url: `${SITE_URL}/complaints`,
+    // Next replaces (doesn't merge) a parent's openGraph object, so restate
+    // the root defaults here or shares lose the image/site name.
+    siteName: "McGowan Residential Lettings",
+    type: "website",
+    images: [{ url: "/hero.jpg", width: 1920, height: 1280, alt: "McGowan Residential Lettings — Greater Manchester" }],
   },
 };
 

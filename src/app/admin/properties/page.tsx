@@ -5,7 +5,10 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { deleteProperty as deletePropertyAction, togglePropertyActive, togglePropertyFeatured, togglePropertyNew } from "@/app/actions/admin";
-import { ACTION_THREW_MESSAGE } from "./upload-helpers";
+import { SESSION_EXPIRED_MESSAGE } from "./upload-helpers";
+
+// Nothing on this page is unsaved, so a refresh is safe advice here.
+const TOGGLE_THREW_MESSAGE = "Couldn't update — your session may have expired. Refresh and sign in again.";
 
 interface Property {
   id: string;
@@ -76,7 +79,10 @@ export default function AdminPropertiesPage() {
     setToggling(id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        return;
+      }
 
       const result = await togglePropertyActive(id, !currentActive, session.access_token);
       if (!result.success) {
@@ -87,7 +93,7 @@ export default function AdminPropertiesPage() {
         );
       }
     } catch {
-      setMessage({ text: ACTION_THREW_MESSAGE, type: "error" });
+      setMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
       setToggling(null);
     }
@@ -101,7 +107,10 @@ export default function AdminPropertiesPage() {
     setDeletingId(property.id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        return;
+      }
       const fileUrls = [...(property.images || []), ...(property.videos || []), property.epc_document].filter(
         (u): u is string => !!u
       );
@@ -126,7 +135,10 @@ export default function AdminPropertiesPage() {
     setTogglingFeatured(id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        return;
+      }
 
       const result = await togglePropertyFeatured(id, !currentFeatured, session.access_token);
       if (!result.success) {
@@ -139,7 +151,7 @@ export default function AdminPropertiesPage() {
         );
       }
     } catch {
-      setMessage({ text: ACTION_THREW_MESSAGE, type: "error" });
+      setMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
       setTogglingFeatured(null);
       setTimeout(() => setMessage(null), 3000);
@@ -151,7 +163,10 @@ export default function AdminPropertiesPage() {
     setTogglingNew(id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        return;
+      }
 
       const result = await togglePropertyNew(id, !currentNew, session.access_token);
       if (!result.success) {
@@ -164,7 +179,7 @@ export default function AdminPropertiesPage() {
         );
       }
     } catch {
-      setMessage({ text: ACTION_THREW_MESSAGE, type: "error" });
+      setMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
       setTogglingNew(null);
       setTimeout(() => setMessage(null), 3000);
@@ -198,7 +213,7 @@ export default function AdminPropertiesPage() {
         </div>
         <Link
           href="/admin/properties/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light"
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -351,31 +366,44 @@ export default function AdminPropertiesPage() {
                       {property.beds === 0 ? "Studio" : property.beds}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      {/* 44px hit area around the visual switch */}
                       <button
+                        type="button"
                         onClick={() =>
                           toggleActive(property.id, property.active)
                         }
                         disabled={toggling === property.id}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          property.active ? "bg-brand" : "bg-gray-300"
-                        } ${toggling === property.id ? "opacity-50" : ""}`}
+                        aria-pressed={property.active}
+                        aria-label={`Active (visible on site): ${property.title}`}
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg ${
+                          toggling === property.id ? "opacity-50" : ""
+                        }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                            property.active
-                              ? "translate-x-6"
-                              : "translate-x-1"
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            property.active ? "bg-brand" : "bg-gray-300"
                           }`}
-                        />
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                              property.active
+                                ? "translate-x-6"
+                                : "translate-x-1"
+                            }`}
+                          />
+                        </span>
                       </button>
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        type="button"
                         onClick={() =>
                           toggleFeatured(property.id, property.featured)
                         }
                         disabled={togglingFeatured === property.id}
-                        className={`transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                        aria-pressed={property.featured}
+                        aria-label={`Featured on homepage: ${property.title}`}
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                           property.featured
                             ? "text-amber-500"
                             : "text-gray-300 hover:text-amber-400"
@@ -388,6 +416,7 @@ export default function AdminPropertiesPage() {
                       >
                         <svg
                           className="h-5 w-5"
+                          aria-hidden="true"
                           viewBox="0 0 24 24"
                           fill={property.featured ? "currentColor" : "none"}
                           stroke="currentColor"
@@ -403,37 +432,46 @@ export default function AdminPropertiesPage() {
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
+                        type="button"
                         onClick={() => toggleNew(property.id, property.is_new)}
                         disabled={togglingNew === property.id}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
-                          property.is_new
-                            ? "bg-brand text-dark"
-                            : "bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-500"
-                        }`}
+                        aria-pressed={property.is_new}
+                        aria-label={`New Property badge: ${property.title}`}
+                        className="group/new inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                         title={
                           property.is_new
                             ? "Remove the New Property badge"
                             : "Show the New Property badge"
                         }
                       >
-                        New
+                        {/* 44px hit area; the visible pill stays compact. */}
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide transition-colors ${
+                            property.is_new
+                              ? "bg-brand text-dark"
+                              : "bg-gray-100 text-gray-400 group-hover/new:bg-gray-200 group-hover/new:text-gray-500"
+                          }`}
+                        >
+                          New
+                        </span>
                       </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/admin/properties/${property.id}/edit`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-dark transition-colors hover:bg-gray-200"
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-xs font-medium text-dark transition-colors hover:bg-gray-200"
                         >
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="h-3.5 w-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                           </svg>
                           Edit
                         </Link>
                         <button
+                          type="button"
                           onClick={() => deleteProperty(property)}
                           disabled={deletingId === property.id}
-                          className="text-xs font-medium text-red-500 transition-colors hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-red-500 transition-colors hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {deletingId === property.id ? "Deleting..." : "Delete"}
                         </button>
@@ -478,13 +516,16 @@ export default function AdminPropertiesPage() {
                       {property.area} &middot; {property.beds === 0 ? "Studio" : `${property.beds} bed`} &middot;{" "}
                       &pound;{property.price.toLocaleString()}/mo
                     </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4">
+                    {/* min-h-[44px] tap targets; -ml-2 keeps the toggle visually aligned with the title */}
+                    <div className="mt-1 -ml-2 flex flex-wrap items-center gap-x-1">
                       <button
+                        type="button"
                         onClick={() =>
                           toggleActive(property.id, property.active)
                         }
                         disabled={toggling === property.id}
-                        className="flex items-center gap-1.5 text-xs"
+                        aria-pressed={property.active}
+                        className="flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-xs disabled:opacity-50"
                       >
                         <span
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
@@ -505,11 +546,13 @@ export default function AdminPropertiesPage() {
                       </button>
 
                       <button
+                        type="button"
                         onClick={() =>
                           toggleFeatured(property.id, property.featured)
                         }
                         disabled={togglingFeatured === property.id}
-                        className={`flex items-center gap-1 text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
+                        aria-pressed={property.featured}
+                        className={`flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                           property.featured
                             ? "text-amber-500"
                             : "text-gray-400"
@@ -517,6 +560,7 @@ export default function AdminPropertiesPage() {
                       >
                         <svg
                           className="h-4 w-4"
+                          aria-hidden="true"
                           viewBox="0 0 24 24"
                           fill={property.featured ? "currentColor" : "none"}
                           stroke="currentColor"
@@ -531,29 +575,38 @@ export default function AdminPropertiesPage() {
                         Featured
                       </button>
 
+                      {/* Visual pill inside a 44px tap target */}
                       <button
+                        type="button"
                         onClick={() => toggleNew(property.id, property.is_new)}
                         disabled={togglingNew === property.id}
-                        className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide disabled:opacity-50 disabled:cursor-not-allowed ${
-                          property.is_new
-                            ? "bg-brand text-dark"
-                            : "bg-gray-100 text-gray-400"
-                        }`}
+                        aria-pressed={property.is_new}
+                        aria-label="New Property badge"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-1 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        New
+                        <span
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide ${
+                            property.is_new
+                              ? "bg-brand text-dark"
+                              : "bg-gray-100 text-gray-400"
+                          }`}
+                        >
+                          New
+                        </span>
                       </button>
 
                       <Link
                         href={`/admin/properties/${property.id}/edit`}
-                        className="text-xs font-medium text-brand-dark hover:underline"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-brand-dark hover:underline"
                       >
                         Edit
                       </Link>
 
                       <button
+                        type="button"
                         onClick={() => deleteProperty(property)}
                         disabled={deletingId === property.id}
-                        className="text-xs font-medium text-red-500 transition-colors hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-red-500 transition-colors hover:text-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {deletingId === property.id ? "Deleting..." : "Delete"}
                       </button>

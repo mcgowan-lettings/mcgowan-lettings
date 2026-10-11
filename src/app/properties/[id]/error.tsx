@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 
-export default function PropertyError({ reset }: { reset: () => void }) {
+// Next 16.3: `retry()` re-fetches the segment's server data and re-renders
+// (recommended); `reset()` only re-renders the cached, already-failed payload.
+export default function PropertyError({ retry }: { retry: () => void }) {
   return (
     <section className="bg-cream pt-16 min-h-[70vh] flex items-center">
       <div className="max-w-xl mx-auto px-6 text-center py-24">
@@ -30,7 +32,7 @@ export default function PropertyError({ reset }: { reset: () => void }) {
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <button
-            onClick={reset}
+            onClick={() => retry()}
             className="inline-flex items-center gap-2 bg-brand text-dark font-semibold text-sm px-8 py-3 rounded-md hover:bg-brand-light transition-colors"
           >
             Try again

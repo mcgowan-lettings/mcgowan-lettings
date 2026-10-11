@@ -39,22 +39,31 @@ export default function AdminDashboardPage() {
       .select("value")
       .eq("key", "google_review_count")
       .maybeSingle()
-      .then(({ data }) => {
-        const value = data?.value ?? "";
-        setReviewCountState(value);
-        setReviewCountSaved(value);
-        setReviewCountLoading(false);
-      });
+      .then(
+        ({ data }) => {
+          const value = data?.value ?? "";
+          setReviewCountState(value);
+          setReviewCountSaved(value);
+          setReviewCountLoading(false);
+        },
+        () => setReviewCountLoading(false)
+      );
   }, []);
 
   const handleSaveReviewCount = async () => {
     setReviewCountMsg(null);
-    // Number() (not parseInt) so "12abc" / "1.5" / "1e3" are rejected
-    // rather than silently truncated.
+    // Digits only: parseInt would truncate "12abc" / "1.5", and Number()
+    // would accept "1e3" (= 1000), "0x10" or " 1 2"-style surprises.
     const trimmed = reviewCount.trim();
-    const parsed = trimmed === "" ? NaN : Number(trimmed);
-    if (!Number.isInteger(parsed) || parsed < 0) {
-      setReviewCountMsg({ text: "Enter a whole number.", type: "error" });
+    if (!/^\d+$/.test(trimmed)) {
+      setReviewCountMsg({ text: "Enter a whole number using digits only (e.g. 42).", type: "error" });
+      return;
+    }
+    const parsed = Number(trimmed);
+    // 0 makes getReviewCount return null (no aggregateRating, carousel falls
+    // back to its default), so it would look like the save didn't work.
+    if (!Number.isSafeInteger(parsed) || parsed < 1) {
+      setReviewCountMsg({ text: "Enter the number of Google reviews (1 or more)", type: "error" });
       return;
     }
     setReviewCountSaving(true);
@@ -85,6 +94,15 @@ export default function AdminDashboardPage() {
 
   useEffect(() => {
     const fetchStats = async () => {
+      try {
+        await loadStats();
+      } catch {
+        setStatsError("Couldn't load dashboard stats. Please refresh the page.");
+        setLoading(false);
+      }
+    };
+
+    const loadStats = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       const [propertiesRes, unreadRes, unreadAppsRes] = await Promise.all([
         supabase.from("properties").select("active").limit(1000),
@@ -315,21 +333,25 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
+          <label htmlFor="review-count" className="sr-only">
+            Google review count
+          </label>
           <input
-            type="number"
-            min={0}
-            step={1}
+            id="review-count"
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
             value={reviewCount}
             onChange={(e) => setReviewCountState(e.target.value)}
             disabled={reviewCountLoading || reviewCountSaving}
-            className="w-32 rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-gray-50 disabled:text-gray-400"
+            className="min-h-11 w-32 rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm outline-none focus:border-brand focus:ring-1 focus:ring-brand disabled:bg-gray-50 disabled:text-gray-400"
             placeholder={reviewCountLoading ? "…" : "e.g. 370"}
           />
           <button
             type="button"
             onClick={handleSaveReviewCount}
             disabled={reviewCountLoading || reviewCountSaving || reviewCount === reviewCountSaved}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 rounded-lg bg-brand px-5 py-2 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {reviewCountSaving ? "Saving…" : "Save"}
           </button>

@@ -50,12 +50,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   // into <head> either.
   if (!property || !property.active) {
     return {
-      title: "Property Not Found | McGowan Lettings",
+      title: "Property Not Found | McGowan Residential Lettings",
       robots: { index: false, follow: false },
     };
   }
 
-  const title = `${property.title} | McGowan Lettings`;
+  const title = `${property.title} | McGowan Residential Lettings`;
   const plainDescription = stripHtml(property.description).slice(0, 160);
   const description =
     plainDescription ||
@@ -72,7 +72,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      images: [{ url: ogImage, width: 1200, height: 630 }],
+      images: [
+        images[0]
+          ? { url: ogImage }
+          : { url: ogImage, width: 2400, height: 1600 },
+      ],
+      siteName: "McGowan Residential Lettings",
       type: "website",
     },
     twitter: {
@@ -129,8 +134,9 @@ export default async function PropertyDetailPage({ params }: Props) {
   const videos: string[] = property.videos ?? [];
   const hasImages = images.length > 0;
 
-  // Show database features, or sensible defaults for showcase. Features are
-  // hand-typed (often pasted from old listings), so repeats like
+  // Only real, David-entered features — never invented defaults (claiming
+  // "gas central heating" on a property that doesn't have it is misleading).
+  // The block is hidden when there are none. Features are hand-typed (often pasted from old listings), so repeats like
   // "EPC Rating: B" listed twice are dropped — they'd also collide as React keys.
   const seenFeatures = new Set<string>();
   const dbFeatures: string[] = (property.features ?? [])
@@ -141,16 +147,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       seenFeatures.add(k);
       return true;
     });
-  const features = dbFeatures.length > 0 ? dbFeatures : [
-    "Double glazed throughout",
-    "Gas central heating",
-    "Modern fitted kitchen",
-    "Close to local amenities",
-    property.furnished || "Unfurnished",
-    property.beds === 0
-      ? "Studio"
-      : `${property.beds} ${property.beds === 1 ? "bedroom" : "bedrooms"}`,
-  ];
+  const features = dbFeatures;
 
   const status = property.status || "To Let";
   const isLetAgreed = status === "Let Agreed";
@@ -226,12 +223,12 @@ export default async function PropertyDetailPage({ params }: Props) {
       <section className="bg-white pb-20 lg:pb-0">
         <div className="max-w-7xl mx-auto px-6">
           {/* Breadcrumb */}
-          <nav className="flex items-center gap-1.5 text-sm text-text-muted py-4 border-b border-black/5">
-            <Link href="/" className="hover:text-brand transition-colors">Home</Link>
-            <span className="text-text-light">/</span>
-            <Link href="/properties" className="hover:text-brand transition-colors">Properties</Link>
-            <span className="text-text-light">/</span>
-            <span className="text-dark font-medium truncate max-w-[250px]">{property.title}</span>
+          <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-text-muted py-1 border-b border-black/5">
+            <Link href="/" className="inline-flex items-center min-h-11 hover:text-brand-deep transition-colors">Home</Link>
+            <span className="text-text-light" aria-hidden="true">/</span>
+            <Link href="/properties" className="inline-flex items-center min-h-11 hover:text-brand-deep transition-colors">Properties</Link>
+            <span className="text-text-light" aria-hidden="true">/</span>
+            <span aria-current="page" className="text-dark font-medium truncate max-w-[250px]">{property.title}</span>
           </nav>
 
           {/* Price bar */}
@@ -242,7 +239,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                   className={`inline-flex items-center px-2.5 py-1 rounded-sm text-xs font-semibold uppercase tracking-wide ${
                     isLetAgreed
                       ? "bg-red-100 text-red-700"
-                      : "bg-brand/15 text-brand-dark"
+                      : "bg-brand/15 text-brand-deep"
                   }`}
                 >
                   {status}
@@ -253,13 +250,18 @@ export default async function PropertyDetailPage({ params }: Props) {
                   </span>
                 )}
               </div>
-              <h1 className="font-heading text-4xl md:text-5xl font-semibold text-dark mb-2">
-                £{formatPrice(property.price)}
-                <span className="text-xl text-text-muted font-body font-normal ml-1">pcm</span>
-              </h1>
-              <p className="text-dark font-medium text-lg mt-1">
-                {property.title}
-              </p>
+              {/* Price leads visually, but the property title is the page's
+                  h1 (SEO/screen readers); flex-col-reverse keeps the price on
+                  top without reordering the DOM. */}
+              <div className="flex flex-col-reverse">
+                <h1 className="text-dark font-medium text-lg mt-1">
+                  {property.title}
+                </h1>
+                <p className="font-heading text-4xl md:text-5xl font-semibold text-dark mb-2">
+                  £{formatPrice(property.price)}
+                  <span className="text-xl text-text-muted font-body font-normal ml-1">pcm</span>
+                </p>
+              </div>
               <p className="text-text-muted text-sm flex items-center gap-1.5 mt-2">
                 <MapPinIcon className="w-3.5 h-3.5" />
                 {property.location}
@@ -434,7 +436,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                     this nudge. (Inter / Outfit don't need it.) */}
                 <Link
                   href="/properties"
-                  className="group inline-flex items-center gap-1.5 text-sm font-medium text-text-muted hover:text-brand transition-colors"
+                  className="group inline-flex items-center min-h-11 gap-1.5 text-sm font-medium text-text-muted hover:text-brand-deep transition-colors"
                 >
                   <ArrowLeftIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:-translate-x-0.5" />
                   Back to all properties
@@ -482,7 +484,7 @@ export default async function PropertyDetailPage({ params }: Props) {
               </h2>
               <Link
                 href="/properties"
-                className="group inline-flex items-center gap-1.5 text-sm font-semibold text-text-muted hover:text-brand transition-colors"
+                className="group inline-flex items-center min-h-11 gap-1.5 text-sm font-semibold text-text-muted hover:text-brand-deep transition-colors"
               >
                 View all
                 <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
@@ -533,9 +535,6 @@ export default async function PropertyDetailPage({ params }: Props) {
           </div>
         </section>
       )}
-
-      {/* Spacer for sticky mobile CTA */}
-      <div className="h-24 lg:hidden" />
     </>
   );
 }

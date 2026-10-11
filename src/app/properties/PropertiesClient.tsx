@@ -1,7 +1,7 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import { useSearchParams, useRouter, usePathname } from "next/navigation";
+import { Suspense, useCallback, useLayoutEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
@@ -101,7 +101,7 @@ function FilterSelect({
         aria-label={label}
         value={resolved.value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-base sm:text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
       >
         {resolved.options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -114,33 +114,70 @@ function FilterSelect({
   );
 }
 
+/* ───────────────────────── URL → FILTERS ───────────────────────── */
+
+function filtersFromParams(sp: URLSearchParams): Filters {
+  return {
+    area: sp.get("area") ?? ALL_AREAS,
+    maxPrice: sp.get("maxPrice") ?? ANY_PRICE,
+    bedrooms: sp.get("bedrooms") ?? ANY_BEDS,
+    type: sp.get("type") ?? ALL_TYPES,
+  };
+}
+
+function sameFilters(a: Filters, b: Filters) {
+  return a.area === b.area && a.maxPrice === b.maxPrice && a.bedrooms === b.bedrooms && a.type === b.type;
+}
+
 /* ───────────────────────── URL SYNC ───────────────────────── */
 
-// The only component that touches useSearchParams. On a static/ISR route,
-// useSearchParams forces client rendering up to the nearest Suspense
-// boundary — so it's isolated here, inside a boundary that renders nothing.
-// The hero, filter bar and full (unfiltered) grid are therefore in the
-// prerendered HTML; URL filters are applied right after hydration.
-function SearchParamsSync({ onChange }: { onChange: (f: Filters) => void }) {
+/**
+ * Renders nothing; copies the URL's filters into the page's state.
+ *
+ * /properties is static ISR, and useSearchParams bails the nearest Suspense
+ * boundary out of the prerender. Keeping only this null component inside the
+ * boundary means the filter bar and every card stay in the static HTML and
+ * hydrate in place — nothing is thrown away and re-rendered on load. On a
+ * client navigation (hero search, Back from a listing) the params are known
+ * synchronously and the layout effect applies them before first paint, so
+ * there's no flash of the full list.
+ */
+function UrlFilterSync({ onUrlFilters }: { onUrlFilters: (f: Filters) => void }) {
   const searchParams = useSearchParams();
-  useEffect(() => {
-    onChange({
-      area: searchParams.get("area") ?? ALL_AREAS,
-      maxPrice: searchParams.get("maxPrice") ?? ANY_PRICE,
-      bedrooms: searchParams.get("bedrooms") ?? ANY_BEDS,
-      type: searchParams.get("type") ?? ALL_TYPES,
-    });
-  }, [searchParams, onChange]);
+  const key = searchParams.toString();
+  useLayoutEffect(() => {
+    onUrlFilters(filtersFromParams(new URLSearchParams(key)));
+  }, [key, onUrlFilters]);
   return null;
 }
 
-/* ───────────────────────── PAGE ───────────────────────── */
+function writeUrl(next: Filters) {
+  // Keep unrelated params (utm_*, etc.); only rewrite the filter keys.
+  const params = new URLSearchParams(window.location.search);
+  for (const k of ["area", "maxPrice", "bedrooms", "type"]) params.delete(k);
+  if (next.area !== ALL_AREAS) params.set("area", next.area);
+  if (next.maxPrice !== ANY_PRICE) params.set("maxPrice", next.maxPrice);
+  if (next.bedrooms !== ANY_BEDS) params.set("bedrooms", next.bedrooms);
+  if (next.type !== ALL_TYPES) params.set("type", next.type);
+  const qs = params.toString();
+  // Native replaceState is integrated with the Next router (syncs
+  // useSearchParams) and, unlike router.replace, doesn't refetch the page.
+  window.history.replaceState(null, "", `${window.location.pathname}${qs ? `?${qs}` : ""}`);
+}
 
-export default function PropertiesPage({ initialProperties }: { initialProperties: Property[] }) {
-  const router = useRouter();
-  const pathname = usePathname();
-  const properties = initialProperties;
-  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+/* ───────────────────────── FILTER BAR + RESULTS ───────────────────────── */
+
+function Listings({
+  properties,
+  filters,
+  onFilterChange,
+  onReset,
+}: {
+  properties: Property[];
+  filters: Filters;
+  onFilterChange: (key: keyof Filters, value: string) => void;
+  onReset: () => void;
+}) {
   const { area, maxPrice, bedrooms, type: propertyType } = filters;
 
   // Build the area filter list from actual property data, so any area the admin
@@ -153,24 +190,11 @@ export default function PropertiesPage({ initialProperties }: { initialPropertie
     [properties]
   );
 
-  function updateFilter(key: keyof Filters, value: string) {
-    const next = { ...filters, [key]: value };
-    setFilters(next);
-    // Keep unrelated params (utm_*, etc.); only rewrite the filter keys.
-    const params = new URLSearchParams(window.location.search);
-    for (const k of ["area", "maxPrice", "bedrooms", "type"]) params.delete(k);
-    if (next.area !== ALL_AREAS) params.set("area", next.area);
-    if (next.maxPrice !== ANY_PRICE) params.set("maxPrice", next.maxPrice);
-    if (next.bedrooms !== ANY_BEDS) params.set("bedrooms", next.bedrooms);
-    if (next.type !== ALL_TYPES) params.set("type", next.type);
-    const qs = params.toString();
-    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-  }
-
-  const setArea = (v: string) => updateFilter("area", v);
-  const setMaxPrice = (v: string) => updateFilter("maxPrice", v);
-  const setBedrooms = (v: string) => updateFilter("bedrooms", v);
-  const setPropertyType = (v: string) => updateFilter("type", v);
+  const setArea = (v: string) => onFilterChange("area", v);
+  const setMaxPrice = (v: string) => onFilterChange("maxPrice", v);
+  const setBedrooms = (v: string) => onFilterChange("bedrooms", v);
+  const setPropertyType = (v: string) => onFilterChange("type", v);
+  const resetFilters = onReset;
 
   const filtersActive =
     area !== ALL_AREAS ||
@@ -190,49 +214,8 @@ export default function PropertiesPage({ initialProperties }: { initialPropertie
     });
   }, [properties, area, maxPrice, bedrooms, propertyType]);
 
-  function resetFilters() {
-    setFilters(DEFAULT_FILTERS);
-    router.replace(pathname, { scroll: false });
-  }
-
   return (
     <>
-      <Suspense fallback={null}>
-        <SearchParamsSync onChange={setFilters} />
-      </Suspense>
-
-      {/* ─── HERO BANNER ─── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-center justify-center overflow-hidden noise-overlay bg-dark pt-16">
-        <div className="absolute inset-0">
-          <Image
-            src="/hero.jpg"
-            alt="Greater Manchester properties"
-            fill
-            sizes="100vw"
-            quality={85}
-            className="object-cover object-center opacity-40"
-            priority
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/40 to-dark/60" />
-        </div>
-
-        <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <div className="w-8 h-px bg-brand" />
-            <span className="text-brand text-sm font-semibold tracking-[0.15em] uppercase">
-              Residential Lettings
-            </span>
-            <div className="w-8 h-px bg-brand" />
-          </div>
-          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-white leading-[1.1] mb-4">
-            Our Properties
-          </h1>
-          <p className="text-white/70 text-lg md:text-xl max-w-xl mx-auto">
-            Browse quality rental homes across Bury, Bolton, Manchester, Rossendale and beyond.
-          </p>
-        </div>
-      </section>
-
       {/* ─── FILTER BAR ─── */}
       <section className="bg-white border-b border-black/5 md:sticky md:top-16 z-30">
         <div className="max-w-7xl mx-auto px-6 py-5">
@@ -345,6 +328,76 @@ export default function PropertiesPage({ initialProperties }: { initialPropertie
           )}
         </div>
       </section>
+    </>
+  );
+}
+
+
+/* ───────────────────────── PAGE ───────────────────────── */
+
+export default function PropertiesPage({ initialProperties }: { initialProperties: Property[] }) {
+  const properties = initialProperties;
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+
+  // Stable identity so UrlFilterSync's effect only re-runs on a URL change.
+  const applyUrlFilters = useCallback((f: Filters) => {
+    setFilters((prev) => (sameFilters(prev, f) ? prev : f));
+  }, []);
+
+  function updateFilter(key: keyof Filters, value: string) {
+    const next = { ...filters, [key]: value };
+    setFilters(next);
+    writeUrl(next);
+  }
+
+  function resetFilters() {
+    setFilters(DEFAULT_FILTERS);
+    writeUrl(DEFAULT_FILTERS);
+  }
+
+  return (
+    <>
+      {/* ─── HERO BANNER ─── */}
+      <section className="relative h-[40vh] min-h-[320px] flex items-center justify-center overflow-hidden noise-overlay bg-dark pt-16">
+        <div className="absolute inset-0">
+          <Image
+            src="/hero.jpg"
+            alt="Greater Manchester properties"
+            fill
+            sizes="100vw"
+            quality={85}
+            className="object-cover object-center opacity-40"
+            priority
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/40 to-dark/60" />
+        </div>
+
+        <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
+          <div className="flex items-center justify-center gap-2 mb-4">
+            <div className="w-8 h-px bg-brand" />
+            <span className="text-brand text-sm font-semibold tracking-[0.15em] uppercase">
+              Residential Lettings
+            </span>
+            <div className="w-8 h-px bg-brand" />
+          </div>
+          <h1 className="font-heading text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-semibold text-white leading-[1.1] mb-4">
+            Our Properties
+          </h1>
+          <p className="text-white/70 text-lg md:text-xl max-w-xl mx-auto">
+            Browse quality rental homes across Bury, Bolton, Manchester, Rossendale and beyond.
+          </p>
+        </div>
+      </section>
+
+      <Listings
+        properties={properties}
+        filters={filters}
+        onFilterChange={updateFilter}
+        onReset={resetFilters}
+      />
+      <Suspense fallback={null}>
+        <UrlFilterSync onUrlFilters={applyUrlFilters} />
+      </Suspense>
     </>
   );
 }

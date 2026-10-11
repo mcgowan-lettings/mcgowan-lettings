@@ -13,6 +13,8 @@ type Props = {
   rows?: number;
   placeholder?: string;
   includeHeading?: boolean;
+  /** id of the visible label element, so screen readers name the editor. */
+  labelledBy?: string;
 };
 
 export default function RichTextEditor({
@@ -21,6 +23,7 @@ export default function RichTextEditor({
   rows = 6,
   placeholder,
   includeHeading = false,
+  labelledBy,
 }: Props) {
   const editor = useEditor({
     extensions: [
@@ -58,7 +61,11 @@ export default function RichTextEditor({
     editorProps: {
       attributes: {
         class:
-          "tiptap-content focus:outline-none px-4 py-2.5 text-sm text-dark leading-relaxed",
+          // text-base below sm: iOS Safari zooms into fields under 16px.
+          "tiptap-content focus:outline-none px-4 py-2.5 text-base sm:text-sm text-dark leading-relaxed",
+        role: "textbox",
+        "aria-multiline": "true",
+        ...(labelledBy ? { "aria-labelledby": labelledBy } : {}),
       },
     },
   });

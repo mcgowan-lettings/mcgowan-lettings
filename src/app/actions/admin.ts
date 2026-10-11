@@ -240,21 +240,29 @@ export async function updateBlogPost(
   await requireAdmin(accessToken);
   if (data.slug !== undefined) {
     data.slug = generateSlug(data.slug);
-    if (!data.slug) return { success: false, error: "The URL slug needs at least one letter or number." };
+    if (!data.slug) return { success: false, error: "The URL slug needs at least one letter or number.", updated_at: null };
     const { data: existing, error: dupError } = await supabaseAdmin
       .from("blog_posts")
       .select("id")
       .eq("slug", data.slug)
       .neq("id", id)
       .maybeSingle();
-    if (dupError) return { success: false, error: dupError.message };
-    if (existing) return { success: false, error: "A blog post with this URL slug already exists." };
+    if (dupError) return { success: false, error: dupError.message, updated_at: null };
+    if (existing) return { success: false, error: "A blog post with this URL slug already exists.", updated_at: null };
   }
   if (data.content) data.content = sanitizeHtml(data.content);
-  const { error } = await supabaseAdmin.from("blog_posts").update(data).eq("id", id);
-  if (error) return { success: false, error: error.message };
+  // Return the stored updated_at (a DB trigger may overwrite it) so the
+  // editor's "changed elsewhere?" check compares against the real value.
+  const { data: row, error } = await supabaseAdmin
+    .from("blog_posts")
+    .update(data)
+    .eq("id", id)
+    .select("updated_at")
+    .maybeSingle();
+  if (error) return { success: false, error: error.message, updated_at: null };
+  if (!row) return { success: false, error: "This post no longer exists — it may have been deleted.", updated_at: null };
   revalidateBlogPaths(data.slug, previousSlug);
-  return { success: true, error: "" };
+  return { success: true, error: "", updated_at: (row.updated_at as string | null) ?? null };
 }
 
 export async function deleteSubmission(id: string, accessToken: string) {
@@ -327,8 +335,9 @@ export async function markAllValuationsRead(ids: string[], accessToken: string) 
 
 export async function updateReviewCount(count: number, accessToken: string) {
   await requireAdmin(accessToken);
-  if (!Number.isInteger(count) || count < 0) {
-    return { success: false, error: "Count must be a whole number." };
+  // 0 would make getReviewCount return null, so the site would silently ignore it.
+  if (!Number.isSafeInteger(count) || count < 1) {
+    return { success: false, error: "Enter the number of Google reviews (1 or more)" };
   }
   const { error } = await supabaseAdmin
     .from("site_config")
