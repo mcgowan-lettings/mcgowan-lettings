@@ -186,6 +186,8 @@ function HomeContactForm() {
             <input
               type="text"
               id="home-name"
+              name="name"
+              autoComplete="name"
               maxLength={200}
               required
               value={formData.name}
@@ -199,6 +201,8 @@ function HomeContactForm() {
             <input
               type="tel"
               id="home-phone"
+              name="phone"
+              autoComplete="tel"
               maxLength={200}
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
@@ -212,6 +216,8 @@ function HomeContactForm() {
           <input
             type="email"
             id="home-email"
+            name="email"
+            autoComplete="email"
             maxLength={200}
             required
             value={formData.email}

@@ -660,6 +660,13 @@ export default function ApplyForm({
       req("employer", fields.employment_status === "Self-employed" ? "Please enter your business name." : "Please enter your employer.");
       req("job_title", "Please enter your job title.");
       req("employment_start_date", "Please enter your start date.");
+      // Mirror the server's range (1950 → a year ahead) so a typed date gets
+      // an on-field message instead of a generic server error.
+      const sd = fields.employment_start_date;
+      const today = getTodayIso();
+      if (sd && /^\d{4}-\d{2}-\d{2}$/.test(sd) && (sd < "1950-01-01" || sd > isoPlusDays(today, 365))) {
+        e.employment_start_date = "Please enter a start date between 1950 and a year from now.";
+      }
     }
     req("monthly_income", "Please enter your monthly income.");
     if (fields.monthly_income && !/^\s*£?\s*[\d,]+(\.\d{1,2})?\s*$/.test(fields.monthly_income)) {
@@ -1147,10 +1154,11 @@ export default function ApplyForm({
                   id="apply-employment_start_date"
                   name="employment_start_date"
                   autoComplete="off"
-                  // A job offer can start in the future: match the server's
-                  // range (1950 → a year ahead) so phone pickers allow it.
+                  // A job offer can start in the future (1950 → a year ahead).
+                  // 365 here and in validate(); the server allows 366, which
+                  // absorbs a device date that's a day ahead of the UK.
                   min="1950-01-01"
-                  max={todayIso ? isoPlusDays(todayIso, 366) : undefined}
+                  max={todayIso ? isoPlusDays(todayIso, 365) : undefined}
                   value={fields.employment_start_date}
                   onChange={set("employment_start_date")}
                   className={`${cls("employment_start_date")} min-h-[48px] appearance-none`}
