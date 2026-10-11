@@ -90,7 +90,7 @@ const AREAS: Record<string, AreaData> = {
       "Bolton train station — direct services to Manchester, Preston and Blackpool",
       "M61 motorway access to M6 and M60",
       "Extensive bus network across Greater Manchester",
-      "Horwich Parkway station near the Reebok",
+      "Horwich Parkway station near the University of Bolton Stadium",
       "Manchester Airport approximately 45 minutes by car",
     ],
     whyRentHere: [
@@ -254,7 +254,7 @@ const AREAS: Record<string, AreaData> = {
       "UCLan Burnley campus",
       "Leeds-Liverpool canal towpath",
       "Burnley Football Club — Turf Moor",
-      "Burnley Leisure centre and local parks",
+      "Burnley Leisure Centre and local parks",
     ],
     transport: [
       "M65 motorway — direct access to Blackburn, Preston and the M6",
@@ -343,9 +343,11 @@ export default async function AreaGuidePage({
   // ISR keeps serving the last good page.
   if (listingsError) throw new Error(`area count query failed: ${listingsError.message}`);
 
-  const propertyCount = (listings ?? []).filter(
-    (p) => isAvailable(p.status) && resolveArea(p) === area.name
-  ).length;
+  // Available (to let) is the headline; the linked /properties list also
+  // shows recently-let homes, so state that total too or the numbers clash.
+  const inArea = (listings ?? []).filter((p) => resolveArea(p) === area.name);
+  const propertyCount = inArea.filter((p) => isAvailable(p.status)).length;
+  const listedCount = inArea.length;
 
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
@@ -477,19 +479,24 @@ export default async function AreaGuidePage({
                           ? "Property available"
                           : "Properties available"}
                       </p>
+                      {listedCount > propertyCount && (
+                        <p className="text-text-muted text-xs mt-0.5">
+                          {listedCount} listed in total, incl. recently let
+                        </p>
+                      )}
                     </div>
                   </div>
                   {/* With nothing live here, a filtered link would land on an
                       empty list, so send people to everything instead. */}
                   <Link
                     href={
-                      propertyCount > 0
+                      listedCount > 0
                         ? `/properties?area=${encodeURIComponent(area.name)}`
                         : "/properties"
                     }
                     className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-5 py-2.5 min-h-[44px] rounded-sm hover:bg-brand-light transition-colors text-sm w-full justify-center text-center"
                   >
-                    {propertyCount > 0
+                    {listedCount > 0
                       ? `View Properties in ${area.name}`
                       : "View All Properties"}
                     <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />

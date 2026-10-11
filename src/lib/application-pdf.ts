@@ -225,8 +225,15 @@ class Layout {
     if (this.pageCount > 1 && this.continuationLabel) {
       const size = 8.5;
       // Truncated: an over-long name must not run off the page.
-      const label = sanitize(this.continuationLabel);
-      page.drawText(label.length > 90 ? `${label.slice(0, 89)}…` : label, {
+      // Truncate by rendered width (not characters) so a long, wide name
+      // can't run into "Page N of M" or off the page.
+      let label = sanitize(this.continuationLabel);
+      const maxLabelW = CONTENT_W - 80;
+      if (this.regular.widthOfTextAtSize(label, size) > maxLabelW) {
+        while (label.length > 1 && this.regular.widthOfTextAtSize(`${label}…`, size) > maxLabelW) label = label.slice(0, -1);
+        label = `${label.trimEnd()}…`;
+      }
+      page.drawText(label, {
         x: MARGIN,
         y: this.y - 8,
         size,

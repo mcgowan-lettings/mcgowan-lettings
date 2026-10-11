@@ -124,7 +124,8 @@ function filtersFromParams(sp: URLSearchParams): Filters {
   return {
     area: sp.get("area") ?? ALL_AREAS,
     maxPrice: sp.get("maxPrice") ?? ANY_PRICE,
-    bedrooms: sp.get("bedrooms") ?? ANY_BEDS,
+    // A hand-typed "?bedrooms=4+" arrives as "4 " (unencoded + is a space).
+    bedrooms: (sp.get("bedrooms") ?? ANY_BEDS).replace(/^(\d+) $/, "$1+"),
     type: sp.get("type") ?? ALL_TYPES,
   };
 }

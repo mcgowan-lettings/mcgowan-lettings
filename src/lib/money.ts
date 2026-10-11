@@ -24,13 +24,18 @@ const gbp = (n: number) => (Number.isInteger(n) ? GBP_WHOLE : GBP_PENCE).format(
 export function parseMoneyAmount(raw: string | number | null | undefined): number | null {
   if (raw === null || raw === undefined) return null;
   if (typeof raw === "number") return Number.isFinite(raw) ? raw : null;
-  const cleaned = raw
+  let cleaned = raw
     .replace(PERIOD_RE, "")
     .replace(/£|gbp/gi, "")
-    .trim()
-    // Commas are thousands separators; inner spaces are not ("12 50" is
-    // ambiguous, so it's shown as typed rather than guessed as £1,250).
-    .replace(/,/g, "");
+    .trim();
+  // Commas only as thousands separators ("1,250", "12,500.50"). A decimal
+  // comma ("2500,00") or stray commas would otherwise be stripped into a
+  // 100× larger figure — show such text as typed instead. Inner spaces
+  // ("12 50") are likewise ambiguous and shown as typed.
+  if (cleaned.includes(",")) {
+    if (!/^\d{1,3}(,\d{3})+(\.\d{1,2})?$/.test(cleaned)) return null;
+    cleaned = cleaned.replace(/,/g, "");
+  }
   if (!/^\d+(?:\.\d{1,2})?$/.test(cleaned)) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;

@@ -100,3 +100,11 @@ create policy "Admins can list property images" on storage.objects for select to
 -- TRUNCATE ignores RLS; PostgREST can't issue it, but there's no reason to
 -- hold it. RLS-governed SELECT/INSERT/UPDATE/DELETE grants are unchanged.
 revoke truncate, references, trigger on all tables in schema public from anon, authenticated;
+
+-- Triggers / function grants (applied 2026-10-11):
+-- blog_posts gets the same updated_at trigger properties already had, so
+-- sitemap lastModified / JSON-LD dateModified use the DB clock, not the
+-- editing browser's. rls_auto_enable() is an event-trigger helper — nobody
+-- needs EXECUTE on it.
+create or replace trigger blog_posts_updated_at before update on public.blog_posts for each row execute function update_updated_at();
+revoke execute on function public.rls_auto_enable() from anon, authenticated, public;

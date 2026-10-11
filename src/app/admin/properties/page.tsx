@@ -57,9 +57,11 @@ export default function AdminPropertiesPage() {
   const [loading, setLoading] = useState(true);
   // Lists load at most 1000 rows; say so rather than silently hide the rest.
   const [capped, setCapped] = useState(false);
-  const [toggling, setToggling] = useState<string | null>(null);
-  const [togglingFeatured, setTogglingFeatured] = useState<string | null>(null);
-  const [togglingNew, setTogglingNew] = useState<string | null>(null);
+  // Per-row busy sets (not a single id): finishing row A's request must not
+  // re-enable row B's switch while B's request is still in flight.
+  const [toggling, setToggling] = useState<ReadonlySet<string>>(new Set());
+  const [togglingFeatured, setTogglingFeatured] = useState<ReadonlySet<string>>(new Set());
+  const [togglingNew, setTogglingNew] = useState<ReadonlySet<string>>(new Set());
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState<{
@@ -111,7 +113,7 @@ export default function AdminPropertiesPage() {
   const featuredLive = properties.filter((p) => p.featured && p.active).length;
 
   const toggleActive = async (id: string, currentActive: boolean) => {
-    setToggling(id);
+    setToggling((prev) => new Set(prev).add(id));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -130,7 +132,7 @@ export default function AdminPropertiesPage() {
     } catch {
       showMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
-      setToggling(null);
+      setToggling((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
@@ -165,8 +167,8 @@ export default function AdminPropertiesPage() {
   };
 
   const toggleFeatured = async (id: string, currentFeatured: boolean) => {
-    if (togglingFeatured === id) return;
-    setTogglingFeatured(id);
+    if (togglingFeatured.has(id)) return;
+    setTogglingFeatured((prev) => new Set(prev).add(id));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -187,13 +189,13 @@ export default function AdminPropertiesPage() {
     } catch {
       showMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
-      setTogglingFeatured(null);
+      setTogglingFeatured((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
   const toggleNew = async (id: string, currentNew: boolean) => {
-    if (togglingNew === id) return;
-    setTogglingNew(id);
+    if (togglingNew.has(id)) return;
+    setTogglingNew((prev) => new Set(prev).add(id));
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
@@ -214,7 +216,7 @@ export default function AdminPropertiesPage() {
     } catch {
       showMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
-      setTogglingNew(null);
+      setTogglingNew((prev) => { const next = new Set(prev); next.delete(id); return next; });
     }
   };
 
@@ -409,11 +411,11 @@ export default function AdminPropertiesPage() {
                         onClick={() =>
                           toggleActive(property.id, property.active)
                         }
-                        disabled={toggling === property.id}
+                        disabled={toggling.has(property.id)}
                         aria-pressed={property.active}
                         aria-label={`Active (visible on site): ${property.title}`}
                         className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg ${
-                          toggling === property.id ? "opacity-50" : ""
+                          toggling.has(property.id) ? "opacity-50" : ""
                         }`}
                       >
                         <span
@@ -437,7 +439,7 @@ export default function AdminPropertiesPage() {
                         onClick={() =>
                           toggleFeatured(property.id, property.featured)
                         }
-                        disabled={togglingFeatured === property.id}
+                        disabled={togglingFeatured.has(property.id)}
                         aria-pressed={property.featured}
                         aria-label={`Featured on homepage: ${property.title}`}
                         className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
@@ -471,7 +473,7 @@ export default function AdminPropertiesPage() {
                       <button
                         type="button"
                         onClick={() => toggleNew(property.id, property.is_new)}
-                        disabled={togglingNew === property.id}
+                        disabled={togglingNew.has(property.id)}
                         aria-pressed={property.is_new}
                         aria-label={`New Property badge: ${property.title}`}
                         className="group/new inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
@@ -560,7 +562,7 @@ export default function AdminPropertiesPage() {
                         onClick={() =>
                           toggleActive(property.id, property.active)
                         }
-                        disabled={toggling === property.id}
+                        disabled={toggling.has(property.id)}
                         aria-pressed={property.active}
                         className="flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-xs disabled:opacity-50"
                       >
@@ -587,7 +589,7 @@ export default function AdminPropertiesPage() {
                         onClick={() =>
                           toggleFeatured(property.id, property.featured)
                         }
-                        disabled={togglingFeatured === property.id}
+                        disabled={togglingFeatured.has(property.id)}
                         aria-pressed={property.featured}
                         className={`flex min-h-[44px] items-center gap-1 rounded-lg px-2 text-xs disabled:opacity-50 disabled:cursor-not-allowed ${
                           property.featured
@@ -616,7 +618,7 @@ export default function AdminPropertiesPage() {
                       <button
                         type="button"
                         onClick={() => toggleNew(property.id, property.is_new)}
-                        disabled={togglingNew === property.id}
+                        disabled={togglingNew.has(property.id)}
                         aria-pressed={property.is_new}
                         aria-label="New Property badge"
                         className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-1 disabled:opacity-50 disabled:cursor-not-allowed"

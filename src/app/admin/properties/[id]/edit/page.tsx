@@ -894,6 +894,7 @@ export default function EditPropertyPage() {
                 <input
                   type="file"
                   accept=".pdf,image/jpeg,image/png,image/webp"
+                  disabled={uploadingEpc}
                   className="hidden"
                   onChange={async (e) => {
                     const file = e.target.files?.[0];

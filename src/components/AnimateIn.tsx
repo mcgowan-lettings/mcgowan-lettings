@@ -145,6 +145,11 @@ export function CountUp({ value, suffix = "" }: { value: number; suffix?: string
     if (started) return;
     const el = ref.current;
     let cancelled = false;
+    // Reduced motion: no count-up at all — keep the final value (the global
+    // CSS rule can't stop a JS interval animation).
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      return;
+    }
     const start = () => {
       if (cancelled) return;
       setCount(0);

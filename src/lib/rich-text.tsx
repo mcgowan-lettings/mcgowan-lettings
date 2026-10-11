@@ -89,6 +89,15 @@ export function renderInline(text: string): React.ReactNode[] {
     if (match[1] !== undefined) {
       nodes.push(<strong key={key++} className="font-semibold text-dark">{match[1]}</strong>);
     } else if (match[2] !== undefined) {
+      // Same word-start rule as inlineMarkdownToHtml: snake_case keeps its
+      // underscores.
+      const prev = match.index > 0 ? text[match.index - 1] : "";
+      if (/[A-Za-z0-9_]/.test(prev)) {
+        nodes.push("_");
+        INLINE_RE.lastIndex = match.index + 1;
+        lastIndex = INLINE_RE.lastIndex;
+        continue;
+      }
       nodes.push(<em key={key++}>{match[2]}</em>);
     } else if (match[3] !== undefined && match[4] !== undefined) {
       if (isSafeUrl(match[4])) {

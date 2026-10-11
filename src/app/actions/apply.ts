@@ -178,8 +178,13 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
     if (!job_title) return { success: false, error: "Job title is required." };
     if (!employment_start_date) return { success: false, error: "Employment start date is required." };
   }
-  if (employment_start_date && !parseIsoDate(employment_start_date)) {
-    return { success: false, error: "Please enter a valid employment start date." };
+  if (employment_start_date) {
+    const start = parseIsoDate(employment_start_date);
+    // Sanity range: not before 1950, not more than a year ahead (a job offer).
+    const maxStart = new Date(ukToday().getTime() + 366 * 24 * 60 * 60 * 1000);
+    if (!start || start < new Date("1950-01-01T00:00:00Z") || start > maxStart) {
+      return { success: false, error: "Please enter a valid employment start date." };
+    }
   }
 
   if (!monthly_income) return { success: false, error: "Monthly income is required." };
