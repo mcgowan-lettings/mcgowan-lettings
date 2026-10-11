@@ -514,7 +514,18 @@ class Layout {
     const lineW = 225;
     const maxW = 205;
     const maxH = 46;
-    const blockH = 70;
+    // Right column: label + wrapped value per pair. A long printed name wraps
+    // and used to push "Date signed" onto the office-use box; size the block
+    // to whichever column is taller.
+    const colX = MARGIN + CONTENT_W / 2 + 6;
+    const valueW = CONTENT_W / 2 - LABEL_W - 8;
+    const pairs: [string, string][] = [
+      ["Print name", printName],
+      ["Date signed", dateSigned],
+    ];
+    const wrapped = pairs.map(([, value]) => wrapText(sanitize(value) || "\u2014", this.regular, 10, valueW));
+    const rightH = 6 + wrapped.reduce((h, lines) => h + lines.length * 13.5 + 8, 0);
+    const blockH = Math.max(70, Math.ceil(rightH));
     this.ensure(blockH + 6);
     const top = this.y;
 
@@ -549,14 +560,8 @@ class Layout {
     });
 
     // --- right: printed name and date, aligned to the same column grid as the rows above
-    const colX = MARGIN + CONTENT_W / 2 + 6;
-    const valueW = CONTENT_W / 2 - LABEL_W - 8;
-    const pairs: [string, string][] = [
-      ["Print name", printName],
-      ["Date signed", dateSigned],
-    ];
     let py = top - 6;
-    for (const [label, value] of pairs) {
+    for (const [i, [label]] of pairs.entries()) {
       this.page.drawText(sanitize(label), {
         x: colX,
         y: py,
@@ -565,7 +570,7 @@ class Layout {
         color: MUTED,
       });
       let vy = py;
-      for (const line of wrapText(sanitize(value) || "\u2014", this.regular, 10, valueW)) {
+      for (const line of wrapped[i]) {
         this.page.drawText(line, { x: colX + LABEL_W, y: vy, size: 10, font: this.regular, color: TEXT });
         vy -= 13.5;
       }

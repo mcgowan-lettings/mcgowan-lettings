@@ -317,6 +317,7 @@ export default function AdminApplicationsPage() {
                 {/* Row */}
                 <button
                   onClick={() => toggleExpand(app)}
+                  aria-expanded={isExpanded}
                   className={`w-full text-left px-4 sm:px-6 py-4 transition-colors hover:bg-gray-50 ${
                     !app.read ? "bg-brand/[0.03]" : ""
                   }`}

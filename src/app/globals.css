@@ -411,3 +411,15 @@ a[data-fancybox]:focus-visible {
   background: rgb(171 211 0 / 0.2); /* brand lime @ 20% (no color-mix: Safari 15.4 floor) */
   pointer-events: none;
 }
+
+/* Property pages on mobile: the fixed sticky CTA bar replaces the WhatsApp
+   FAB, and the footer's own dark padding clears the bar (no white strip).
+   Keyed on the bar being rendered, so the property 404/error pages keep the
+   FAB and normal footer. :has() is Safari 15.4+/Chrome 105+/Firefox 121+;
+   older browsers just keep the FAB. */
+@media (max-width: 1023.98px) {
+  html:has(.property-sticky-bar) .wa-fab { display: none; }
+  html:has(.property-sticky-bar) footer {
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+}

@@ -17,7 +17,8 @@ function escapeHtml(text: string): string {
 // lone surrogate, which Postgres rejects — the user would then get "Something
 // went wrong" on every retry.
 function str(v: unknown, max: number): string {
-  return typeof v === "string" ? Array.from(v.trim()).slice(0, max).join("").trim() : "";
+  // NUL bytes make Postgres reject the insert (22P05) on every retry.
+  return typeof v === "string" ? Array.from(v.replace(/\u0000/g, "").trim()).slice(0, max).join("").trim() : "";
 }
 
 const MAX_SHORT = 200;

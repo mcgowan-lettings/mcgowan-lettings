@@ -13,11 +13,12 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // Hide floating WhatsApp on property detail pages — the sticky CTA bar has it
-  const isPropertyDetail = /^\/properties\/[^/]+$/.test(pathname);
-  // Also hide on the application forms (tenant + guarantor twin) — the FAB
-  // overlaps the signature pad / submit on small phones
-  const hideFab = isPropertyDetail || pathname === "/apply" || pathname === "/guarantor";
+  // Hide the floating WhatsApp on the application forms (tenant + guarantor
+  // twin) — the FAB overlaps the signature pad / submit on small phones.
+  // Property pages with the sticky CTA bar hide it via CSS (globals.css,
+  // `html:has(.property-sticky-bar)`), keyed on the bar actually being
+  // rendered — not the URL, which also matches the property 404/error pages.
+  const hideFab = pathname === "/apply" || pathname === "/guarantor";
 
   return (
     <>
@@ -29,9 +30,7 @@ export default function SiteShell({ children }: { children: React.ReactNode }) {
       </a>
       <Header />
       <main id="main" tabIndex={-1} className="flex-1 outline-none">{children}</main>
-      <div className={isPropertyDetail ? "pb-20 lg:pb-0" : ""}>
-        <Footer fabClearance={!hideFab} />
-      </div>
+      <Footer fabClearance={!hideFab} />
       {!hideFab && <WhatsAppButton />}
     </>
   );

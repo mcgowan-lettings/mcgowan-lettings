@@ -334,7 +334,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       </section>
 
       {/* ── Content ── */}
-      <section className="bg-white pb-20 lg:pb-0">
+      <section className="bg-white">
         <div className="max-w-7xl mx-auto px-6">
           {/* Breadcrumb */}
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-sm text-text-muted py-1 border-b border-black/5">
@@ -569,7 +569,11 @@ export default async function PropertyDetailPage({ params }: Props) {
       <style href="property-sticky-bar-scroll-padding" precedence="default">
         {"@media (max-width: 1023.98px){html:has(.property-sticky-bar){scroll-padding-bottom:5.5rem}}"}
       </style>
-      <div className="property-sticky-bar fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black/10 px-4 py-3 flex items-center gap-2 lg:hidden">
+      <div
+        className="property-sticky-bar fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black/10 px-4 pt-3 flex items-center gap-2 lg:hidden"
+        // Clear the iPhone home indicator.
+        style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}
+      >
         <a
           href="tel:01617976967"
           className="flex-1 flex items-center justify-center gap-2 border border-dark/15 text-dark font-semibold text-sm py-3 rounded-md"

@@ -96,13 +96,22 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
     };
   }, [mounted]);
 
+  // The query the current results belong to ("Load more" must page through
+  // THAT, not whatever has since been typed), and a counter so a slow
+  // response from an older search can't overwrite a newer one.
+  const searchedQueryRef = useRef("");
+  const requestSeqRef = useRef(0);
+
   const search = async (e?: React.FormEvent) => {
     e?.preventDefault();
     // React events bubble through portals to the React parent — the picker
     // is rendered inside the blog editor's <form>, so without this a search
     // would also submit (save) the post.
     e?.stopPropagation();
-    if (!query.trim()) return;
+    const q = query.trim();
+    if (!q) return;
+    const seq = ++requestSeqRef.current;
+    searchedQueryRef.current = q;
 
     setLoading(true);
     setError("");
@@ -111,32 +120,39 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
 
     try {
       const res = await fetch(
-        `/api/unsplash/search?q=${encodeURIComponent(query.trim())}&page=1`,
+        `/api/unsplash/search?q=${encodeURIComponent(q)}&page=1`,
         { headers: await authHeaders() }
       );
       if (!res.ok) throw new Error("Search failed");
       const data = await res.json();
+      if (seq !== requestSeqRef.current) return;
       setPhotos(data.results);
       setTotalPages(data.totalPages);
     } catch {
+      if (seq !== requestSeqRef.current) return;
       setError("Failed to search photos. Please try again.");
       setPhotos([]);
     } finally {
-      setLoading(false);
+      if (seq === requestSeqRef.current) setLoading(false);
     }
   };
 
   const loadMore = async () => {
     const nextPage = page + 1;
+    const seq = requestSeqRef.current;
+    const q = searchedQueryRef.current;
+    if (!q) return;
     setLoadingMore(true);
 
     try {
       const res = await fetch(
-        `/api/unsplash/search?q=${encodeURIComponent(query.trim())}&page=${nextPage}`,
+        `/api/unsplash/search?q=${encodeURIComponent(q)}&page=${nextPage}`,
         { headers: await authHeaders() }
       );
       if (!res.ok) throw new Error("Load more failed");
       const data = await res.json();
+      // A new search started meanwhile — these results belong to the old one.
+      if (seq !== requestSeqRef.current) return;
       // Unsplash pages can overlap (results shift as the index updates), so
       // drop ids we already have — duplicate keys break React reconciliation.
       setPhotos((prev) => {

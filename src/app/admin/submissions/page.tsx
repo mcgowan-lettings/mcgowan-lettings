@@ -305,6 +305,7 @@ export default function AdminSubmissionsPage() {
                 {/* Row */}
                 <button
                   onClick={() => toggleExpand(submission)}
+                  aria-expanded={isExpanded}
                   className={`w-full text-left px-4 sm:px-6 py-4 transition-colors hover:bg-gray-50 ${
                     !submission.read ? "bg-brand/[0.03]" : ""
                   }`}

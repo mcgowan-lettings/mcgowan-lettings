@@ -15,7 +15,7 @@ import {
 } from "@/lib/application-types";
 import { copyFor } from "@/lib/application-copy";
 import { formatMoneyDisplay, formatRentDisplay } from "@/lib/money";
-import { recentRowCount, sendPausedNotice } from "@/lib/form-throttle";
+import { isSafeLeadEmail, recentRowCount, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -43,7 +43,8 @@ const MAX_APPLICATIONS_EMAILED_PER_HOUR = 20;
 // lone surrogate, which Postgres rejects — the user would then get "Something
 // went wrong" on every retry.
 function str(v: unknown, max: number): string {
-  return typeof v === "string" ? Array.from(v.trim()).slice(0, max).join("").trim() : "";
+  // NUL bytes make Postgres reject the insert (22P05) on every retry.
+  return typeof v === "string" ? Array.from(v.replace(/\u0000/g, "").trim()).slice(0, max).join("").trim() : "";
 }
 
 function parseIsoDate(s: string): Date | null {
@@ -133,7 +134,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   const job_title = str(data.job_title, MAX_SHORT);
   const employment_start_date = str(data.employment_start_date, 10);
   const monthly_income = str(data.monthly_income, 50);
-  const signed_name = str(data.signed_name, MAX_SHORT);
+  const signed_name = str(data.signed_name, 80); // matches the client cap; long names broke the PDF signature block
   const signature_data_url = typeof data.signature_data_url === "string" ? data.signature_data_url : "";
   const declaration_agreed = data.declaration_agreed === true;
 
@@ -144,7 +145,9 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   }
   if (!full_name) return { success: false, error: "Full name is required." };
   if (!email) return { success: false, error: "Email is required." };
-  if (!EMAIL_REGEX.test(email)) return { success: false, error: "Please enter a valid email address." };
+  if (!EMAIL_REGEX.test(email) || !isSafeLeadEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
   if (!phone) return { success: false, error: "Phone number is required." };
   if (phone.replace(/\D/g, "").length < 7) {
     return { success: false, error: "Please enter a valid phone number." };
@@ -282,7 +285,16 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
       .eq("employment_status", employment_status)
       .eq("monthly_income", monthly_income)
       .eq("signed_name", signed_name)
+      .eq("period_at_address", period_at_address)
       .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+    // Nullable columns: match NULL with .is(), values with .eq() — exactly as
+    // the insert below stores them.
+    const eqOrNull = (col: string, val: string | null) =>
+      (dupQuery = val === null ? dupQuery.is(col, null) : dupQuery.eq(col, val));
+    eqOrNull("rent_pcm", rent_pcm || null);
+    eqOrNull("employer", needsEmployer ? employer : employer || null);
+    eqOrNull("job_title", needsEmployer ? job_title : job_title || null);
+    eqOrNull("employment_start_date", employment_start_date || null);
     dupQuery = isGuarantor ? dupQuery.eq("tenant_name", tenant_name) : dupQuery;
     const { count: dupes } = await dupQuery;
     if ((dupes ?? 0) > 0) return { success: true };

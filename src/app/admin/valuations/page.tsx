@@ -314,6 +314,7 @@ export default function AdminValuationsPage() {
                 {/* Row */}
                 <button
                   onClick={() => toggleExpand(request)}
+                  aria-expanded={isExpanded}
                   className={`w-full text-left px-4 sm:px-6 py-4 transition-colors hover:bg-gray-50 ${
                     !request.read ? "bg-brand/[0.03]" : ""
                   }`}

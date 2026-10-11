@@ -43,7 +43,9 @@ export async function GET(req: NextRequest) {
   if (!res.ok) {
     return NextResponse.json(
       { error: "Failed to fetch from Unsplash" },
-      { status: res.status }
+      // 502, not Unsplash's own status: an upstream 401/403 (bad key, rate
+      // limit) must not look like our admin auth rejecting the request.
+      { status: 502 }
     );
   }
 

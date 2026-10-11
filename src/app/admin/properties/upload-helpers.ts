@@ -128,7 +128,9 @@ export function parseWholeNumber(value: string): number | null {
   const trimmed = value.trim();
   if (trimmed === "") return null;
   const n = Number(trimmed);
-  return Number.isInteger(n) && n >= 0 ? n : null;
+  // Upper bound keeps values inside Postgres int4 (and catches a stray extra
+  // digit) instead of surfacing a raw "out of range" database error.
+  return Number.isInteger(n) && n >= 0 && n <= 1_000_000 ? n : null;
 }
 
 /**
