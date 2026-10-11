@@ -4,6 +4,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/auth";
 import { buildApplicationPdf, londonDateParts } from "@/lib/application-pdf";
 import type { TenantApplicationRow } from "@/lib/application-types";
+import { copyFor } from "@/lib/application-copy";
 
 export async function markApplicationRead(id: string, accessToken: string) {
   await requireAdmin(accessToken);
@@ -25,7 +26,7 @@ export async function markAllApplicationsRead(upTo: string | null, accessToken: 
   let query = supabaseAdmin
     .from("tenant_applications")
     .update({ read: true })
-    .eq("read", false);
+    .or("read.is.null,read.eq.false");
   if (upTo) query = query.lte("created_at", upTo);
   const { error } = await query;
   if (error) {
@@ -68,7 +69,7 @@ export async function countUnreadApplications(accessToken: string): Promise<numb
   const { count, error } = await supabaseAdmin
     .from("tenant_applications")
     .select("id", { count: "exact", head: true })
-    .eq("read", false);
+    .or("read.is.null,read.eq.false");
   if (error) {
     console.error("countUnreadApplications error:", error);
     throw new Error("Failed to count applications.");
@@ -108,6 +109,6 @@ export async function getApplicationPdf(
   const date = parts ? `${parts.year}-${parts.month}-${parts.day}` : "undated";
   return {
     base64: Buffer.from(pdf).toString("base64"),
-    filename: `application-${slugify(app.full_name)}-${date}.pdf`,
+    filename: `${copyFor(app.application_type).filenamePrefix.toLowerCase()}-${slugify(app.full_name)}-${date}.pdf`,
   };
 }

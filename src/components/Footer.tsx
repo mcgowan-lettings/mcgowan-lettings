@@ -31,7 +31,7 @@ export default function Footer({ fabClearance = false }: { fabClearance?: boolea
 
           {/* Quick links */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-2">Quick Links</h4>
+            <h2 className="text-white font-semibold text-sm mb-2">Quick Links</h2>
             <ul>
               {[
                 { label: "Properties", href: "/properties" },
@@ -50,7 +50,7 @@ export default function Footer({ fabClearance = false }: { fabClearance?: boolea
 
           {/* Areas */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-2">Areas</h4>
+            <h2 className="text-white font-semibold text-sm mb-2">Areas</h2>
             <ul>
               {[
                 { name: "Bury", slug: "bury" },
@@ -72,7 +72,7 @@ export default function Footer({ fabClearance = false }: { fabClearance?: boolea
 
           {/* Legal */}
           <div>
-            <h4 className="text-white font-semibold text-sm mb-2">Legal</h4>
+            <h2 className="text-white font-semibold text-sm mb-2">Legal</h2>
             <ul>
               {[
                 { label: "Privacy Policy", href: "/privacy" },

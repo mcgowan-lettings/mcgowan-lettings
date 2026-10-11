@@ -35,7 +35,7 @@ interface Submission {
   phone: string | null;
   type: string;
   message: string;
-  read: boolean;
+  read: boolean | null;
   created_at: string;
 }
 

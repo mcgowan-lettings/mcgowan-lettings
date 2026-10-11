@@ -6,7 +6,17 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 import { safeJsonLd } from "@/lib/json-ld";
 import { getProperty } from "./get-property";
 import { SITE_URL } from "@/lib/site";
-import { cardAlt, formatPrice, locationDiffersFromTitle, resolveCounty } from "../filters";
+import {
+  cardAlt,
+  displayStatus,
+  formatPrice,
+  isLetAgreed as statusIsLetAgreed,
+  locationDiffersFromTitle,
+  normaliseArea,
+  resolveArea,
+  resolveCounty,
+  sortByAvailability,
+} from "../filters";
 import { thumbUrl } from "@/lib/thumb";
 
 // Cached statically; updateProperty / togglePropertyActive / deleteProperty
@@ -28,6 +38,7 @@ export async function generateStaticParams(): Promise<{ id: string }[]> {
 import PropertyGallery from "./PropertyGallery";
 import ExpandableDescription from "./ExpandableDescription";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
+import CardImage from "@/components/CardImage";
 import { isHtml } from "@/lib/rich-text";
 import { sanitizeHtml } from "@/lib/sanitize-html";
 import {
@@ -177,44 +188,40 @@ export default async function PropertyDetailPage({ params }: Props) {
     notFound();
   }
 
-  // Similar properties: same area OR same type. We run two parameterised
-  // .eq() queries in parallel and merge in JS, instead of building a raw
-  // PostgREST `.or()` filter string from user-controlled values (an area
-  // like "St James's" or a type with a comma would break the filter syntax
-  // and 500 the page).
-  const similarBase = () =>
-    supabaseAdmin
-      .from("properties")
-      .select("id, title, price, location, beds, baths, type, images, status, is_new")
-      .eq("active", true)
-      .neq("id", id)
-      .limit(3);
-
-  const similarPromises = [];
-  if (property.area) similarPromises.push(similarBase().eq("area", property.area));
-  if (property.type) similarPromises.push(similarBase().eq("type", property.type));
-
-  const similarResults = similarPromises.length > 0
-    ? await Promise.all(similarPromises)
-    : [];
+  // Similar properties: same borough (via resolveArea, so "Ramsbottom" and
+  // "Tottington" both count as Bury) and/or same type. Borough resolution
+  // happens in JS, so fetch the (small) active set with parameterised
+  // filters only — no raw PostgREST `.or()` string built from user-typed
+  // values — then rank: available homes first, then rows matching both
+  // borough and type, then either; price desc within each tier.
+  const { data: similarPool, error: similarError } = await supabaseAdmin
+    .from("properties")
+    .select("id, title, price, location, area, beds, baths, type, images, status, is_new")
+    .eq("active", true)
+    .neq("id", id)
+    .limit(200);
 
   // Throw on a failed query: a failed ISR regeneration then keeps serving the
   // last good page instead of caching one with the section silently missing.
-  for (const result of similarResults) {
-    if (result.error) throw new Error(`Failed to load similar properties: ${result.error.message}`);
-  }
+  if (similarError) throw new Error(`Failed to load similar properties: ${similarError.message}`);
 
-  const seen = new Set<string>();
-  const similarProperties: NonNullable<typeof similarResults[number]["data"]> = [];
-  for (const result of similarResults) {
-    for (const p of result.data ?? []) {
-      if (seen.has(p.id)) continue;
-      seen.add(p.id);
-      similarProperties.push(p);
-      if (similarProperties.length >= 3) break;
-    }
-    if (similarProperties.length >= 3) break;
-  }
+  const borough = normaliseArea(resolveArea(property));
+  const typeKey = normaliseArea(property.type);
+  const similarScore = (p: { area?: string | null; location?: string | null; type?: string | null }) =>
+    (borough && normaliseArea(resolveArea(p)) === borough ? 2 : 0) +
+    (typeKey && normaliseArea(p.type) === typeKey ? 1 : 0);
+  // sortByAvailability: available first, then price desc. The second sort is
+  // stable, so it only lifts better matches within each availability group.
+  const similarProperties = sortByAvailability(similarPool ?? [])
+    .map((p) => ({ p, score: similarScore(p) }))
+    .filter((x) => x.score > 0)
+    .sort(
+      (a, b) =>
+        Number(statusIsLetAgreed(a.p.status)) - Number(statusIsLetAgreed(b.p.status)) ||
+        b.score - a.score
+    )
+    .slice(0, 3)
+    .map((x) => x.p);
 
   const images: string[] = property.images ?? [];
   const videos: string[] = property.videos ?? [];
@@ -235,13 +242,16 @@ export default async function PropertyDetailPage({ params }: Props) {
     });
   const features = dbFeatures;
 
-  const status = property.status || "To Let";
-  const isLetAgreed = status === "Let Agreed";
+  const status = displayStatus(property.status);
+  const isLetAgreed = statusIsLetAgreed(property.status);
   const showNew = !isLetAgreed && property.is_new === true;
 
   // Extra details — only fields that aren't already in the price bar
   const extraDetails: { label: string; value: string }[] = [];
-  if (property.available_from) {
+  if (isLetAgreed) {
+    // A let home isn't "Available now" (or "Available From" a future date).
+    extraDetails.push({ label: "Availability", value: "Let Agreed" });
+  } else if (property.available_from) {
     // Stored as a date ("YYYY-MM-DD"); a past date reads as stale, so show
     // "Available now" once it's today or earlier (UK time).
     const availableDate = String(property.available_from).slice(0, 10);
@@ -282,7 +292,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       "@type": "Offer",
       price: property.price,
       priceCurrency: "GBP",
-      availability: status === "Let Agreed" ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+      availability: isLetAgreed ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
     },
     address: {
       "@type": "PostalAddress",
@@ -517,7 +527,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                       href="https://wa.me/447457428720"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-white font-semibold text-sm px-4 py-3 rounded-md hover:bg-[#22c55e] transition-colors"
+                      className="flex items-center justify-center gap-2 w-full bg-[#25D366] text-dark font-semibold text-sm px-4 py-3 rounded-md hover:bg-[#22c55e] transition-colors"
                     >
                       <WhatsAppIcon className="w-4 h-4" />
                       WhatsApp
@@ -551,7 +561,14 @@ export default async function PropertyDetailPage({ params }: Props) {
       </section>
 
       {/* ── Sticky Mobile CTA ── */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black/10 px-4 py-3 flex items-center gap-2 lg:hidden">
+      {/* Below lg the fixed bar covers the bottom ~5rem of the viewport, so
+          keyboard focus scrolled into view there would hide under it. :has()
+          scopes the padding to pages with the bar (progressive enhancement:
+          Safari 15.4+, Chrome 105+, Firefox 121+). React hoists this to head. */}
+      <style href="property-sticky-bar-scroll-padding" precedence="default">
+        {"@media (max-width: 1023.98px){html:has(.property-sticky-bar){scroll-padding-bottom:5.5rem}}"}
+      </style>
+      <div className="property-sticky-bar fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-black/10 px-4 py-3 flex items-center gap-2 lg:hidden">
         <a
           href="tel:01617976967"
           className="flex-1 flex items-center justify-center gap-2 border border-dark/15 text-dark font-semibold text-sm py-3 rounded-md"
@@ -563,7 +580,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           href="https://wa.me/447457428720"
           target="_blank"
           rel="noopener noreferrer"
-          className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] text-white font-semibold text-sm py-3 rounded-md"
+          className="flex-1 flex items-center justify-center gap-2 bg-[#25D366] text-dark font-semibold text-sm py-3 rounded-md"
         >
           <WhatsAppIcon className="w-4 h-4" />
           WhatsApp
@@ -599,7 +616,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                 <Link href={`/properties/${p.id}`} key={p.id}>
                   <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
-                      <Image
+                      <CardImage
                         src={p.images?.[0] ? thumbUrl(p.images[0]) : "/hero-banner.jpg"}
                         alt={cardAlt(p.title, p.location)}
                         fill

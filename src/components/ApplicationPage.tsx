@@ -22,7 +22,7 @@ export default function ApplicationPage({
   return (
     <>
       {/* ── Page header (no hero — keeps the form above the fold on phones) ── */}
-      <section className="bg-dark noise-overlay pt-16">
+      <section className="bg-dark noise-overlay focus-on-dark pt-16">
         <div className="max-w-3xl mx-auto px-6 py-12 md:py-16 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
             <div className="w-8 h-px bg-brand" />

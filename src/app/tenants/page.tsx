@@ -217,7 +217,7 @@ export default function TenantsPage() {
         dangerouslySetInnerHTML={{ __html: safeJsonLd(faqJsonLd) }}
       />
       {/* ─── HERO ─── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
+      <section className="relative min-h-[max(40vh,320px)] flex items-center overflow-hidden noise-overlay bg-dark focus-on-dark pt-[4.5rem] pb-4">
         <div className="absolute inset-0">
           <Image
             src="/hero-banner.jpg"

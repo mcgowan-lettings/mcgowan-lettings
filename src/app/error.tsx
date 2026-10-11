@@ -19,7 +19,7 @@ export default function AppError({
   }, [error]);
 
   return (
-    <section className="relative min-h-[80vh] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
+    <section className="relative min-h-[80vh] flex items-center overflow-hidden noise-overlay bg-dark focus-on-dark pt-24 pb-12">
       <div className="absolute inset-0">
         <Image
           src="/hero-banner.jpg"

@@ -99,6 +99,7 @@ export default function EditPropertyPage() {
   const [videoError, setVideoError] = useState("");
   const [epcError, setEpcError] = useState("");
   const [success, setSuccess] = useState("");
+  const [notice, setNotice] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   // File URLs referenced by the *saved* row. Removing one of these only drops
@@ -367,6 +368,7 @@ export default function EditPropertyPage() {
     e.preventDefault();
     setError("");
     setSuccess("");
+    setNotice("");
 
     if (!form.title || !form.price || !form.location || !form.beds || !form.baths) {
       setError("Please fill in all required fields.");
@@ -411,6 +413,10 @@ export default function EditPropertyPage() {
         }
       }
 
+      let saveImages = imageUrls;
+      let saveVideos = videoUrls;
+      let epcDocument = form.epc_document;
+
       // Optimistic concurrency: warn if the row changed since it was loaded
       // (another tab, or a toggle on the list page). A failed read doesn't
       // block the save.
@@ -425,6 +431,21 @@ export default function EditPropertyPage() {
           "This property was changed elsewhere since you opened it (e.g. another tab). Save anyway and overwrite those changes?"
         );
         if (!overwrite) return;
+        // This tab is stale: the other edit may have removed photos/videos/the
+        // EPC and deleted their files. Check every referenced file (not just
+        // this session's uploads) so the overwrite can't resurrect dead links.
+        const missing = new Set(await findMissingUploads([...imageUrls, ...videoUrls, ...(epcDocument ? [epcDocument] : [])]));
+        if (missing.size > 0) {
+          saveImages = imageUrls.filter((u) => !missing.has(u));
+          saveVideos = videoUrls.filter((u) => !missing.has(u));
+          if (missing.has(epcDocument)) epcDocument = "";
+          setImageUrls(saveImages);
+          setVideoUrls(saveVideos);
+          if (!epcDocument && form.epc_document) updateField("epc_document", "");
+          setNotice(
+            `${missing.size} file${missing.size === 1 ? " was" : "s were"} deleted in the other edit and ${missing.size === 1 ? "has" : "have"} been left out of this save. Re-upload ${missing.size === 1 ? "it" : "them"} if ${missing.size === 1 ? "it's" : "they're"} still needed.`
+          );
+        }
       }
 
       const { data: { session } } = await supabase.auth.getSession();
@@ -446,13 +467,13 @@ export default function EditPropertyPage() {
         active: form.active,
         featured: form.featured,
         is_new: form.is_new,
-        images: imageUrls,
-        videos: videoUrls,
+        images: saveImages,
+        videos: saveVideos,
         status: form.status,
         furnished: form.furnished,
         available_from: form.available_from || null,
         council_tax_band: form.council_tax_band || null,
-        epc_document: form.epc_document || null,
+        epc_document: epcDocument || null,
         features: featuresArray.length > 0 ? featuresArray : null,
         updated_at: updatedAt,
       }, session.access_token);
@@ -465,13 +486,13 @@ export default function EditPropertyPage() {
 
       // Row saved — now delete the saved files David removed. Failure is
       // harmless (cleanupOrphans reaps them), so the result is ignored.
-      const currentUrls = new Set<string>([...imageUrls, ...videoUrls, ...(form.epc_document ? [form.epc_document] : [])]);
+      const currentUrls = new Set<string>([...saveImages, ...saveVideos, ...(epcDocument ? [epcDocument] : [])]);
       const staleUrls = [...savedFileUrls.current].filter((url) => !currentUrls.has(url));
       if (staleUrls.length > 0) {
         removeStorageFiles(staleUrls, session.access_token).catch(() => {});
       }
       savedFileUrls.current = currentUrls;
-      setSavedSnapshot(snapshotOf(form, imageUrls, videoUrls));
+      setSavedSnapshot(snapshotOf({ ...form, epc_document: epcDocument }, saveImages, saveVideos));
 
       setSuccess("Property updated successfully.");
       setTimeout(() => setSuccess(""), 3000);
@@ -584,6 +605,12 @@ export default function EditPropertyPage() {
       {error && (
         <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
+        </div>
+      )}
+
+      {notice && (
+        <div role="status" className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {notice}
         </div>
       )}
 
@@ -924,15 +951,21 @@ export default function EditPropertyPage() {
               <span className="text-sm text-dark">Active (visible on site)</span>
             </label>
 
-            <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(e) => updateField("featured", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
-              />
-              <span className="text-sm text-dark">Featured on homepage</span>
-            </label>
+            <div>
+              <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.featured}
+                  onChange={(e) => updateField("featured", e.target.checked)}
+                  aria-describedby="featured-hint"
+                  className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
+                />
+                <span className="text-sm text-dark">Featured on homepage</span>
+              </label>
+              <p id="featured-hint" className="-mt-1.5 pl-[1.625rem] text-xs text-text-muted">
+                Shows this listing on the home page.
+              </p>
+            </div>
 
             <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
               <input

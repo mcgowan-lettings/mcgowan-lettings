@@ -89,7 +89,7 @@ export default function ContactPage() {
   return (
     <>
       {/* ── Hero Banner ── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
+      <section className="relative min-h-[max(40vh,320px)] flex items-center overflow-hidden noise-overlay bg-dark focus-on-dark pt-[4.5rem] pb-4">
         <div className="absolute inset-0">
           <Image
             src="/hero-banner.jpg"
@@ -293,18 +293,23 @@ export default function ContactPage() {
                     </div>
                   ) : (
                     <form onSubmit={handleSubmit} className="space-y-5" noValidate={false}>
-                      {/* Honeypot — bots auto-fill this; real users won't see it */}
+                      {/* Honeypot (CLAUDE.md rule 6) — bots auto-fill this; real users won't see it */}
                       <div
                         aria-hidden="true"
                         style={{ position: "absolute", left: "-10000px", width: "1px", height: "1px", overflow: "hidden" }}
                       >
-                        <label htmlFor="company_url">Company URL</label>
+                        {/* Neutral label/id/name so browser + password-manager
+                            autofill (org "company URL" profiles) can't fill it
+                            and silently drop a real lead. Still posts into the
+                            server's `website` honeypot key. */}
+                        <label htmlFor="hp-contact">Leave this blank</label>
                         <input
                           type="text"
-                          id="company_url"
-                          name="company_url"
+                          id="hp-contact"
+                          name="website"
                           tabIndex={-1}
                           autoComplete="off"
+                          aria-hidden="true"
                           data-1p-ignore
                           data-lpignore="true"
                           data-bwignore="true"
@@ -328,13 +333,14 @@ export default function ContactPage() {
                           type="text"
                           id="name"
                           name="name"
+                          maxLength={200}
                           autoComplete="name"
                           required
                           value={formData.name}
                           onChange={(e) =>
                             setFormData({ ...formData, name: e.target.value })
                           }
-                          className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                          className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                           placeholder="Your full name"
                         />
                       </div>
@@ -352,6 +358,7 @@ export default function ContactPage() {
                             type="tel"
                             id="phone"
                             name="phone"
+                            maxLength={200}
                             autoComplete="tel"
                             required
                             value={formData.phone}
@@ -361,7 +368,7 @@ export default function ContactPage() {
                                 phone: e.target.value,
                               })
                             }
-                            className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                            className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                             placeholder="07123 456789"
                           />
                         </div>
@@ -376,6 +383,7 @@ export default function ContactPage() {
                             type="email"
                             id="email"
                             name="email"
+                            maxLength={200}
                             autoComplete="email"
                             required
                             value={formData.email}
@@ -385,7 +393,7 @@ export default function ContactPage() {
                                 email: e.target.value,
                               })
                             }
-                            className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                            className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                             placeholder="you@example.com"
                           />
                         </div>
@@ -411,7 +419,7 @@ export default function ContactPage() {
                                 enquiryType: e.target.value,
                               })
                             }
-                            className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                            className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                           >
                             <option value="" disabled>
                               Select an option
@@ -451,6 +459,7 @@ export default function ContactPage() {
                         <textarea
                           id="message"
                           name="message"
+                          maxLength={5000}
                           required
                           rows={5}
                           value={formData.message}
@@ -460,7 +469,7 @@ export default function ContactPage() {
                               message: e.target.value,
                             })
                           }
-                          className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
+                          className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
                           placeholder="How can we help?"
                         />
                       </div>

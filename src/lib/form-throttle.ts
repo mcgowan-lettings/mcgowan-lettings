@@ -104,3 +104,30 @@ export async function clientIp(): Promise<string | null> {
     return null;
   }
 }
+
+/**
+ * True if the same sender already submitted the same content in the last 10
+ * minutes — e.g. mobile signal dropped after the server saved and emailed,
+ * the visitor saw "network error" and pressed Send again. Treated as success
+ * without a second row or email. Fails open (false) on query errors.
+ */
+export async function isRecentDuplicate(
+  table: "contact_submissions" | "valuation_requests",
+  email: string,
+  column: "message" | "address",
+  value: string
+): Promise<boolean> {
+  const since = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+  try {
+    const { count, error } = await supabaseAdmin
+      .from(table)
+      .select("id", { count: "exact", head: true })
+      .ilike("email", escapeLike(email))
+      .eq(column, value)
+      .gte("created_at", since);
+    if (error) return false;
+    return (count ?? 0) > 0;
+  } catch {
+    return false;
+  }
+}

@@ -1,6 +1,6 @@
 /**
- * Builds the branded application PDF that is emailed to David (and the
- * applicant) and downloadable from the admin inbox. Wording follows the row's
+ * Builds the branded application PDF that is emailed to David (not the
+ * applicant — see apply.ts) and downloadable from the admin inbox. Wording follows the row's
  * `application_type` — "Residential Rental Application" or "Guarantor
  * Application" — via `application-copy`.
  *
@@ -569,7 +569,12 @@ class Layout {
   }
 
   officeUseBox() {
-    const boxH = 48;
+    // A long address can leave too little room for the full box, which used
+    // to push it alone onto page 2. Fall back to a single-row box first.
+    const fullH = 48;
+    const compactH = 28;
+    const compact = this.y - (fullH + 10) < BOTTOM_LIMIT && this.y - (compactH + 10) >= BOTTOM_LIMIT;
+    const boxH = compact ? compactH : fullH;
     this.ensure(boxH + 10);
     this.space(5);
     const top = this.y;
@@ -581,18 +586,22 @@ class Layout {
       borderColor: RULE,
       borderWidth: 0.8,
     });
-    this.page.drawText("OFFICE USE ONLY", {
+    const label = "OFFICE USE ONLY";
+    const labelSize = 7.5;
+    const labelY = top - 17;
+    this.page.drawText(label, {
       x: MARGIN + 14,
-      y: top - 17,
-      size: 7.5,
+      y: labelY,
+      size: labelSize,
       font: this.bold,
       color: MUTED,
     });
 
     const items = ["Reference check", "Suitable", "Agreement confirmed"];
     const size = 9;
-    const y = top - 36;
-    let x = MARGIN + 14;
+    const y = compact ? top - 17.5 : top - 36;
+    let x = compact ? MARGIN + 14 + this.bold.widthOfTextAtSize(label, labelSize) + 24 : MARGIN + 14;
+    const gap = compact ? 22 : 34;
     for (const item of items) {
       this.page.drawRectangle({
         x,
@@ -603,7 +612,7 @@ class Layout {
         borderWidth: 0.7,
       });
       this.page.drawText(item, { x: x + 15, y, size, font: this.regular, color: TEXT });
-      x += 15 + this.regular.widthOfTextAtSize(item, size) + 34;
+      x += 15 + this.regular.widthOfTextAtSize(item, size) + gap;
     }
     this.y = top - boxH - 8;
   }
@@ -692,7 +701,9 @@ export async function buildApplicationPdf(app: TenantApplicationRow): Promise<Ui
   );
 
   L.section("Declaration");
-  L.panelParagraph(declarationFor(copy.kind), 8.5, {
+  // The wording actually signed (stored since Oct 2026) — the PDF is David's
+  // evidence, so later edits to the declaration must not rewrite old forms.
+  L.panelParagraph(app.declaration_text ?? declarationFor(copy.kind), 8.5, {
     text: app.declaration_agreed
       ? `The ${copy.person} has read and agreed to this declaration.`
       : `The ${copy.person} did NOT agree to this declaration.`,

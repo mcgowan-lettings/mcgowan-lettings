@@ -22,6 +22,41 @@
 
 html {
   scrollbar-gutter: stable;
+  /* The site header is fixed (h-16 = 4rem); keep anchor jumps and
+     focus-scrolled controls from landing underneath it. */
+  scroll-padding-top: 5rem;
+}
+
+/* Site-wide keyboard focus indicator. A real outline (not a box-shadow
+   ring) so it survives Windows High Contrast / forced-colors, in the
+   AA-contrast brand-deep tone on light surfaces. In @layer base so a
+   component's `focus-visible:outline-*` utility can still recolour it (e.g.
+   bright lime on dark heroes). Programmatic focus targets (tabindex=-1
+   headings, <main>) are excluded — they aren't interactive. */
+@layer base {
+  :where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-brand-deep);
+    outline-offset: 2px;
+  }
+  /* Header, footer and other dark surfaces: deep olive is too dim on
+     #1a1a1a, so use the bright brand lime there. */
+  :where(header, footer, .focus-on-dark) :where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline-color: var(--color-brand);
+  }
+}
+
+/* Mobile nav panel height. Firefox < 101 (browserslist floor is 90) has no
+   dvh, so use vh there; browsers that understand dvh get the dynamic unit
+   (accounts for mobile browser chrome). Written as @supports rather than two
+   back-to-back declarations because Tailwind's Lightning CSS pass (which
+   targets modern browsers, not our browserslist) dedupes the vh fallback. */
+.mobile-nav-max-h {
+  max-height: calc(100vh - 4rem);
+}
+@supports (height: 100dvh) {
+  .mobile-nav-max-h {
+    max-height: calc(100dvh - 4rem);
+  }
 }
 
 a, button, [role="button"], input[type="submit"], input[type="button"], select, summary {
@@ -308,4 +343,71 @@ a[data-fancybox]:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Tables in blog posts (sanitizeHtml allows table/thead/tbody/tfoot/tr/th/td).
+   Below sm the table becomes a horizontally-scrollable block so a wide table
+   can never push a 320px phone sideways; from sm up it's a normal full-width
+   table. */
+.rich-content table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-collapse: collapse;
+  margin: 0 0 1.5rem;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  overflow-wrap: normal;
+}
+.rich-content th,
+.rich-content td {
+  border: 1px solid var(--color-warm-grey);
+  padding: 0.625rem 0.875rem;
+  text-align: left;
+  vertical-align: top;
+  color: var(--color-text-muted);
+  min-width: 7rem;
+}
+.rich-content th {
+  background: var(--color-cream);
+  color: var(--color-dark);
+  font-weight: 600;
+}
+/* The editor saves cells as <td><p>…</p></td>. */
+.rich-content th > p,
+.rich-content td > p { margin: 0; line-height: 1.5; color: inherit; }
+@media (min-width: 640px) {
+  .rich-content table { display: table; }
+  .rich-content th,
+  .rich-content td { min-width: 0; }
+}
+
+/* Tables while editing (TipTap Table extension, resizing off). Fixed layout
+   keeps them inside the editor box at any width. */
+.tiptap-content table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  overflow-wrap: anywhere;
+}
+.tiptap-content th,
+.tiptap-content td {
+  border: 1px solid var(--color-gray-300, #d1d5db);
+  padding: 0.375rem 0.5rem;
+  vertical-align: top;
+  text-align: left;
+  position: relative;
+}
+.tiptap-content th { background: var(--color-warm-grey); font-weight: 600; }
+.tiptap-content th > p,
+.tiptap-content td > p { margin: 0; }
+.tiptap-content .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(171 211 0 / 0.2); /* brand lime @ 20% (no color-mix: Safari 15.4 floor) */
+  pointer-events: none;
 }

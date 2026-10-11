@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getResend } from "@/lib/resend";
-import { checkLeadThrottle, clientIp, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
+import { checkLeadThrottle, clientIp, isRecentDuplicate, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -13,8 +13,11 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Truncate by code point, not UTF-16 unit: slicing inside an emoji leaves a
+// lone surrogate, which Postgres rejects — the user would then get "Something
+// went wrong" on every retry.
 function str(v: unknown, max: number): string {
-  return typeof v === "string" ? v.trim().slice(0, max) : "";
+  return typeof v === "string" ? Array.from(v.trim()).slice(0, max).join("").trim() : "";
 }
 
 const MAX_SHORT = 200;
@@ -65,6 +68,11 @@ export async function submitContactForm(formData: {
     return { success: false, error: "Message is required." };
   }
 
+  // A resend after a dropped connection: already saved and emailed.
+  if (await isRecentDuplicate("contact_submissions", email.trim(), "message", message.trim())) {
+    return { success: true };
+  }
+
   const ip_address = await clientIp();
   const throttle = await checkLeadThrottle("contact_submissions", email.trim(), ip_address);
   if (!throttle.allowed) {
@@ -80,13 +88,13 @@ export async function submitContactForm(formData: {
       name: name.trim(),
       email: email.trim(),
       phone: phone?.trim() || null,
-      type: type?.trim() || null,
+      type: type?.trim() || "General",
       message: message.trim(),
       read: false,
     });
 
     if (error) {
-      console.error("Supabase contact insert error:", error);
+      console.error("Supabase contact insert error:", error.code, error.message);
       return { success: false, error: "Something went wrong. Please try again." };
     }
 
@@ -99,7 +107,7 @@ export async function submitContactForm(formData: {
           from: "McGowan Lettings <notifications@mcgowanlettings.co.uk>",
           to: "info@mcgowanlettings.co.uk",
           replyTo: email.trim(),
-          subject: plainSubject(`New ${type || "General"} Enquiry from ${name.trim()}`),
+          subject: plainSubject(`New enquiry (${type || "General"}) from ${name.trim()}`),
           html: `
             <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
               <h2 style="color: #1a1a1a; border-bottom: 2px solid #abd300; padding-bottom: 10px;">

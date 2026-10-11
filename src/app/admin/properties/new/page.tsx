@@ -723,15 +723,21 @@ export default function NewPropertyPage() {
               <span className="text-sm text-dark">Active (visible on site)</span>
             </label>
 
-            <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(e) => updateField("featured", e.target.checked)}
-                className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
-              />
-              <span className="text-sm text-dark">Featured on homepage</span>
-            </label>
+            <div>
+              <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={form.featured}
+                  onChange={(e) => updateField("featured", e.target.checked)}
+                  aria-describedby="featured-hint"
+                  className="h-4 w-4 rounded border-gray-300 text-brand accent-brand focus:ring-brand"
+                />
+                <span className="text-sm text-dark">Featured on homepage</span>
+              </label>
+              <p id="featured-hint" className="-mt-1.5 pl-[1.625rem] text-xs text-text-muted">
+                Shows this listing on the home page.
+              </p>
+            </div>
 
             <label className="flex min-h-[44px] items-center gap-2.5 cursor-pointer">
               <input

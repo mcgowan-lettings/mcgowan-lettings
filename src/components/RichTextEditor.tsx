@@ -4,6 +4,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extensions";
+import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
 import { useEffect } from "react";
 import { markdownToHtml } from "@/lib/rich-text";
 
@@ -28,11 +29,12 @@ export default function RichTextEditor({
   const editor = useEditor({
     extensions: [
       // The schema must be able to represent everything sanitizeHtml allows
-      // (p, br, strong/b, em/i, u, a, h2, h3, ul, ol, li): any node TipTap
+      // (p, br, strong/b, em/i, u, a, h2, h3, ul, ol, li, tables): any node TipTap
       // can't represent is silently dropped the moment the content loads, and
       // the next save would then flatten the stored post for good. So lists
-      // and h2/h3 are always in the schema; `includeHeading` only controls
-      // which toolbar buttons are offered.
+      // and h2/h3 (and tables — two published posts contain them) are always
+      // in the schema; `includeHeading` only controls which toolbar buttons
+      // are offered.
       StarterKit.configure({
         heading: { levels: [2, 3] },
         blockquote: false,
@@ -51,6 +53,12 @@ export default function RichTextEditor({
           class: "text-brand-dark underline",
         },
       }),
+      // No column resizing: the site renders tables at full width via
+      // .rich-content, and sanitizeHtml strips the colwidth/style it'd write.
+      Table.configure({ resizable: false }),
+      TableRow,
+      TableHeader,
+      TableCell,
       Placeholder.configure({
         placeholder: placeholder ?? "",
       }),
@@ -61,8 +69,9 @@ export default function RichTextEditor({
     // the toolbar's active/aria-pressed state stale while moving the caret.
     shouldRerenderOnTransaction: true,
     onUpdate: ({ editor }) => {
-      const html = editor.getHTML();
-      onChange(html === "<p></p>" ? "" : html);
+      // isEmpty also catches "<p></p><p></p>" (Enter on an empty doc), which
+      // would otherwise save and render an empty "Description" section.
+      onChange(editor.isEmpty ? "" : editor.getHTML());
     },
     editorProps: {
       attributes: {
@@ -79,8 +88,7 @@ export default function RichTextEditor({
   useEffect(() => {
     if (!editor) return;
     const incoming = markdownToHtml(value);
-    const current = editor.getHTML();
-    const currentNormalized = current === "<p></p>" ? "" : current;
+    const currentNormalized = editor.isEmpty ? "" : editor.getHTML();
     if (incoming !== currentNormalized) {
       editor.commands.setContent(incoming || "", { emitUpdate: false });
     }
@@ -103,7 +111,8 @@ export default function RichTextEditor({
   };
 
   const btnClass = (active: boolean) =>
-    `flex h-8 min-w-[2rem] items-center justify-center rounded-md px-2 transition-colors ${
+    // 44px touch targets (WCAG 2.5.5 / Apple HIG) — David edits on an iPad.
+    `flex h-11 min-w-[2.75rem] items-center justify-center rounded-md px-2 transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
       active
         ? "bg-brand/20 text-dark"
         : "text-dark hover:bg-gray-200 active:bg-gray-300"
@@ -191,6 +200,73 @@ export default function RichTextEditor({
         >
           <span className="font-serif text-base italic font-semibold">I</span>
         </button>
+        {includeHeading && (
+          <>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() =>
+                editor?.chain().focus().insertTable({ rows: 3, cols: 2, withHeaderRow: true }).run()
+              }
+              className={btnClass(false)}
+              title="Insert table"
+              aria-label="Insert table"
+              disabled={!editor || editor.isActive("table")}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.375 5.25h17.25v13.5H3.375V5.25zM3.375 9.75h17.25M3.375 14.25h17.25M12 9.75v9" />
+              </svg>
+            </button>
+            {editor?.isActive("table") && (
+              <>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => editor.chain().focus().addRowAfter().run()}
+                  className={btnClass(false)}
+                  title="Add table row"
+                  aria-label="Add table row"
+                >
+                  <span className="text-xs font-semibold">+Row</span>
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => editor.chain().focus().addColumnAfter().run()}
+                  className={btnClass(false)}
+                  title="Add table column"
+                  aria-label="Add table column"
+                >
+                  <span className="text-xs font-semibold">+Col</span>
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => editor.chain().focus().deleteRow().run()}
+                  className={btnClass(false)}
+                  title="Delete table row"
+                  aria-label="Delete table row"
+                >
+                  <span className="text-xs font-semibold">−Row</span>
+                </button>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => {
+                    if (window.confirm("Delete this whole table?")) {
+                      editor.chain().focus().deleteTable().run();
+                    }
+                  }}
+                  className={btnClass(false)}
+                  title="Delete table"
+                  aria-label="Delete table"
+                >
+                  <span className="text-xs font-semibold text-red-600">Del table</span>
+                </button>
+              </>
+            )}
+          </>
+        )}
         <button
           type="button"
           onMouseDown={(e) => e.preventDefault()}

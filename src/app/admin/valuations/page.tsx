@@ -336,7 +336,7 @@ export default function AdminValuationsPage() {
                           )}
                           {request.bedrooms && (
                             <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-text-muted">
-                              {request.bedrooms} bed
+                              {/^studio$/i.test(request.bedrooms.trim()) ? "Studio" : `${request.bedrooms} bed`}
                             </span>
                           )}
                         </div>

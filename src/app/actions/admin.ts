@@ -330,7 +330,7 @@ export async function markAllSubmissionsRead(upTo: string | null, accessToken: s
   let query = supabaseAdmin
     .from("contact_submissions")
     .update({ read: true })
-    .eq("read", false);
+    .or("read.is.null,read.eq.false");
   if (upTo) query = query.lte("created_at", upTo);
   const { error } = await query;
   if (error) return { success: false, error: error.message };
@@ -356,7 +356,7 @@ export async function markAllValuationsRead(upTo: string | null, accessToken: st
   let query = supabaseAdmin
     .from("valuation_requests")
     .update({ read: true })
-    .eq("read", false);
+    .or("read.is.null,read.eq.false");
   if (upTo) query = query.lte("created_at", upTo);
   const { error } = await query;
   if (error) return { success: false, error: error.message };

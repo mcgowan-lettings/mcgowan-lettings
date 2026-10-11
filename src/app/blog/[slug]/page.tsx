@@ -8,6 +8,7 @@ import { ArrowLeftIcon, ArrowRightIcon } from "@/components/Icons";
 import BlogRichContent from "./BlogRichContent";
 import { getPost } from "./get-post";
 import { SITE_URL } from "@/lib/site";
+import { plainText, truncateWords } from "@/lib/text";
 
 // Cached statically; admin `updateBlogPost` calls `revalidatePath` on the
 // slug, so edits go live immediately. The 60s ceiling is a safety net.
@@ -36,11 +37,9 @@ export async function generateMetadata({ params }: Props) {
   }
 
   const title = `${post.title} | McGowan Residential Lettings`;
-  const fallback = (post.content ?? "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 160);
+  // Strip tags + decode entities, then cut on a word boundary with "…"
+  // (a raw .slice(0,160) cut mid-word and could leave "&amp;" fragments).
+  const fallback = truncateWords(plainText(post.content), 160);
   const description = post.excerpt || fallback || `Read ${post.title} on the McGowan Residential Lettings blog.`;
   const image = post.cover_image || "/hero.jpg";
 
@@ -103,9 +102,7 @@ export default async function BlogPostPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     headline: post.title,
-    description:
-      post.excerpt ||
-      (post.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160),
+    description: post.excerpt || truncateWords(plainText(post.content), 160),
     image: post.cover_image
       ? [post.cover_image.startsWith("http") ? post.cover_image : `${SITE_URL}${post.cover_image}`]
       : [`${SITE_URL}/hero.jpg`],
@@ -136,7 +133,7 @@ export default async function BlogPostPage({ params }: Props) {
       {/* ─── HERO ─── */}
       {/* min-h (not a fixed height) so long titles on small phones grow the
           hero instead of being clipped by overflow-hidden. */}
-      <section className="relative min-h-[max(40vh,320px)] flex items-end overflow-hidden noise-overlay bg-dark pt-24">
+      <section className="relative min-h-[max(40vh,320px)] flex items-end overflow-hidden noise-overlay bg-dark focus-on-dark pt-24">
         <div className="absolute inset-0">
           {post.cover_image ? (
             <Image

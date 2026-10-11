@@ -4,7 +4,7 @@ export default function PrivacyPage() {
   return (
     <>
       {/* ── Hero Banner ── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
+      <section className="relative min-h-[max(40vh,320px)] flex items-center overflow-hidden noise-overlay bg-dark focus-on-dark pt-[4.5rem] pb-4">
         <div className="absolute inset-0">
           <Image
             src="/hero-banner.jpg"
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
         <div className="max-w-3xl mx-auto px-6">
           <div className="max-w-none">
             <p className="text-text-muted text-sm mb-10">
-              Last updated: August 2026
+              Last updated: October 2026
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
@@ -97,12 +97,14 @@ export default function PrivacyPage() {
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">
-              5. Tenant Application Forms
+              5. Tenant Application and Guarantor Forms
             </h2>
             <p className="text-text-muted leading-relaxed mb-6">
-              If you apply for a property through our online application form, we collect your
-              full name, contact details, date of birth, National Insurance number, current
-              address, employment and income details, and your electronic signature. We use
+              If you apply for a property through our online application form, or complete our
+              online guarantor form on behalf of a tenant, we collect your full name, contact
+              details, date of birth, National Insurance number, current address, employment and
+              income details, and your electronic signature. When you sign, we also record your
+              IP address and browser details alongside your signature as evidence of signing. We use
               this information to assess your tenancy application and carry out referencing, as
               a necessary pre-contract step taken at your request (legitimate interest /
               preparation for a tenancy agreement). We share this data only with referencing
@@ -110,6 +112,11 @@ export default function PrivacyPage() {
               is retained for as long as your application and any resulting tenancy are under
               consideration, and deleted on request. To request deletion of your application
               data, email info@mcgowanlettings.co.uk.
+            </p>
+            <p className="text-text-muted leading-relaxed mb-6">
+              When you send an enquiry or request a valuation through our contact or valuation
+              forms, we also record the IP address it was sent from, so we can detect and block
+              spam and abuse of those forms (legitimate interest).
             </p>
 
             <h2 className="font-heading text-2xl font-semibold text-dark mt-10 mb-4">

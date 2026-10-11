@@ -9,6 +9,7 @@ import { AnimateIn, CountUp } from "@/components/AnimateIn";
 import LogoRow from "@/components/LogoRow";
 import TestimonialsCarousel from "@/components/TestimonialsCarousel";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
+import CardImage from "@/components/CardImage";
 import { TYPE_FILTER_OPTIONS, cardAlt, formatPrice, locationDiffersFromTitle } from "@/app/properties/filters";
 import { BOROUGH_LIST } from "@/app/areas/areas-data";
 import { thumbUrl } from "@/lib/thumb";
@@ -162,13 +163,21 @@ function HomeContactForm() {
           aria-hidden="true"
           style={{ position: "absolute", left: "-10000px", width: "1px", height: "1px", overflow: "hidden" }}
         >
-          <label htmlFor="home_company_url">Company URL</label>
+          {/* Honeypot (CLAUDE.md rule 6). Neutral label/id/name so autofill
+              can't fill it and silently drop a real lead; still posts into
+              the server's `website` key. */}
+          <label htmlFor="hp-home">Leave this blank</label>
           <input
             type="text"
-            id="home_company_url"
-            name="company_url"
+            id="hp-home"
+            name="website"
             tabIndex={-1}
             autoComplete="off"
+            aria-hidden="true"
+            data-1p-ignore
+            data-lpignore="true"
+            data-bwignore="true"
+            data-form-type="other"
             value={formData.company_url}
             onChange={(e) => setFormData({ ...formData, company_url: e.target.value })}
           />
@@ -179,10 +188,11 @@ function HomeContactForm() {
             <input
               type="text"
               id="home-name"
+              maxLength={200}
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
               placeholder="Your name"
             />
           </div>
@@ -191,9 +201,10 @@ function HomeContactForm() {
             <input
               type="tel"
               id="home-phone"
+              maxLength={200}
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
               placeholder="Your number"
             />
           </div>
@@ -203,10 +214,11 @@ function HomeContactForm() {
           <input
             type="email"
             id="home-email"
+            maxLength={200}
             required
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
             placeholder="your@email.com"
           />
         </div>
@@ -217,7 +229,7 @@ function HomeContactForm() {
               id="home-enquiry-type"
               value={formData.enquiryType}
               onChange={(e) => setFormData({ ...formData, enquiryType: e.target.value })}
-              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm appearance-none cursor-pointer focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
+              className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm appearance-none cursor-pointer focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white"
             >
               <option>Tenant looking for a property</option>
               <option>Landlord seeking management</option>
@@ -231,11 +243,12 @@ function HomeContactForm() {
           <label htmlFor="home-message" className="block text-xs font-medium text-text-muted uppercase tracking-wider mb-1.5">Message</label>
           <textarea
             id="home-message"
+            maxLength={5000}
             rows={4}
             required
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white resize-none"
+            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white resize-none"
             placeholder="Tell us how we can help..."
           />
         </div>
@@ -338,7 +351,7 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Area</label>
                 <div className="relative">
-                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:border-brand/50 focus-visible:outline-brand transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">All Areas</option>
                     {searchAreas.map((a) => (
                       <option key={a} value={a}>{a}</option>
@@ -351,7 +364,7 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Max Price</label>
                 <div className="relative">
-                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:border-brand/50 focus-visible:outline-brand transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">Any Price</option>
                     <option value="£500">£500 pcm</option>
                     <option value="£750">£750 pcm</option>
@@ -367,7 +380,7 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Bedrooms</label>
                 <div className="relative">
-                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:border-brand/50 focus-visible:outline-brand transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">Any</option>
                     <option value="Studio">Studio</option>
                     <option value="1">1</option>
@@ -382,7 +395,7 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/70 text-xs font-medium uppercase tracking-wider mb-1.5 block">Type</label>
                 <div className="relative">
-                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
+                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-base sm:text-sm px-3 py-2.5 appearance-none cursor-pointer focus:border-brand/50 focus-visible:outline-brand transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">All Types</option>
                     {TYPE_FILTER_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -616,7 +629,8 @@ export default function HomePage({
         </div>
       </section>
 
-      {/* ─── FEATURED PROPERTIES ─── */}
+      {/* ─── FEATURED PROPERTIES ─── (hidden if there's nothing to show) */}
+      {featuredProperties.length > 0 && (
       <section className="bg-white py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-6">
           <AnimateIn className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
@@ -644,7 +658,7 @@ export default function HomePage({
                 <Link href={`/properties/${property.id}`}>
                   <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
-                      <Image
+                      <CardImage
                         src={property.images?.[0] ? thumbUrl(property.images[0]) : "/hero-banner.jpg"}
                         alt={cardAlt(property.title, property.location)}
                         fill
@@ -688,6 +702,7 @@ export default function HomePage({
           </div>
         </div>
       </section>
+      )}
 
       {/* ─── TESTIMONIALS ─── */}
       <TestimonialsCarousel reviewCount={reviewCount} />

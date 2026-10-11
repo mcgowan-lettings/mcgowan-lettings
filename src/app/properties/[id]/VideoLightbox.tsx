@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import { createPortal } from "react-dom";
 import "plyr/dist/plyr.css";
 
 const MUSIC_VOLUME_KEY = "mcgowan:video-music-volume";
@@ -22,80 +23,63 @@ const SVG_VOLUME_OFF = `<svg aria-hidden="true" focusable="false" viewBox="0 0 1
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+function readStoredVolume(): number {
+  try {
+    const stored = localStorage.getItem(MUSIC_VOLUME_KEY);
+    if (stored != null) {
+      const n = parseFloat(stored);
+      if (!Number.isNaN(n) && n >= 0 && n <= 1) return n;
+    }
+  } catch {}
+  return DEFAULT_VOLUME;
+}
+
+/**
+ * Modal shell for one or more tour videos: portals to <body>, makes the rest
+ * of the page `inert` (so Safari's Tab can't escape into the map iframe),
+ * traps focus, handles Escape/scroll lock, and offers prev/next when a
+ * listing has several videos. The player itself is keyed by src so switching
+ * videos tears Plyr down cleanly and builds a fresh one.
+ */
 export default function VideoLightbox({
-  src,
+  sources,
+  initialIndex = 0,
   onClose,
   returnFocusRef,
 }: {
-  src: string;
+  sources: string[];
+  initialIndex?: number;
   onClose: () => void;
   /** Element to refocus on close. Safari doesn't focus links/buttons on
    *  click, so document.activeElement isn't a reliable trigger there. */
   returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
   const dialogRef = useRef<HTMLDivElement | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const muteBtnRef = useRef<HTMLButtonElement | null>(null);
-  const sliderRef = useRef<HTMLInputElement | null>(null);
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
-  const [volume, setVolume] = useState(DEFAULT_VOLUME);
-  const lastNonZeroVolumeRef = useRef(DEFAULT_VOLUME);
-  const volumeRef = useRef(volume);
+  const [index, setIndex] = useState(() =>
+    Math.min(Math.max(initialIndex, 0), Math.max(sources.length - 1, 0)),
+  );
+  const count = sources.length;
+  const src = sources[index];
 
-  useEffect(() => {
-    volumeRef.current = volume;
-    if (volume > 0) lastNonZeroVolumeRef.current = volume;
-  }, [volume]);
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(MUSIC_VOLUME_KEY);
-      if (stored != null) {
-        const n = parseFloat(stored);
-        // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from localStorage on mount
-        if (!Number.isNaN(n) && n >= 0 && n <= 1) setVolume(n);
-      }
-    } catch {}
-  }, []);
-
-  // Sync audio + control UI when volume changes
-  useEffect(() => {
-    try {
-      localStorage.setItem(MUSIC_VOLUME_KEY, String(volume));
-    } catch {}
-    const audio = audioRef.current;
-    const video = videoRef.current;
-    if (audio) {
-      audio.volume = volume;
-      if (volume > 0 && video && !video.paused && !video.ended) {
-        audio.play().catch(() => {});
-      } else if (volume === 0) {
-        audio.pause();
-      }
-    }
-    const btn = muteBtnRef.current;
-    if (btn) {
-      const on = volume > 0;
-      btn.setAttribute("aria-pressed", String(on));
-      btn.setAttribute("aria-label", on ? "Mute background music" : "Unmute background music");
-      btn.innerHTML = on ? SVG_VOLUME_ON : SVG_VOLUME_OFF;
-    }
-    const slider = sliderRef.current;
-    if (slider) {
-      if (parseFloat(slider.value) !== volume) slider.value = String(volume);
-      slider.style.setProperty("--music-vol", String(volume * 100));
-    }
-  }, [volume]);
-
-  // Focus management: move focus to Close on open, trap Tab inside the
-  // dialog, and restore focus to the trigger on close.
+  // Focus management: inert the background, move focus to Close on open,
+  // trap Tab inside the dialog, and restore focus to the trigger on close.
   useEffect(() => {
     const activeEl =
       document.activeElement instanceof HTMLElement && document.activeElement !== document.body
         ? document.activeElement
         : null;
     const restoreTarget = returnFocusRef?.current ?? activeEl;
+
+    // The dialog is portalled straight into <body>, so every other body
+    // child is background. Only touch elements we inert ourselves.
+    const inerted: HTMLElement[] = [];
+    for (const el of Array.from(document.body.children)) {
+      if (el === dialogRef.current || !(el instanceof HTMLElement) || el.inert) continue;
+      el.inert = true;
+      inerted.push(el);
+    }
+
     closeBtnRef.current?.focus();
 
     const onTab = (e: KeyboardEvent) => {
@@ -127,10 +111,137 @@ export default function VideoLightbox({
 
     return () => {
       document.removeEventListener("keydown", onTab);
+      // Un-inert first: an inert element can't take focus.
+      for (const el of inerted) el.inert = false;
       restoreTarget?.focus();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- capture the trigger once, on open
   }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
+  if (!src) return null;
+
+  const navBtn =
+    "inline-flex items-center justify-center gap-1.5 min-h-11 min-w-11 px-3 rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand";
+
+  return createPortal(
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label={count > 1 ? `Virtual tour ${index + 1} of ${count}` : "Virtual tour"}
+      className="video-lightbox-backdrop fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8"
+      style={{ background: "rgba(24, 24, 27, 0.92)" }}
+      onClick={onClose}
+    >
+      <button
+        ref={closeBtnRef}
+        type="button"
+        onClick={onClose}
+        aria-label="Close"
+        className="absolute top-2 right-2 md:top-3 md:right-3 h-11 w-11 rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white transition-colors flex items-center justify-center"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+      <div
+        className="video-lightbox-content w-full max-w-5xl flex flex-col gap-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <TourPlayer key={src} src={src} maxHeight={count > 1 ? "calc(90vh - 3.5rem)" : "90vh"} />
+        {count > 1 && (
+          <div className="flex items-center justify-center gap-3">
+            <button
+              type="button"
+              className={navBtn}
+              onClick={() => setIndex((i) => (i - 1 + count) % count)}
+              aria-label="Previous tour video"
+            >
+              <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+              <span className="hidden sm:inline">Previous</span>
+            </button>
+            <p className="text-white/80 text-sm tabular-nums" aria-live="polite">
+              Tour {index + 1} of {count}
+            </p>
+            <button
+              type="button"
+              className={navBtn}
+              onClick={() => setIndex((i) => (i + 1) % count)}
+              aria-label="Next tour video"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <svg aria-hidden="true" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            </button>
+          </div>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/** One tour video: Plyr + the background-music track and its controls. */
+function TourPlayer({ src, maxHeight }: { src: string; maxHeight: string }) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const muteBtnRef = useRef<HTMLButtonElement | null>(null);
+  const sliderRef = useRef<HTMLInputElement | null>(null);
+  // Client-only (the lightbox only mounts after a click), so reading
+  // localStorage in the initialiser can't cause a hydration mismatch.
+  const [volume, setVolume] = useState(readStoredVolume);
+  const lastNonZeroVolumeRef = useRef(volume > 0 ? volume : DEFAULT_VOLUME);
+  const volumeRef = useRef(volume);
+
+  useEffect(() => {
+    volumeRef.current = volume;
+    if (volume > 0) lastNonZeroVolumeRef.current = volume;
+  }, [volume]);
+
+  // Sync audio + control UI when volume changes
+  useEffect(() => {
+    try {
+      localStorage.setItem(MUSIC_VOLUME_KEY, String(volume));
+    } catch {}
+    const audio = audioRef.current;
+    const video = videoRef.current;
+    if (audio) {
+      audio.volume = volume;
+      if (volume > 0 && video && !video.paused && !video.ended) {
+        audio.play().catch(() => {});
+      } else if (volume === 0) {
+        audio.pause();
+      }
+    }
+    const btn = muteBtnRef.current;
+    if (btn) {
+      const on = volume > 0;
+      btn.setAttribute("aria-pressed", String(on));
+      btn.setAttribute("aria-label", on ? "Mute background music" : "Unmute background music");
+      btn.innerHTML = on ? SVG_VOLUME_ON : SVG_VOLUME_OFF;
+    }
+    const slider = sliderRef.current;
+    if (slider) {
+      if (parseFloat(slider.value) !== volume) slider.value = String(volume);
+      slider.style.setProperty("--music-vol", String(volume * 100));
+    }
+  }, [volume]);
 
   useEffect(() => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -235,14 +346,6 @@ export default function VideoLightbox({
     video?.addEventListener("ended", handleEnded);
     audio?.addEventListener("timeupdate", handleAudioTimeUpdate);
 
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-
-    const prevOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
     return () => {
       cancelled = true;
       plyr?.destroy();
@@ -253,39 +356,13 @@ export default function VideoLightbox({
       audio?.pause();
       muteBtnRef.current = null;
       sliderRef.current = null;
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prevOverflow;
     };
-  }, [onClose]);
+  }, []);
 
   return (
-    <div
-      ref={dialogRef}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Virtual tour"
-      className="video-lightbox-backdrop fixed inset-0 z-[100] flex items-center justify-center p-3 md:p-8"
-      style={{ background: "rgba(24, 24, 27, 0.92)" }}
-      onClick={onClose}
-    >
-      <button
-        ref={closeBtnRef}
-        type="button"
-        onClick={onClose}
-        aria-label="Close"
-        className="absolute top-2 right-2 md:top-3 md:right-3 h-11 w-11 rounded-md bg-[#2a2a2a] hover:bg-[#3a3a3a] text-white transition-colors flex items-center justify-center"
-      >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
-      <div
-        className="video-lightbox-content w-full max-w-5xl max-h-[90vh] plyr-brand"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <video ref={videoRef} src={src} playsInline style={{ maxHeight: "90vh", objectFit: "contain" }} />
-        <audio ref={audioRef} src={MUSIC_SRC} preload="auto" />
-      </div>
+    <div className="plyr-brand w-full" style={{ maxHeight }}>
+      <video ref={videoRef} src={src} playsInline style={{ maxHeight, objectFit: "contain" }} />
+      <audio ref={audioRef} src={MUSIC_SRC} preload="auto" />
     </div>
   );
 }

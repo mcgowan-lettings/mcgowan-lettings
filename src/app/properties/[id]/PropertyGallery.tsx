@@ -58,7 +58,10 @@ export default function PropertyGallery({
     };
   }, []);
 
-  const tourUrl = videos[0];
+  // Every uploaded video is a tour; the button opens the first and the
+  // lightbox steps through the rest.
+  const tourVideos = videos.filter(Boolean);
+  const tourUrl = tourVideos[0];
 
   // Render as <a target="_blank"> so the SSR markup works even when hydration
   // never runs (e.g. older iPad Safari can't parse part of the route bundle).
@@ -84,7 +87,7 @@ export default function PropertyGallery({
             <path d="M8.33 5v14l11-7L8.33 5z" />
           </svg>
         </span>
-        Virtual Tour
+        {tourVideos.length > 1 ? `Virtual Tours (${tourVideos.length})` : "Virtual Tour"}
       </a>
     ) : null;
 
@@ -96,6 +99,8 @@ export default function PropertyGallery({
         </div>
       ) : images.length === 1 ? (
         <div className="relative w-full h-[45vh] md:h-[55vh] max-h-[550px]">
+          {/* Tour button first in DOM so Tab order matches its top-left spot. */}
+          {renderTourButton()}
           <a
             href={images[0]}
             data-fancybox="gallery"
@@ -121,10 +126,10 @@ export default function PropertyGallery({
               View photo
             </div>
           </a>
-          {renderTourButton()}
         </div>
       ) : images.length === 2 ? (
         <div className="relative w-full h-[45vh] md:h-[55vh] max-h-[550px] grid grid-cols-2 gap-1">
+          {renderTourButton()}
           {images.map((img, i) => (
             <a
               key={i}
@@ -153,10 +158,10 @@ export default function PropertyGallery({
             </svg>
             {images.length} photos
           </div>
-          {renderTourButton()}
         </div>
       ) : (
         <div className="relative w-full h-[45vh] md:h-[55vh] max-h-[550px] grid grid-cols-1 md:grid-cols-[2fr_1fr] gap-1">
+          {renderTourButton()}
           {/* Main image */}
           <a
             href={images[0]}
@@ -246,13 +251,11 @@ export default function PropertyGallery({
             </svg>
             View all {images.length} photos
           </a>
-
-          {renderTourButton()}
         </div>
       )}
       {tourOpen && tourUrl && (
         <VideoLightbox
-          src={tourUrl}
+          sources={tourVideos}
           onClose={() => setTourOpen(false)}
           returnFocusRef={tourTriggerRef}
         />

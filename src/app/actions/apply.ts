@@ -7,12 +7,14 @@ import { buildApplicationPdf } from "@/lib/application-pdf";
 import { isWellFormedPng } from "@/lib/png-check";
 import {
   EMPLOYMENT_STATUSES,
+  declarationFor,
   isApplicationKind,
   type ApplicationFormData,
   type ApplicationKind,
   type TenantApplicationRow,
 } from "@/lib/application-types";
 import { copyFor } from "@/lib/application-copy";
+import { formatMoneyDisplay, formatRentDisplay } from "@/lib/money";
 
 function escapeHtml(text: string): string {
   return text
@@ -34,8 +36,11 @@ const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_PER_IP_PER_HOUR = 5;
 const MAX_PER_EMAIL_PER_DAY = 3;
 
+// Truncate by code point, not UTF-16 unit: slicing inside an emoji leaves a
+// lone surrogate, which Postgres rejects — the user would then get "Something
+// went wrong" on every retry.
 function str(v: unknown, max: number): string {
-  return typeof v === "string" ? v.trim().slice(0, max) : "";
+  return typeof v === "string" ? Array.from(v.trim()).slice(0, max).join("").trim() : "";
 }
 
 function parseIsoDate(s: string): Date | null {
@@ -253,6 +258,22 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
     error: "Too many applications have been submitted recently. Please try again later or call us on 0161 797 6967.",
   };
 
+  // A resend after a dropped connection (server already saved + emailed):
+  // same applicant, same type and property within 10 minutes → success,
+  // without a second row, PDF and pair of emails.
+  try {
+    const { count: dupes } = await supabaseAdmin
+      .from("tenant_applications")
+      .select("id", { count: "exact", head: true })
+      .ilike("email", escapeLike(email))
+      .eq("application_type", application_type)
+      .eq("property_address", property_address)
+      .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+    if ((dupes ?? 0) > 0) return { success: true };
+  } catch {
+    // Fall through — the throttle below still applies.
+  }
+
   try {
     if (await overLimit(false)) return TOO_MANY;
   } catch (err) {
@@ -282,6 +303,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
         employment_start_date: employment_start_date || null,
         monthly_income,
         declaration_agreed: true,
+        declaration_text: declarationFor(application_type),
         signature_data_url,
         signed_name,
         signed_at: new Date().toISOString(),
@@ -320,10 +342,18 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
 
     // --- Emails (never fail the submission) --------------------------------
     try {
-      const pdf = await buildApplicationPdf(inserted);
-      const attachments = [
-        { filename: safeFilename(copy.filenamePrefix, full_name), content: Buffer.from(pdf) },
-      ];
+      // PDF in its own try: a PDF failure must not cost David the notification
+      // or the applicant their confirmation. The row is saved either way and
+      // the PDF can be regenerated from the admin inbox.
+      let attachments: { filename: string; content: Buffer }[] = [];
+      try {
+        const pdf = await buildApplicationPdf(inserted);
+        attachments = [
+          { filename: safeFilename(copy.filenamePrefix, full_name), content: Buffer.from(pdf) },
+        ];
+      } catch (pdfErr) {
+        console.error("Application PDF build error:", pdfErr instanceof Error ? pdfErr.message : pdfErr);
+      }
       const resend = getResend();
       const from = "McGowan Lettings <notifications@mcgowanlettings.co.uk>";
 
@@ -335,7 +365,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
           <table style="width: 100%; border-collapse: collapse;">
             ${isGuarantor ? row("Guaranteeing tenant", tenant_name) : ""}
             ${row("Property", property_address)}
-            ${row("Rent", rent_pcm || "—")}
+            ${row("Rent", rent_pcm ? formatRentDisplay(rent_pcm) : "—")}
             ${row("Full name", full_name)}
             ${row("Email", email)}
             ${row("Phone", phone)}
@@ -347,12 +377,16 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
             ${row("Employer", employer || "—")}
             ${row("Job title", job_title || "—")}
             ${row("Start date", employment_start_date ? formatDate(employment_start_date) : "—")}
-            ${row("Monthly income", monthly_income)}
+            ${row("Monthly income", formatMoneyDisplay(monthly_income))}
             ${row("Declaration agreed", "Yes")}
             ${row("Signed as", signed_name)}
           </table>
           <p style="margin-top: 20px; color: #1a1a1a;">
-            The signed ${isGuarantor ? "guarantor form" : "application"} is attached as a PDF (full NI number included).
+            ${
+              attachments.length
+                ? `The signed ${isGuarantor ? "guarantor form" : "application"} is attached as a PDF (full NI number included).`
+                : `<strong>The PDF couldn't be generated automatically</strong> — open the application in the admin inbox and use “Download PDF”.`
+            }
           </p>
           <p style="margin-top: 16px;">
             <a href="https://www.mcgowanlettings.co.uk/admin/applications"
@@ -402,7 +436,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
           replyTo: email,
           subject: `${copy.adminEmailHeading} — ${full_name} — ${property_address}`.replace(/[\r\n]+/g, " "),
           html: adminHtml,
-          attachments,
+          ...(attachments.length ? { attachments } : {}),
         }),
         resend.emails.send({
           from,

@@ -112,7 +112,7 @@ export default function ValuationPage() {
   return (
     <>
       {/* ── Hero Banner ── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-center overflow-hidden noise-overlay bg-dark pt-16">
+      <section className="relative min-h-[max(40vh,320px)] flex items-center overflow-hidden noise-overlay bg-dark focus-on-dark pt-[4.5rem] pb-4">
         <div className="absolute inset-0">
           <Image
             src="/hero-banner.jpg"
@@ -214,13 +214,17 @@ export default function ValuationPage() {
                     aria-hidden="true"
                     style={{ position: "absolute", left: "-10000px", width: "1px", height: "1px", overflow: "hidden" }}
                   >
-                    <label htmlFor="val_company_url">Company URL</label>
+                    {/* Honeypot (CLAUDE.md rule 6). Neutral label/id/name so
+                        autofill can't fill it and silently drop a real lead;
+                        still posts into the server's `website` key. */}
+                    <label htmlFor="hp-valuation">Leave this blank</label>
                     <input
                       type="text"
-                      id="val_company_url"
-                      name="company_url"
+                      id="hp-valuation"
+                      name="website"
                       tabIndex={-1}
                       autoComplete="off"
+                      aria-hidden="true"
                       data-1p-ignore
                       data-lpignore="true"
                       data-bwignore="true"
@@ -241,13 +245,14 @@ export default function ValuationPage() {
                       type="text"
                       id="name"
                       name="name"
+                      maxLength={200}
                       autoComplete="name"
                       required
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                       placeholder="Your full name"
                     />
                   </div>
@@ -265,13 +270,14 @@ export default function ValuationPage() {
                         type="email"
                         id="email"
                         name="email"
+                        maxLength={200}
                         autoComplete="email"
                         required
                         value={formData.email}
                         onChange={(e) =>
                           setFormData({ ...formData, email: e.target.value })
                         }
-                        className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                        className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                         placeholder="you@example.com"
                       />
                     </div>
@@ -286,13 +292,14 @@ export default function ValuationPage() {
                         type="tel"
                         id="phone"
                         name="phone"
+                        maxLength={200}
                         autoComplete="tel"
                         required
                         value={formData.phone}
                         onChange={(e) =>
                           setFormData({ ...formData, phone: e.target.value })
                         }
-                        className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                        className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                         placeholder="07123 456789"
                       />
                     </div>
@@ -310,13 +317,14 @@ export default function ValuationPage() {
                       type="text"
                       id="address"
                       name="address"
+                      maxLength={500}
                       autoComplete="street-address"
                       required
                       value={formData.address}
                       onChange={(e) =>
                         setFormData({ ...formData, address: e.target.value })
                       }
-                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                       placeholder="Full address of the property"
                     />
                   </div>
@@ -341,7 +349,7 @@ export default function ValuationPage() {
                               propertyType: e.target.value,
                             })
                           }
-                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                         >
                           <option value="" disabled>
                             Select type
@@ -387,7 +395,7 @@ export default function ValuationPage() {
                               bedrooms: e.target.value,
                             })
                           }
-                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                         >
                           <option value="" disabled>
                             Select bedrooms
@@ -436,7 +444,7 @@ export default function ValuationPage() {
                             situation: e.target.value,
                           })
                         }
-                        className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                        className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                       >
                         <option value="" disabled>
                           Select an option
@@ -479,12 +487,13 @@ export default function ValuationPage() {
                     <textarea
                       id="message"
                       name="message"
+                      maxLength={5000}
                       rows={4}
                       value={formData.message}
                       onChange={(e) =>
                         setFormData({ ...formData, message: e.target.value })
                       }
-                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
+                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
                       placeholder="Anything else you'd like us to know about the property?"
                     />
                   </div>

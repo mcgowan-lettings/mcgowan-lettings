@@ -1,3 +1,5 @@
+import { isLetAgreed } from "@/app/properties/filters";
+
 /**
  * Top-left badge on property cards (home, /properties, similar properties).
  * "Let Agreed" wins over "New Property" — a let property is no longer new to
@@ -10,7 +12,7 @@ export default function PropertyCardBadge({
   status: string | null;
   isNew?: boolean | null;
 }) {
-  if (status === "Let Agreed") {
+  if (isLetAgreed(status)) {
     return (
       <div className="absolute top-3 left-3 bg-red-600 text-white text-xs font-medium px-3 py-1 rounded-full shadow-sm">
         Let Agreed

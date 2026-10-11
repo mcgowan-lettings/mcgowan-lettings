@@ -1,27 +1,43 @@
 import { supabaseAdmin } from "@/lib/supabase-server";
 import HomePage from "./HomeClient";
 import { getReviewCount } from "@/lib/get-review-count";
-import { buildAreaList, sortByAvailability } from "./properties/filters";
+import { buildAreaList, isAvailable, sortByAvailability } from "./properties/filters";
 
 export const revalidate = 60;
 
 // Supabase errors throw (rather than returning []) so a failed ISR
 // regeneration keeps serving the last good page instead of caching an empty
 // featured grid / area list for 60s.
+const CARD_COLUMNS =
+  "id, title, price, location, beds, baths, type, images, status, is_new";
+
+/** 6 cards fill two rows; fewer than 6 shows one row of up to 3. */
+function capForGrid<T>(sorted: T[]): T[] {
+  return sorted.length >= 6 ? sorted.slice(0, 6) : sorted.slice(0, 3);
+}
+
 async function getFeaturedProperties() {
   const { data, error } = await supabaseAdmin
     .from("properties")
-    .select("id, title, price, location, beds, baths, type, images, status, is_new")
+    .select(CARD_COLUMNS)
     .eq("active", true)
     .eq("featured", true);
 
   if (error) throw new Error(`Failed to load featured properties: ${error.message}`);
-  if (!data) return [];
   // Order in JS (available first, then price desc) *before* capping, so a
   // Let Agreed listing never pushes an available one out of the grid. Let
   // Agreed stays eligible — featuring is David's call — it just goes last.
-  const sorted = sortByAvailability(data);
-  return sorted.length >= 6 ? sorted.slice(0, 6) : sorted.slice(0, 3);
+  if (data && data.length > 0) return capForGrid(sortByAvailability(data));
+
+  // Nothing featured: fall back to the available listings rather than an
+  // empty "Available Properties" section. If there are none, HomeClient hides
+  // the section.
+  const fallback = await supabaseAdmin
+    .from("properties")
+    .select(CARD_COLUMNS)
+    .eq("active", true);
+  if (fallback.error) throw new Error(`Failed to load properties: ${fallback.error.message}`);
+  return capForGrid(sortByAvailability((fallback.data ?? []).filter((p) => isAvailable(p.status))));
 }
 
 // Hero search "Area" options come from live listings, so every option

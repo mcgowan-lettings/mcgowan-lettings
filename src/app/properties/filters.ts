@@ -46,7 +46,8 @@ export function parseTypeFilter(value: string | null | undefined): TypeCategory 
 // "Edenfield", "Holcombe Brook"), while search and the area guides work in
 // boroughs ("Bury", "Rochdale", …). resolveArea() maps every listing onto one
 // display area so "Bury" finds every Bury-borough home:
-//   1. `area` is itself a borough name → that borough;
+//   1. `area` is itself a borough name → that borough, unless `location`
+//      names a known neighbourhood (e.g. "…, Ainsworth, Bolton") → its borough;
 //   2. `area` is a neighbourhood from the area-guide lists (BOROUGHS) or the
 //      extra map below → its borough;
 //   3. otherwise scan `location` ("…, Bamford, Rochdale, OL11 5HH") from the
@@ -105,12 +106,42 @@ export function normaliseArea(area: string | null | undefined): string {
 
 type Locatable = { area?: string | null; location?: string | null };
 
+// Borough and outer-town keys ("bury", "bolton", "blackburn", …): a hand-typed
+// `area` like this is often just the postal town, so a more specific
+// neighbourhood in `location` should win (area "Bolton" + "…, Ainsworth,
+// Bolton" is a Bury-borough home; area "Manchester" + "…, Radcliffe" too).
+const TOWN_KEYS: Set<string> = new Set([
+  ...BOROUGH_LIST.map((b) => b.name.toLowerCase()),
+  ...Object.keys(OUTER_TOWN_COUNTY),
+]);
+
+// Trailing UK postcode on a location segment ("Radcliffe M26 2XX").
+const POSTCODE_SUFFIX_RE = /\s+[a-z]{1,2}\d[a-z\d]?(\s*\d[a-z]{2})?$/i;
+
+function locationSegments(location: string | null | undefined): string[] {
+  return (location ?? "")
+    .split(",")
+    .map((s) => normaliseArea(s).replace(POSTCODE_SUFFIX_RE, "").trim())
+    .filter(Boolean);
+}
+
 /** Display area (borough, outer town, or the area as typed) for a listing. */
 export function resolveArea(p: Locatable): string {
   const area = normaliseArea(p.area);
   const direct = area ? RESOLVE.get(area) : undefined;
-  if (direct) return direct;
-  const segments = (p.location ?? "").split(",").map(normaliseArea).filter(Boolean);
+  const segments = locationSegments(p.location);
+  if (direct) {
+    // `area` is a borough / outer town: prefer a known neighbourhood (one
+    // that isn't itself a town name) named in the location, rightmost first.
+    if (TOWN_KEYS.has(area)) {
+      for (let i = segments.length - 1; i >= 0; i--) {
+        if (TOWN_KEYS.has(segments[i])) continue;
+        const hit = RESOLVE.get(segments[i]);
+        if (hit) return hit;
+      }
+    }
+    return direct;
+  }
   for (let i = segments.length - 1; i >= 0; i--) {
     const hit = RESOLVE.get(segments[i]);
     if (hit) return hit;
@@ -160,8 +191,21 @@ export function buildAreaList(listings: Locatable[]): string[] {
 
 // Admin STATUSES are "To Let" and "Let Agreed"; null/empty is treated as
 // "To Let" everywhere on the public site.
+// Every status check on the public site goes through these helpers, so
+// casing/whitespace typos ("let agreed ") behave the same everywhere.
 export function isAvailable(status: string | null | undefined): boolean {
   return (status ?? "").trim().toLowerCase() !== "let agreed";
+}
+
+export function isLetAgreed(status: string | null | undefined): boolean {
+  return !isAvailable(status);
+}
+
+/** Canonical label for a stored status: "Let Agreed", or the status as typed
+ *  (default "To Let"). */
+export function displayStatus(status: string | null | undefined): string {
+  if (isLetAgreed(status)) return "Let Agreed";
+  return (status ?? "").trim() || "To Let";
 }
 
 /** Available listings first, then price high → low. Returns a new array. */

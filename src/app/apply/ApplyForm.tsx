@@ -84,7 +84,7 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 // 16px on mobile so iOS Safari doesn't auto-zoom the field; py-3 makes the
 // control ≥ 48px tall for comfortable thumbs.
 const inputBase =
-  "w-full border rounded-md px-4 py-3 text-base sm:text-sm bg-white text-dark placeholder:text-text-light focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors";
+  "w-full border rounded-md px-4 py-3 text-base sm:text-sm bg-white text-dark placeholder:text-text-light focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors";
 const inputOk = `${inputBase} border-black/10`;
 const inputErr = `${inputBase} border-red-500 focus:border-red-500 focus:ring-red-200`;
 
@@ -163,10 +163,13 @@ function Section({
   );
 }
 
+// No role="alert" here: on submit every invalid field would announce at once.
+// The single summary message by the submit button is the live alert; each
+// field error is reached through its control's aria-describedby.
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) return null;
   return (
-    <p id={id} role="alert" className="text-red-600 text-sm mt-1.5">
+    <p id={id} className="text-red-600 text-sm mt-1.5">
       {message}
     </p>
   );
@@ -185,12 +188,21 @@ function Optional() {
  *  clipping it. */
 type Point = { x: number; y: number };
 
+/** Script faces that ship with the OS (macOS/iOS, Windows, older Office) —
+ *  no web-font download, so the canvas can render the typed signature
+ *  synchronously. `cursive` is the last-resort generic. */
+const SIGNATURE_FONT_STACK = '"Snell Roundhand", "Segoe Script", "Brush Script MT", "Apple Chancery", cursive';
+const SIGNATURE_TYPED_MAX = 80;
+
 function SignaturePad({
   onChange,
   hasError,
+  errorId,
 }: {
   onChange: (hasInk: boolean) => void;
   hasError: boolean;
+  /** id of the field error, linked via aria-describedby while it shows. */
+  errorId: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -201,6 +213,30 @@ function SignaturePad({
   const drawingRef = useRef(false);
   const lastRef = useRef<Point | null>(null);
   const [hasInk, setHasInk] = useState(false);
+  // "type" lets keyboard / assistive-tech users sign: the typed name is
+  // rendered in a script face onto the SAME canvas, so the PNG data-URL the
+  // form submits (and the server's PNG checks) are unchanged.
+  const [mode, setMode] = useState<"draw" | "type">("draw");
+  const [typed, setTyped] = useState("");
+  const typedRef = useRef("");
+
+  const drawTyped = useCallback((ctx: CanvasRenderingContext2D, text: string) => {
+    const t = text.trim();
+    if (!t) return;
+    const { w, h } = sizeRef.current;
+    const maxWidth = Math.max(40, w - 48);
+    // Shrink the face until the name fits between the side margins.
+    let size = Math.min(56, Math.max(20, h * 0.32));
+    ctx.font = `${size}px ${SIGNATURE_FONT_STACK}`;
+    while (size > 14 && ctx.measureText(t).width > maxWidth) {
+      size -= 2;
+      ctx.font = `${size}px ${SIGNATURE_FONT_STACK}`;
+    }
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    // Sit the name on the dashed signing line (bottom-8 = 32px up).
+    ctx.fillText(t, w / 2, h - 40, maxWidth);
+  }, []);
 
   const drawStroke = useCallback((ctx: CanvasRenderingContext2D, normPts: Point[]) => {
     if (normPts.length === 0) return;
@@ -251,7 +287,8 @@ function SignaturePad({
     setupContext(ctx, dpr);
     ctx.clearRect(0, 0, w, h);
     for (const s of strokesRef.current) drawStroke(ctx, s);
-  }, [drawStroke, setupContext]);
+    drawTyped(ctx, typedRef.current);
+  }, [drawStroke, drawTyped, setupContext]);
 
   useEffect(() => {
     redraw();
@@ -275,6 +312,7 @@ function SignaturePad({
   };
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
+    if (mode !== "draw") return;
     if (e.button !== 0 && e.pointerType === "mouse") return;
     e.preventDefault();
     const canvas = e.currentTarget;
@@ -343,13 +381,62 @@ function SignaturePad({
 
   const clear = () => {
     strokesRef.current = [];
+    typedRef.current = "";
+    setTyped("");
     setHasInk(false);
     onChange(false);
     redraw();
   };
 
+  const handleTyped = (e: ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value.slice(0, SIGNATURE_TYPED_MAX);
+    typedRef.current = value;
+    setTyped(value);
+    const ink = value.trim() !== "";
+    if (ink !== hasInk) {
+      setHasInk(ink);
+      onChange(ink);
+    }
+    redraw();
+  };
+
+  // Switching method starts a fresh signature so a drawn scribble and a typed
+  // name can never end up mixed in the submitted image.
+  const toggleMode = () => {
+    const nextMode = mode === "draw" ? "type" : "draw";
+    clear();
+    setMode(nextMode);
+    if (nextMode === "type") {
+      // Move focus to the new input once it has rendered.
+      window.setTimeout(() => document.getElementById("signature-typed")?.focus(), 0);
+    }
+  };
+
+  const isTyping = mode === "type";
+  const describedBy = hasError ? `${errorId} signature-hint` : "signature-hint";
+
   return (
     <div>
+      {isTyping && (
+        <div className="mb-3">
+          <label htmlFor="signature-typed" className="block text-sm text-dark mb-1.5">
+            Type your full name to sign
+          </label>
+          <input
+            type="text"
+            id="signature-typed"
+            name="signature_typed"
+            autoComplete="name"
+            maxLength={SIGNATURE_TYPED_MAX}
+            value={typed}
+            onChange={handleTyped}
+            aria-invalid={hasError || undefined}
+            aria-describedby={describedBy}
+            className={hasError ? inputErr : inputOk}
+            placeholder="Your full name"
+          />
+        </div>
+      )}
       <div
         ref={wrapRef}
         className={`relative w-full h-[180px] sm:h-[200px] rounded-md border-2 bg-white overflow-hidden ${
@@ -361,9 +448,15 @@ function SignaturePad({
           id="signature-pad"
           data-signature-pad="true"
           role="img"
-          aria-label="Signature pad — draw your signature with your finger or mouse"
-          className="absolute inset-0 block cursor-crosshair select-none"
-          style={{ touchAction: "none" }}
+          aria-label={
+            isTyping
+              ? typed.trim()
+                ? `Your typed signature: ${typed.trim()}`
+                : "Signature preview — your typed name appears here"
+              : "Signature pad — draw your signature with your finger or mouse"
+          }
+          className={`absolute inset-0 block select-none ${isTyping ? "cursor-default" : "cursor-crosshair"}`}
+          style={{ touchAction: isTyping ? "auto" : "none" }}
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={endStroke}
@@ -378,7 +471,7 @@ function SignaturePad({
           >
             <span className="font-heading italic text-2xl opacity-60">Sign here</span>
             <span className="text-xs mt-1 opacity-70">
-              Use your finger or mouse
+              {isTyping ? "Your typed name appears here" : "Use your finger or mouse"}
             </span>
           </div>
         )}
@@ -387,18 +480,38 @@ function SignaturePad({
           className="pointer-events-none absolute left-6 right-6 bottom-8 border-b border-black/10"
         />
       </div>
-      <div className="flex items-center justify-between gap-4 mt-2">
-        <p className="text-text-light text-xs">
-          Draw your signature inside the box.
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 mt-2">
+        <p id="signature-hint" className="text-text-light text-xs">
+          {isTyping
+            ? "Your typed name is added to the form as your signature."
+            : "Draw your signature inside the box."}
         </p>
-        <button
-          type="button"
-          onClick={clear}
-          disabled={!hasInk}
-          className="min-h-[44px] px-4 text-sm font-medium text-brand-deep hover:text-brand-dark underline underline-offset-4 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed transition-colors"
-        >
-          Clear
-        </button>
+        <div className="flex flex-wrap items-center gap-x-2">
+          <button
+            type="button"
+            id="signature-mode-toggle"
+            onClick={toggleMode}
+            aria-describedby={hasError ? errorId : undefined}
+            className="min-h-[44px] px-2 text-sm font-medium text-brand-deep hover:text-brand-dark underline underline-offset-4 transition-colors"
+          >
+            {isTyping ? "Draw your signature instead" : "Type your signature instead"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              clear();
+              // The button disables itself; keep focus in the signature UI
+              // instead of letting it fall back to <body>.
+              document
+                .getElementById(isTyping ? "signature-typed" : "signature-mode-toggle")
+                ?.focus();
+            }}
+            disabled={!hasInk}
+            className="min-h-[44px] px-4 text-sm font-medium text-brand-deep hover:text-brand-dark underline underline-offset-4 disabled:opacity-40 disabled:no-underline disabled:cursor-not-allowed transition-colors"
+          >
+            Clear
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -546,7 +659,7 @@ export default function ApplyForm({
     if (!fields.declaration_agreed) {
       e.declaration_agreed = "You need to agree to the declaration to continue.";
     }
-    if (!hasSignature) e.signature = "Please sign in the box above.";
+    if (!hasSignature) e.signature = "Please draw or type your signature above.";
     req("signed_name", "Please print your name.");
     return e;
   }
@@ -576,13 +689,20 @@ export default function ApplyForm({
     const id = firstKey === "signature" ? "signature-pad" : `apply-${firstKey}`;
     const el = document.getElementById(id);
     if (!el) return;
+    // The canvas itself isn't focusable: send keyboard users to the typed
+    // signature input (or the "Type your signature instead" toggle) instead.
+    const focusTarget =
+      firstKey === "signature"
+        ? document.getElementById("signature-typed") ??
+          document.getElementById("signature-mode-toggle")
+        : el;
     const reduce =
       typeof window.matchMedia === "function" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
-    if (firstKey !== "signature" && "focus" in el) {
+    if (focusTarget) {
       // Focus after the scroll settles so the browser doesn't fight it.
-      window.setTimeout(() => (el as HTMLElement).focus({ preventScroll: true }), reduce ? 0 : 350);
+      window.setTimeout(() => focusTarget.focus({ preventScroll: true }), reduce ? 0 : 350);
     }
   }
 
@@ -735,6 +855,7 @@ export default function ApplyForm({
               type="text"
               id="apply-tenant_name"
               name="tenant_name"
+              maxLength={500}
               autoComplete="off"
               value={fields.tenant_name}
               onChange={set("tenant_name")}
@@ -753,6 +874,7 @@ export default function ApplyForm({
             type="text"
             id="apply-property_address"
             name="property_address"
+            maxLength={1000}
             autoComplete="off"
             value={fields.property_address}
             onChange={set("property_address")}
@@ -779,6 +901,7 @@ export default function ApplyForm({
               inputMode="decimal"
               id="apply-rent_pcm"
               name="rent_pcm"
+              maxLength={50}
               value={fields.rent_pcm}
               onChange={set("rent_pcm")}
               className={`${cls("rent_pcm")} pl-8`}
@@ -798,6 +921,7 @@ export default function ApplyForm({
             type="text"
             id="apply-full_name"
             name="full_name"
+            maxLength={500}
             autoComplete="name"
             value={fields.full_name}
             onChange={set("full_name")}
@@ -817,6 +941,7 @@ export default function ApplyForm({
               type="email"
               id="apply-email"
               name="email"
+              maxLength={500}
               autoComplete="email"
               inputMode="email"
               value={fields.email}
@@ -835,6 +960,7 @@ export default function ApplyForm({
               type="tel"
               id="apply-phone"
               name="phone"
+              maxLength={50}
               autoComplete="tel"
               value={fields.phone}
               onChange={set("phone")}
@@ -893,6 +1019,7 @@ export default function ApplyForm({
           <textarea
             id="apply-current_address"
             name="current_address"
+            maxLength={1000}
             rows={3}
             autoComplete="street-address"
             value={fields.current_address}
@@ -912,6 +1039,7 @@ export default function ApplyForm({
             type="text"
             id="apply-period_at_address"
             name="period_at_address"
+            maxLength={500}
             value={fields.period_at_address}
             onChange={set("period_at_address")}
             className={cls("period_at_address")}
@@ -968,6 +1096,7 @@ export default function ApplyForm({
                 type="text"
                 id="apply-employer"
                 name="employer"
+                maxLength={500}
                 autoComplete="organization"
                 value={fields.employer}
                 onChange={set("employer")}
@@ -990,6 +1119,7 @@ export default function ApplyForm({
                   type="text"
                   id="apply-job_title"
                   name="job_title"
+                  maxLength={500}
                   autoComplete="organization-title"
                   value={fields.job_title}
                   onChange={set("job_title")}
@@ -1039,6 +1169,7 @@ export default function ApplyForm({
               inputMode="decimal"
               id="apply-monthly_income"
               name="monthly_income"
+              maxLength={50}
               value={fields.monthly_income}
               onChange={set("monthly_income")}
               className={`${cls("monthly_income")} pl-8`}
@@ -1087,6 +1218,7 @@ export default function ApplyForm({
         <div>
           <span className={labelClass}>Signature *</span>
           <SignaturePad
+            errorId="apply-signature-error"
             hasError={Boolean(errors.signature)}
             onChange={(ink) => {
               setHasSignature(ink);
@@ -1111,6 +1243,7 @@ export default function ApplyForm({
               type="text"
               id="apply-signed_name"
               name="signed_name"
+              maxLength={500}
               autoComplete="name"
               value={fields.signed_name}
               onChange={(e) => {

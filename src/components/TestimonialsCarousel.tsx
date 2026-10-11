@@ -63,10 +63,14 @@ const GOOGLE_ICON = (
 
 export default function TestimonialsCarousel({ reviewCount }: { reviewCount: number }) {
   const [current, setCurrent] = useState(0);
+  // Autoplay is the user's on/off choice (the visible Pause/Play button).
   // Starts false so SSR/first paint never auto-advances; the effect below
   // enables it after mount unless the user prefers reduced motion.
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
-  const prefersReducedMotion = useRef(false);
+  // Rotation also halts while the pointer or keyboard focus is inside the
+  // carousel, and resumes only when it leaves (WCAG 2.2.2) — never on a timer.
+  const [hoverInside, setHoverInside] = useState(false);
+  const [focusInside, setFocusInside] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
 
   // Show 1 card on mobile, 2 on md, 3 on lg.
@@ -110,29 +114,23 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
   useEffect(() => {
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    prefersReducedMotion.current = mq.matches;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from matchMedia on mount
     setIsAutoPlaying(!mq.matches);
   }, []);
 
-  // Auto-advance
+  // Auto-advance. `currentIndex` is a dependency so any manual move (arrow,
+  // dot, swipe) restarts the full 5s wait instead of jumping again at once.
+  const rotating = isAutoPlaying && !hoverInside && !focusInside;
   useEffect(() => {
-    if (!isAutoPlaying) return;
+    if (!rotating) return;
     const timer = setInterval(next, 5000);
     return () => clearInterval(timer);
-  }, [isAutoPlaying, next]);
+  }, [rotating, next, currentIndex]);
 
-  // Pause auto-play briefly after interaction, then resume
-  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const handleInteraction = () => {
-    setIsAutoPlaying(false);
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-    if (prefersReducedMotion.current) return;
-    resumeTimer.current = setTimeout(() => setIsAutoPlaying(true), 8000);
+  const handleBlur = (e: React.FocusEvent<HTMLDivElement>) => {
+    const to = e.relatedTarget as Node | null;
+    if (!to || !e.currentTarget.contains(to)) setFocusInside(false);
   };
-  useEffect(() => () => {
-    if (resumeTimer.current) clearTimeout(resumeTimer.current);
-  }, []);
 
   // Swipe support for mobile (arrows are hidden on small screens)
   const touchStartX = useRef<number | null>(null);
@@ -143,7 +141,6 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
     if (touchStartX.current === null) return;
     const deltaX = e.changedTouches[0].clientX - touchStartX.current;
     if (Math.abs(deltaX) > 50) {
-      handleInteraction();
       if (deltaX < 0) next();
       else prev();
     }
@@ -182,19 +179,21 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
         {/* Carousel */}
         <div
           className="relative px-2 md:px-14"
-          onMouseEnter={handleInteraction}
-          onFocus={handleInteraction}
+          onMouseEnter={() => setHoverInside(true)}
+          onMouseLeave={() => setHoverInside(false)}
+          onFocus={() => setFocusInside(true)}
+          onBlur={handleBlur}
         >
           {/* Desktop-only side arrows */}
           <button
-            onClick={() => { handleInteraction(); prev(); }}
+            onClick={prev}
             className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
             aria-label="Previous review"
           >
             <ChevronLeftIcon className="w-5 h-5" />
           </button>
           <button
-            onClick={() => { handleInteraction(); next(); }}
+            onClick={next}
             className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 z-10 w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200"
             aria-label="Next review"
           >
@@ -251,7 +250,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
           {/* Mobile: arrows flanking dots */}
           <div className="md:hidden flex items-center justify-center gap-4 mt-8">
             <button
-              onClick={() => { handleInteraction(); prev(); }}
+              onClick={prev}
               className="w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
               aria-label="Previous review"
             >
@@ -264,20 +263,23 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
               {Array.from({ length: maxIndex + 1 }).map((_, i) => (
                 <button
                   key={i}
-                  onClick={() => { handleInteraction(); setCurrent(i); }}
+                  onClick={() => setCurrent(i)}
                   className="group flex flex-1 items-center justify-center min-h-11 min-w-0 cursor-pointer"
                   aria-label={`Go to slide ${i + 1}`}
+                  aria-current={i === currentIndex ? "true" : undefined}
                 >
                   <span
-                    className={`block h-2 rounded-full transition-all duration-200 ${
-                      i === currentIndex ? "bg-brand w-5" : "bg-dark/20 group-hover:bg-dark/40 w-2"
+                    className={`block h-2 rounded-full transition-all duration-200 forced-colors:forced-color-adjust-none ${
+                      i === currentIndex
+                        ? "bg-brand w-5 forced-colors:bg-[Highlight]"
+                        : "bg-dark/20 group-hover:bg-dark/40 w-2 forced-colors:bg-[GrayText]"
                     }`}
                   />
                 </button>
               ))}
             </div>
             <button
-              onClick={() => { handleInteraction(); next(); }}
+              onClick={next}
               className="w-11 h-11 rounded-full bg-white border border-black/10 shadow-sm flex items-center justify-center hover:bg-brand hover:text-white hover:border-brand transition-all duration-200 flex-shrink-0"
               aria-label="Next review"
             >
@@ -290,17 +292,51 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
             {Array.from({ length: maxIndex + 1 }).map((_, i) => (
               <button
                 key={i}
-                onClick={() => { handleInteraction(); setCurrent(i); }}
+                onClick={() => setCurrent(i)}
                 className="group inline-flex items-center justify-center min-w-11 min-h-11 cursor-pointer"
                 aria-label={`Go to slide ${i + 1}`}
+                aria-current={i === currentIndex ? "true" : undefined}
               >
                 <span
-                  className={`block h-2 rounded-full transition-all duration-200 ${
-                    i === currentIndex ? "bg-brand w-6" : "bg-dark/20 group-hover:bg-dark/40 w-2"
+                  className={`block h-2 rounded-full transition-all duration-200 forced-colors:forced-color-adjust-none ${
+                    i === currentIndex
+                      ? "bg-brand w-6 forced-colors:bg-[Highlight]"
+                      : "bg-dark/20 group-hover:bg-dark/40 w-2 forced-colors:bg-[GrayText]"
                   }`}
                 />
               </button>
             ))}
+          </div>
+
+          {/* Visible rotation control (WCAG 2.2.2 Pause, Stop, Hide). */}
+          <div className="flex justify-center mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (isAutoPlaying) {
+                  setIsAutoPlaying(false);
+                } else {
+                  // An explicit "Play" overrides the hover/focus pause until
+                  // the pointer/focus next re-enters, so the click visibly works.
+                  setHoverInside(false);
+                  setFocusInside(false);
+                  setIsAutoPlaying(true);
+                }
+              }}
+              className="inline-flex items-center justify-center gap-2 min-h-11 min-w-11 px-4 rounded-full text-sm font-medium text-text-muted hover:text-dark transition-colors"
+            >
+              {isAutoPlaying ? (
+                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <rect x="6" y="5" width="4" height="14" rx="1" />
+                  <rect x="14" y="5" width="4" height="14" rx="1" />
+                </svg>
+              ) : (
+                <svg aria-hidden="true" className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z" />
+                </svg>
+              )}
+              {isAutoPlaying ? "Pause reviews" : "Play reviews"}
+            </button>
           </div>
 
         </div>

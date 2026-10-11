@@ -111,11 +111,11 @@ export default function AdminDashboardPage() {
         supabase
           .from("contact_submissions")
           .select("id", { count: "exact", head: true })
-          .eq("read", false),
+          .or("read.is.null,read.eq.false"),
         supabase
           .from("valuation_requests")
           .select("id", { count: "exact", head: true })
-          .eq("read", false),
+          .or("read.is.null,read.eq.false"),
         session
           ? countUnreadApplications(session.access_token).then(
               (count) => ({ count, error: null as Error | null }),

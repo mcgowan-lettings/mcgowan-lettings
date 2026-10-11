@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getResend } from "@/lib/resend";
-import { checkLeadThrottle, clientIp, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
+import { checkLeadThrottle, clientIp, isRecentDuplicate, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -13,8 +13,11 @@ function escapeHtml(text: string): string {
     .replace(/'/g, "&#39;");
 }
 
+// Truncate by code point, not UTF-16 unit: slicing inside an emoji leaves a
+// lone surrogate, which Postgres rejects — the user would then get "Something
+// went wrong" on every retry.
 function str(v: unknown, max: number): string {
-  return typeof v === "string" ? v.trim().slice(0, max) : "";
+  return typeof v === "string" ? Array.from(v.trim()).slice(0, max).join("").trim() : "";
 }
 
 const MAX_SHORT = 200;
@@ -72,6 +75,11 @@ export async function submitValuationForm(formData: {
     return { success: false, error: "Property address is required." };
   }
 
+  // A resend after a dropped connection: already saved and emailed.
+  if (await isRecentDuplicate("valuation_requests", email.trim(), "address", address.trim())) {
+    return { success: true };
+  }
+
   const ip_address = await clientIp();
   const throttle = await checkLeadThrottle("valuation_requests", email.trim(), ip_address);
   if (!throttle.allowed) {
@@ -96,7 +104,7 @@ export async function submitValuationForm(formData: {
     });
 
     if (error) {
-      console.error("Supabase valuation insert error:", error);
+      console.error("Supabase valuation insert error:", error.code, error.message);
       return { success: false, error: "Something went wrong. Please try again." };
     }
 

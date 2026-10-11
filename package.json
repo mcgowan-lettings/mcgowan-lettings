@@ -12,6 +12,7 @@
     "@fancyapps/ui": "^6.1.14",
     "@supabase/supabase-js": "^2.105.1",
     "@tiptap/extension-link": "^3.31.3",
+    "@tiptap/extension-table": "3.31.4",
     "@tiptap/extensions": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
     "@tiptap/react": "^3.31.3",

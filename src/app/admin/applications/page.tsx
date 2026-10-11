@@ -11,6 +11,7 @@ import {
 } from "@/app/actions/applications";
 import type { TenantApplicationRow } from "@/lib/application-types";
 import { mailtoAddress } from "@/lib/mailto";
+import { formatMoneyDisplay, formatRentDisplay } from "@/lib/money";
 
 const LONDON_TZ = "Europe/London";
 
@@ -338,7 +339,7 @@ export default function AdminApplicationsPage() {
                           ? `For ${app.tenant_name} · `
                           : ""}
                         {app.property_address}
-                        {app.rent_pcm ? ` · £${app.rent_pcm} pcm` : ""}
+                        {app.rent_pcm ? ` · ${formatRentDisplay(app.rent_pcm)}` : ""}
                       </p>
                     </div>
 
@@ -402,7 +403,7 @@ export default function AdminApplicationsPage() {
                           {app.rent_pcm && (
                             <div>
                               <span className="text-text-muted">Rent: </span>
-                              <span className="text-dark">£{app.rent_pcm} pcm</span>
+                              <span className="text-dark">{formatRentDisplay(app.rent_pcm)}</span>
                             </div>
                           )}
                         </div>
@@ -445,11 +446,13 @@ export default function AdminApplicationsPage() {
                           </div>
                           <div>
                             <span className="text-text-muted">Monthly income: </span>
-                            <span className="text-dark">£{app.monthly_income}</span>
+                            <span className="text-dark">{formatMoneyDisplay(app.monthly_income)}</span>
                           </div>
                           {app.employer && (
                             <div>
-                              <span className="text-text-muted">Employer: </span>
+                              <span className="text-text-muted">
+                                {app.employment_status === "Self-employed" ? "Business name: " : "Employer: "}
+                              </span>
                               <span className="text-dark">{app.employer}</span>
                             </div>
                           )}
@@ -525,7 +528,11 @@ export default function AdminApplicationsPage() {
                           {downloadingId === app.id ? "Preparing…" : "Download PDF"}
                         </button>
                         <a
-                          href={`mailto:${mailtoAddress(app.email)}?subject=${encodeURIComponent("Re: Your tenancy application — McGowan Lettings")}`}
+                          href={`mailto:${mailtoAddress(app.email)}?subject=${encodeURIComponent(
+                            app.application_type === "guarantor"
+                              ? "Your guarantor form — McGowan Lettings"
+                              : "Re: Your tenancy application — McGowan Lettings"
+                          )}`}
                           className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                         >
                           Reply

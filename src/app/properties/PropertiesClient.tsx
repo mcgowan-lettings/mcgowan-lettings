@@ -8,6 +8,7 @@ import { AnimateIn } from "@/components/AnimateIn";
 import { thumbUrl } from "@/lib/thumb";
 import { StaggerGrid } from "@/components/StaggerGrid";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
+import CardImage from "@/components/CardImage";
 import {
   BedIcon,
   BathIcon,
@@ -104,7 +105,7 @@ function FilterSelect({
         aria-label={label}
         value={resolved.value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-base sm:text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-base sm:text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-deep transition-colors"
       >
         {resolved.options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -243,8 +244,9 @@ function Listings({
       <section className="bg-cream py-12 md:py-16">
         <div className="max-w-7xl mx-auto px-6">
           {/* Results count */}
+          <h2 className="sr-only">Available properties</h2>
           <AnimateIn>
-            <p className="text-text-muted text-sm mb-8">
+            <p role="status" aria-live="polite" className="text-text-muted text-sm mb-8">
               Showing{" "}
               <span className="font-semibold text-dark">{filteredProperties.length}</span>{" "}
               {filteredProperties.length === 1 ? "property" : "properties"}
@@ -258,7 +260,7 @@ function Listings({
                 <Link href={`/properties/${property.id}`} key={property.id}>
                   <article className="property-card group bg-white rounded-lg border border-black/5 shadow-sm overflow-hidden transition-all duration-300 cursor-pointer hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden bg-warm-grey">
-                      <Image
+                      <CardImage
                         src={property.images?.[0] ? thumbUrl(property.images[0]) : "/hero-banner.jpg"}
                         alt={cardAlt(property.title, property.location)}
                         fill
@@ -307,6 +309,28 @@ function Listings({
                 </Link>
               ))}
             </StaggerGrid>
+          ) : properties.length === 0 ? (
+            /* No listings at all (nothing to filter) */
+            <AnimateIn>
+              <div className="text-center py-16 md:py-24">
+                <div className="w-16 h-16 rounded-full bg-warm-grey flex items-center justify-center mx-auto mb-6">
+                  <SearchIcon className="w-7 h-7 text-text-light" />
+                </div>
+                <h2 className="font-heading text-2xl font-semibold text-dark mb-3">
+                  No properties available right now
+                </h2>
+                <p className="text-text-muted max-w-md mx-auto mb-6">
+                  New homes come up regularly — check back soon, or get in touch and
+                  we&apos;ll let you know when something suitable is available.
+                </p>
+                <Link
+                  href="/contact"
+                  className="inline-flex items-center min-h-11 bg-brand hover:bg-brand-light text-dark font-semibold px-6 py-3 rounded-md text-sm transition-colors"
+                >
+                  Contact us
+                </Link>
+              </div>
+            </AnimateIn>
           ) : (
             /* No results */
             <AnimateIn>
@@ -362,7 +386,7 @@ export default function PropertiesPage({ initialProperties }: { initialPropertie
   return (
     <>
       {/* ─── HERO BANNER ─── */}
-      <section className="relative h-[40vh] min-h-[320px] flex items-center justify-center overflow-hidden noise-overlay bg-dark pt-16">
+      <section className="relative min-h-[max(40vh,320px)] flex items-center justify-center overflow-hidden noise-overlay bg-dark focus-on-dark pt-[4.5rem] pb-4">
         <div className="absolute inset-0">
           <Image
             src="/hero-banner.jpg"

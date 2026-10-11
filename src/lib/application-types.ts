@@ -69,6 +69,8 @@ export interface TenantApplicationRow {
   employment_start_date: string | null;
   monthly_income: string;
   declaration_agreed: boolean;
+  /** Exact declaration wording shown when signed (null on rows before Oct 2026). */
+  declaration_text: string | null;
   signature_data_url: string;
   signed_name: string;
   signed_at: string;
