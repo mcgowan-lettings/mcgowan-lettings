@@ -343,7 +343,7 @@ export async function generateMetadata({
     openGraph: {
       title,
       description,
-      images: [{ url: "/hero.jpg", width: 1920, height: 1280 }],
+      images: [{ url: "/hero.jpg", width: 2880, height: 1920 }],
       type: "website",
       siteName: "McGowan Residential Lettings",
     },

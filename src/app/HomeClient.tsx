@@ -2,7 +2,8 @@
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import Image from "next/image";
+import Image, { getImageProps } from "next/image";
+import { preload } from "react-dom";
 import Link from "next/link";
 import { AnimateIn, CountUp } from "@/components/AnimateIn";
 import LogoRow from "@/components/LogoRow";
@@ -10,6 +11,21 @@ import TestimonialsCarousel from "@/components/TestimonialsCarousel";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
 import { TYPE_FILTER_OPTIONS, formatPrice } from "@/app/properties/filters";
 import { submitContactForm } from "@/app/actions/contact";
+
+const { props: heroImgProps } = getImageProps({
+  src: "/hero.jpg",
+  alt: "",
+  width: 2880,
+  height: 1920,
+  fetchPriority: "high",
+  loading: "eager",
+});
+
+/** Preload only the hero this device will show (React dedupes per request). */
+function preloadHero() {
+  preload("/hero-mobile.jpg", { as: "image", media: "(max-width: 767px)", fetchPriority: "high" });
+  preload("/hero.jpg", { as: "image", media: "(min-width: 768px)", fetchPriority: "high" });
+}
 import {
   BedIcon,
   BathIcon,
@@ -253,6 +269,7 @@ export default function HomePage({
   searchAreas: string[];
   reviewCount: number;
 }) {
+  preloadHero();
   const router = useRouter();
   const [heroArea, setHeroArea] = useState("");
   const [heroPrice, setHeroPrice] = useState("");
@@ -275,15 +292,18 @@ export default function HomePage({
       <section className="relative min-h-[90vh] md:min-h-dvh flex items-center justify-center overflow-hidden noise-overlay">
         {/* Background image */}
         <div className="absolute inset-0">
-          <Image
-            src="/hero.jpg"
-            alt="Manchester skyline"
-            fill
-            sizes="(max-width: 768px) 200vw, 100vw"
-            quality={85}
-            className="object-cover object-bottom"
-            priority
-          />
+          {/* Art direction: phones get a full-resolution portrait crop
+              (1440×2560) — the landscape photo cropped to a tall screen was
+              being upscaled ~2× and looked blurry. One file per device; the
+              matching one is preloaded via preloadHero(). */}
+          <picture>
+            <source media="(max-width: 767px)" srcSet="/hero-mobile.jpg" />
+            <img
+              {...heroImgProps}
+              alt="Manchester skyline"
+              className="absolute inset-0 h-full w-full object-cover object-bottom"
+            />
+          </picture>
           <div className="absolute inset-0 bg-gradient-to-r from-dark/70 via-dark/35 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-b from-dark/25 via-transparent to-dark/20" />
         </div>

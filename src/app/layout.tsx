@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     url: SITE_URL,
     siteName: "McGowan Residential Lettings",
     type: "website",
-    images: [{ url: "/hero.jpg", width: 1920, height: 1280, alt: "McGowan Residential Lettings — Greater Manchester" }],
+    images: [{ url: "/hero.jpg", width: 2880, height: 1920, alt: "McGowan Residential Lettings — Greater Manchester" }],
   },
   twitter: { card: "summary_large_image", images: ["/hero.jpg"] },
   robots: { index: true, follow: true },

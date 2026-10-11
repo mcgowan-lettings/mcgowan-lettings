@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     // the root defaults here or shares lose the image/site name.
     siteName: "McGowan Residential Lettings",
     type: "website",
-    images: [{ url: "/hero.jpg", width: 1920, height: 1280, alt: "McGowan Residential Lettings — Greater Manchester" }],
+    images: [{ url: "/hero.jpg", width: 2880, height: 1920, alt: "McGowan Residential Lettings — Greater Manchester" }],
   },
 };
 
