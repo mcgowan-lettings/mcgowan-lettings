@@ -105,7 +105,7 @@ function FilterSelect({
         aria-label={label}
         value={resolved.value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-base sm:text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-deep transition-colors"
+        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-base sm:text-sm text-dark font-medium cursor-pointer focus:ring-2 focus:ring-brand/40 focus:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-deep transition-colors"
       >
         {resolved.options.map((opt) => (
           <option key={opt.value} value={opt.value}>

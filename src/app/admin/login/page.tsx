@@ -91,13 +91,18 @@ export default function AdminLoginPage() {
       }
 
       const status = await getAdminSessionStatus(data.session.access_token);
+      if (status === "error") {
+        // Transient (network / server hiccup): keep the session so a retry
+        // can succeed — signing out here would gain nothing.
+        setError("Couldn't verify your access — please try again.");
+        setLoading(false);
+        return;
+      }
       if (status !== "admin") {
-        await supabase.auth.signOut();
-        setError(
-          status === "error"
-            ? "Couldn't verify your access — please try again."
-            : "You do not have admin access."
-        );
+        // Local scope only: the default (global) revokes every session for
+        // this user, which would sign David out on all his devices.
+        await supabase.auth.signOut({ scope: "local" });
+        setError("You do not have admin access.");
         setLoading(false);
         return;
       }

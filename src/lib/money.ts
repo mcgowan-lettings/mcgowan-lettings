@@ -27,7 +27,10 @@ export function parseMoneyAmount(raw: string | number | null | undefined): numbe
   const cleaned = raw
     .replace(PERIOD_RE, "")
     .replace(/£|gbp/gi, "")
-    .replace(/[,\s]/g, "");
+    .trim()
+    // Commas are thousands separators; inner spaces are not ("12 50" is
+    // ambiguous, so it's shown as typed rather than guessed as £1,250).
+    .replace(/,/g, "");
   if (!/^\d+(?:\.\d{1,2})?$/.test(cleaned)) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;

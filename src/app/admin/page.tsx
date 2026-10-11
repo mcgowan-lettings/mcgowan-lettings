@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import { updateReviewCount } from "@/app/actions/admin";
 import { countUnreadApplications } from "@/app/actions/applications";
+import { useAutoClear } from "@/app/admin/form-feedback";
 
 interface Stats {
   total: number;
@@ -34,6 +35,8 @@ export default function AdminDashboardPage() {
   const [reviewCountLoading, setReviewCountLoading] = useState(true);
   const [reviewCountSaving, setReviewCountSaving] = useState(false);
   const [reviewCountMsg, setReviewCountMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
+  // Only the "Saved." confirmation auto-clears; errors stay until replaced.
+  const reviewMsgTimer = useAutoClear();
 
   useEffect(() => {
     supabase
@@ -54,6 +57,7 @@ export default function AdminDashboardPage() {
 
   const handleSaveReviewCount = async () => {
     setReviewCountMsg(null);
+    reviewMsgTimer.cancel();
     // Digits only: parseInt would truncate "12abc" / "1.5", and Number()
     // would accept "1e3" (= 1000), "0x10" or " 1 2"-style surprises.
     const trimmed = reviewCount.trim();
@@ -80,7 +84,7 @@ export default function AdminDashboardPage() {
         setReviewCountSaved(String(parsed));
         setReviewCountState(String(parsed));
         setReviewCountMsg({ text: "Saved.", type: "success" });
-        setTimeout(() => setReviewCountMsg(null), 3000);
+        reviewMsgTimer.schedule(() => setReviewCountMsg(null));
       } else {
         setReviewCountMsg({ text: result.error || "Couldn't save.", type: "error" });
       }
@@ -395,6 +399,7 @@ export default function AdminDashboardPage() {
           </button>
           {reviewCountMsg && (
             <span
+              role={reviewCountMsg.type === "error" ? "alert" : "status"}
               className={`text-sm ${
                 reviewCountMsg.type === "success" ? "text-green-600" : "text-red-600"
               }`}
@@ -468,7 +473,7 @@ export default function AdminDashboardPage() {
           }`}>
             {storage.percentage >= 90 ? (
               <>
-                <strong>Storage almost full.</strong> You may need to delete old property images or upgrade to the Supabase Pro plan ($25/month for 100GB).
+                <strong>Storage is nearly full</strong> — contact Viktor, or delete media from old listings.
               </>
             ) : (
               <>

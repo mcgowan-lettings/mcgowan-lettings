@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useAutoClear } from "@/app/admin/form-feedback";
 import { supabase } from "@/lib/supabase";
 import { deleteValuationRequest as deleteValuationAction, markValuationRead, markAllValuationsRead } from "@/app/actions/admin";
 import { mailtoAddress } from "@/lib/mailto";
@@ -53,6 +54,14 @@ export default function AdminValuationsPage() {
     text: string;
     type: "success" | "error";
   } | null>(null);
+  const messageTimer = useAutoClear();
+  /** Successes fade after 3s; errors stay until replaced, so one action's
+   * timer can never wipe another action's error. */
+  const showMessage = (next: { text: string; type: "success" | "error" }) => {
+    setMessage(next);
+    if (next.type === "success") messageTimer.schedule(() => setMessage(null));
+    else messageTimer.cancel();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -111,21 +120,20 @@ export default function AdminValuationsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        showMessage({ text: "Session expired. Please sign in again.", type: "error" });
         return;
       }
 
       const result = await markAllValuationsRead(upTo, session.access_token);
       if (!result.success) {
-        setMessage({ text: "Failed to mark all as read.", type: "error" });
+        showMessage({ text: "Failed to mark all as read.", type: "error" });
       } else {
         setRequests((prev) => prev.map((r) => ({ ...r, read: true })));
-        setMessage({ text: "All requests marked as read.", type: "success" });
+        showMessage({ text: "All requests marked as read.", type: "success" });
       }
     } catch {
-      setMessage({ text: "Failed to mark all as read — please refresh and try again.", type: "error" });
+      showMessage({ text: "Failed to mark all as read — please refresh and try again.", type: "error" });
     } finally {
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -136,23 +144,22 @@ export default function AdminValuationsPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        showMessage({ text: "Session expired. Please sign in again.", type: "error" });
         return;
       }
       const result = await deleteValuationAction(id, session.access_token);
 
       if (!result.success) {
-        setMessage({ text: result.error || "Failed to delete request.", type: "error" });
+        showMessage({ text: result.error || "Failed to delete request.", type: "error" });
       } else {
         setRequests((prev) => prev.filter((r) => r.id !== id));
         if (expandedId === id) setExpandedId(null);
-        setMessage({ text: "Request deleted.", type: "success" });
+        showMessage({ text: "Request deleted.", type: "success" });
       }
     } catch {
-      setMessage({ text: "Failed to delete request — please refresh and try again.", type: "error" });
+      showMessage({ text: "Failed to delete request — please refresh and try again.", type: "error" });
     } finally {
       setDeletingId(null);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -248,7 +255,7 @@ export default function AdminValuationsPage() {
           {requests.length > 0 && (
             <button
               onClick={exportCsv}
-              className="rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+              className="inline-flex min-h-11 items-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
             >
               Export CSV
             </button>
@@ -256,7 +263,7 @@ export default function AdminValuationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={markAllRead}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -276,6 +283,7 @@ export default function AdminValuationsPage() {
 
       {message && (
         <div
+          role={message.type === "error" ? "alert" : "status"}
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             message.type === "success"
               ? "bg-green-50 text-green-700 border border-green-200"
@@ -435,7 +443,7 @@ export default function AdminValuationsPage() {
                       <div className="flex flex-wrap items-center gap-3">
                         <a
                           href={`mailto:${mailtoAddress(request.email)}?subject=${encodeURIComponent("Re: Your property valuation request — McGowan Lettings")}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-brand-light"
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-brand-light"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
@@ -444,7 +452,7 @@ export default function AdminValuationsPage() {
                         </a>
                         <a
                           href={`tel:${request.phone}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                         >
                           Call
                         </a>
@@ -452,7 +460,7 @@ export default function AdminValuationsPage() {
                           href={`https://wa.me/${whatsappNumber(request.phone)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                         >
                           WhatsApp
                         </a>
@@ -462,7 +470,7 @@ export default function AdminValuationsPage() {
                             deleteRequest(request.id);
                           }}
                           disabled={deletingId === request.id}
-                          className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />

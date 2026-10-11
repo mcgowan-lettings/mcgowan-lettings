@@ -3,6 +3,8 @@
 type Props = {
   videos: string[];
   onRemove: (index: number) => void;
+  /** Disables Remove while a save is in flight (see SortableImageGrid). */
+  removeDisabled?: boolean;
 };
 
 function fileNameFromUrl(url: string): string {
@@ -10,7 +12,7 @@ function fileNameFromUrl(url: string): string {
   return decodeURIComponent(last.split("?")[0]);
 }
 
-export default function VideoList({ videos, onRemove }: Props) {
+export default function VideoList({ videos, onRemove, removeDisabled = false }: Props) {
   if (videos.length === 0) return null;
 
   return (
@@ -50,7 +52,8 @@ export default function VideoList({ videos, onRemove }: Props) {
           <button
             type="button"
             onClick={() => onRemove(index)}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600"
+            disabled={removeDisabled}
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gray-100 text-text-muted transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-gray-100 disabled:hover:text-text-muted"
             title="Remove video"
             aria-label={`Remove video ${index + 1}`}
           >

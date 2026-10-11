@@ -1,15 +1,18 @@
 "use client";
 
 import { useState, useRef } from "react";
-import Image from "next/image";
+import AdminThumb from "@/app/admin/AdminThumb";
 
 type Props = {
   images: string[];
   onReorder: (images: string[]) => void;
   onRemove: (index: number) => void;
+  /** Disables Remove while a save is in flight: removing deletes unsaved
+   * files from Storage, which the saving row may already reference. */
+  removeDisabled?: boolean;
 };
 
-export default function SortableImageGrid({ images, onReorder, onRemove }: Props) {
+export default function SortableImageGrid({ images, onReorder, onRemove, removeDisabled = false }: Props) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [overIndex, setOverIndex] = useState<number | null>(null);
   const dragNode = useRef<HTMLDivElement | null>(null);
@@ -79,7 +82,7 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
               : ""
           }`}
         >
-          <Image
+          <AdminThumb
             src={url}
             alt={`Property image ${index + 1}`}
             fill
@@ -92,8 +95,9 @@ export default function SortableImageGrid({ images, onReorder, onRemove }: Props
           <button
             type="button"
             onClick={() => onRemove(index)}
+            disabled={removeDisabled}
             aria-label={`Remove photo ${index + 1}`}
-            className="group/btn absolute right-0 top-0 flex h-11 w-11 items-center justify-center opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100"
+            className="group/btn absolute right-0 top-0 flex h-11 w-11 items-center justify-center opacity-100 transition-opacity [@media(hover:hover)]:opacity-0 group-hover:opacity-100 focus-visible:opacity-100 disabled:cursor-not-allowed disabled:!opacity-30"
           >
             <span className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white group-hover/btn:bg-black/80">
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">

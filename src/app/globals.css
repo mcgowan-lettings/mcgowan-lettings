@@ -40,7 +40,7 @@ html {
   }
   /* Header, footer and other dark surfaces: deep olive is too dim on
      #1a1a1a, so use the bright brand lime there. */
-  :where(header, footer, .focus-on-dark) :where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
+  :where(header, footer, .focus-on-dark, .bg-dark) :where(a, button, input, select, textarea, summary, [role="button"], [tabindex]:not([tabindex="-1"])):focus-visible {
     outline-color: var(--color-brand);
   }
 }

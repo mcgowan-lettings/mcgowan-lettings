@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAutoClear } from "@/app/admin/form-feedback";
 import {
   deleteApplication as deleteApplicationAction,
   markApplicationRead,
   markAllApplicationsRead,
   getApplicationPdf,
   listApplications,
+  getApplicationSignature,
 } from "@/app/actions/applications";
 import type { TenantApplicationRow } from "@/lib/application-types";
 import { mailtoAddress } from "@/lib/mailto";
@@ -21,6 +23,8 @@ export default function AdminApplicationsPage() {
   // Lists load at most 1000 rows; say so rather than silently hide the rest.
   const [capped, setCapped] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // id → signature data URL; null while loading, "" if unavailable.
+  const [signatures, setSignatures] = useState<Record<string, string | null>>({});
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [message, setMessage] = useState<{
@@ -49,9 +53,13 @@ export default function AdminApplicationsPage() {
     };
   }, []);
 
+  const messageTimer = useAutoClear();
+  /** Successes fade after 3s; errors stay until replaced, so one action's
+   * timer can never wipe another action's error. */
   const flash = (text: string, type: "success" | "error") => {
     setMessage({ text, type });
-    setTimeout(() => setMessage(null), 3000);
+    if (type === "success") messageTimer.schedule(() => setMessage(null));
+    else messageTimer.cancel();
   };
 
   const markRead = async (app: TenantApplicationRow) => {
@@ -78,7 +86,21 @@ export default function AdminApplicationsPage() {
       return;
     }
     setExpandedId(app.id);
+    if (!app.signature_data_url && !(app.id in signatures)) void loadSignature(app.id);
     if (!app.read) await markRead(app);
+  };
+
+  // The list omits signature images (size); fetch one when its row opens.
+  const loadSignature = async (id: string) => {
+    setSignatures((prev) => ({ ...prev, [id]: null }));
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const sig = await getApplicationSignature(id, session.access_token);
+      setSignatures((prev) => ({ ...prev, [id]: sig ?? "" }));
+    } catch {
+      setSignatures((prev) => ({ ...prev, [id]: "" }));
+    }
   };
 
   const markAllRead = async () => {
@@ -238,7 +260,7 @@ export default function AdminApplicationsPage() {
           {unreadCount > 0 && (
             <button
               onClick={markAllRead}
-              className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+              className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
@@ -258,6 +280,7 @@ export default function AdminApplicationsPage() {
 
       {message && (
         <div
+          role={message.type === "error" ? "alert" : "status"}
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             message.type === "success"
               ? "bg-green-50 text-green-700 border border-green-200"
@@ -486,11 +509,14 @@ export default function AdminApplicationsPage() {
                             <span className="text-red-600">Declaration not agreed</span>
                           )}
                         </div>
-                        {app.signature_data_url && (
+                        {signatures[app.id] === null && (
+                          <p className="mt-3 text-xs text-text-muted">Loading signature…</p>
+                        )}
+                        {signatures[app.id] && (
                           <div className="mt-3 inline-block rounded-lg border border-gray-300 bg-white p-2">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
-                              src={app.signature_data_url}
+                              src={signatures[app.id]!}
                               alt={`Signature of ${app.signed_name}`}
                               className="h-auto max-h-32 w-auto max-w-full"
                             />
@@ -520,7 +546,7 @@ export default function AdminApplicationsPage() {
                             downloadPdf(app.id);
                           }}
                           disabled={downloadingId === app.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -533,7 +559,7 @@ export default function AdminApplicationsPage() {
                               ? "Your guarantor form — McGowan Lettings"
                               : "Re: Your tenancy application — McGowan Lettings"
                           )}`}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+                          className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                         >
                           Reply
                         </a>
@@ -543,7 +569,7 @@ export default function AdminApplicationsPage() {
                               e.stopPropagation();
                               markRead(app);
                             }}
-                            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+                            className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
                           >
                             Mark read
                           </button>
@@ -554,7 +580,7 @@ export default function AdminApplicationsPage() {
                             deleteApplication(app.id);
                           }}
                           disabled={deletingId === app.id}
-                          className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="ml-auto inline-flex min-h-11 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />

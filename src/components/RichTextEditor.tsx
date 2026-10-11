@@ -5,7 +5,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
 import { Placeholder } from "@tiptap/extensions";
 import { Table, TableRow, TableHeader, TableCell } from "@tiptap/extension-table";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { markdownToHtml } from "@/lib/rich-text";
 
 type Props = {
@@ -26,6 +26,9 @@ export default function RichTextEditor({
   includeHeading = false,
   labelledBy,
 }: Props) {
+  // Set below once the editor exists; lets the Mod-k key handler (configured
+  // before the editor is created) open the same prompt as the toolbar button.
+  const linkPromptRef = useRef<() => void>(() => {});
   const editor = useEditor({
     extensions: [
       // The schema must be able to represent everything sanitizeHtml allows
@@ -74,6 +77,20 @@ export default function RichTextEditor({
       onChange(editor.isEmpty ? "" : editor.getHTML());
     },
     editorProps: {
+      // Cmd/Ctrl+K opens the link prompt (advertised in the button tooltip).
+      handleKeyDown: (_view, event) => {
+        if (
+          (event.metaKey || event.ctrlKey) &&
+          !event.altKey &&
+          !event.shiftKey &&
+          event.key.toLowerCase() === "k"
+        ) {
+          event.preventDefault();
+          linkPromptRef.current();
+          return true;
+        }
+        return false;
+      },
       attributes: {
         class:
           // text-base below sm: iOS Safari zooms into fields under 16px.
@@ -97,18 +114,40 @@ export default function RichTextEditor({
   const openLinkPrompt = () => {
     if (!editor) return;
     const prev = (editor.getAttributes("link").href as string | undefined) ?? "";
-    const url = window.prompt("Enter URL (e.g. https://example.com):", prev || "https://");
-    if (url === null) return;
-    if (url.trim() === "") {
+    const input = window.prompt(
+      "Enter a web address (https://…), email (mailto:…) or phone (tel:…):",
+      prev || "https://"
+    );
+    if (input === null) return;
+    const url = input.trim();
+    if (url === "" || url === "https://") {
       editor.chain().focus().extendMarkRange("link").unsetLink().run();
       return;
     }
-    if (!/^https?:\/\//i.test(url.trim())) {
-      alert("Please enter a valid URL starting with https:// or http://");
+    // Same schemes sanitizeHtml keeps (http, https, mailto, tel).
+    if (!/^(https?:\/\/\S|mailto:\S|tel:\S)/i.test(url)) {
+      alert("Please enter a link starting with https://, http://, mailto: or tel:");
       return;
     }
-    editor.chain().focus().extendMarkRange("link").setLink({ href: url.trim() }).run();
+    const { empty } = editor.state.selection;
+    if (empty && !editor.isActive("link")) {
+      // Nothing selected: insert the address itself as the linked text
+      // (without the mailto:/tel: prefix), rather than silently doing nothing.
+      const text = url.replace(/^(mailto|tel):/i, "");
+      editor
+        .chain()
+        .focus()
+        .insertContent({ type: "text", text, marks: [{ type: "link", attrs: { href: url } }] })
+        .unsetMark("link")
+        .run();
+      return;
+    }
+    editor.chain().focus().extendMarkRange("link").setLink({ href: url }).run();
   };
+
+  useEffect(() => {
+    linkPromptRef.current = openLinkPrompt;
+  });
 
   const btnClass = (active: boolean) =>
     // 44px touch targets (WCAG 2.5.5 / Apple HIG) — David edits on an iPad.
@@ -276,7 +315,7 @@ export default function RichTextEditor({
           aria-label="Link"
           aria-pressed={editor?.isActive("link") ?? false}
         >
-          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
           </svg>
         </button>

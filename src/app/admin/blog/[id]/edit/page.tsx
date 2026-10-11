@@ -11,11 +11,15 @@ import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
+import { FormMessages, useAutoClear, useRevealMessages } from "@/app/admin/form-feedback";
 import {
+  ACTION_THREW_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
   STALE_UPLOAD_CHECK_MS,
   findMissingUploads,
   safeExtension,
   storagePathFromUrl,
+  UPLOAD_CACHE_CONTROL,
 } from "@/app/admin/properties/upload-helpers";
 
 type PostForm = {
@@ -51,6 +55,9 @@ export default function EditBlogPostPage() {
   // Turned off just before navigating away after a successful delete.
   const [leaving, setLeaving] = useState(false);
   const [success, setSuccess] = useState("");
+  const [notice, setNotice] = useState("");
+  const { ref: messagesRef, reveal: revealMessages } = useRevealMessages();
+  const successTimer = useAutoClear();
   const [coverImage, setCoverImage] = useState("");
   const [showUnsplash, setShowUnsplash] = useState(false);
   // Cover URL and slug as loaded from the saved row. The saved cover is only
@@ -168,48 +175,54 @@ export default function EditBlogPostPage() {
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     setUploading(true);
     setError("");
 
-    let compressed: File;
     try {
-      compressed = await compressImage(file);
+      let compressed: File;
+      try {
+        compressed = await compressImage(file);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to process image.");
+        return;
+      }
+      const fileExt = safeExtension(compressed, "jpg");
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const filePath = `blog/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("property-images")
+        // Names are unique timestamps and never overwritten, so cache for a year.
+        .upload(filePath, compressed, { cacheControl: UPLOAD_CACHE_CONTROL });
+
+      if (uploadError) {
+        setError(`Failed to upload image: ${uploadError.message}`);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("property-images").getPublicUrl(filePath);
+
+      await removeUnsavedCover(coverImage);
+
+      setCoverImage(publicUrl);
+      setCoverCredit(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process image.");
+      setError(err instanceof Error ? `Failed to upload image: ${err.message}` : "Failed to upload image.");
+    } finally {
       setUploading(false);
-      return;
+      // Reset on every path so re-picking the same file fires onChange again.
+      input.value = "";
     }
-    const fileExt = safeExtension(compressed, "jpg");
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-    const filePath = `blog/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("property-images")
-      // Names are unique timestamps and never overwritten, so cache for a year.
-      .upload(filePath, compressed, { cacheControl: "31536000" });
-
-    if (uploadError) {
-      setError(`Failed to upload image: ${uploadError.message}`);
-      setUploading(false);
-      return;
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("property-images").getPublicUrl(filePath);
-
-    await removeUnsavedCover(coverImage);
-
-    setCoverImage(publicUrl);
-    setCoverCredit(null);
-    setUploading(false);
-    e.target.value = "";
   };
 
   const removeCover = async () => {
+    if (saving) return;
     await removeUnsavedCover(coverImage);
     setCoverImage("");
     setCoverCredit(null);
@@ -217,11 +230,21 @@ export default function EditBlogPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await savePost();
+    // Messages render at the top of the form, far from the Save button —
+    // bring the result (success or error) into view.
+    revealMessages();
+  };
+
+  const savePost = async () => {
     setError("");
     setSuccess("");
+    setNotice("");
+    successTimer.cancel();
     setSaving(true);
 
-    if (!form.title.trim()) {
+    const title = form.title.trim();
+    if (!title) {
       setError("Please enter a title.");
       setSaving(false);
       return;
@@ -253,6 +276,8 @@ export default function EditBlogPostPage() {
       }
     }
 
+    let saveCover = coverImage;
+
     // Optimistic concurrency: warn if the row changed since it was loaded
     // (another tab, or the publish toggle on the list page). A failed read
     // doesn't block the save.
@@ -271,6 +296,19 @@ export default function EditBlogPostPage() {
           setSaving(false);
           return;
         }
+        // This tab is stale: the other edit may have replaced/removed the
+        // cover and deleted its file. Don't resurrect a dead link.
+        if (saveCover && storagePathFromUrl(saveCover)) {
+          const missing = await findMissingUploads([saveCover]);
+          if (missing.length > 0) {
+            saveCover = "";
+            setCoverImage("");
+            setCoverCredit(null);
+            setNotice(
+              "The cover image was deleted in the other edit and has been left out of this save. Add a new cover if it's still needed."
+            );
+          }
+        }
       }
     } catch {
       // Network hiccup — fall through; the save itself will surface errors.
@@ -285,7 +323,7 @@ export default function EditBlogPostPage() {
       return;
     }
     if (!session) {
-      setError("Session expired. Please sign in again.");
+      setError(SESSION_EXPIRED_MESSAGE);
       setSaving(false);
       return;
     }
@@ -295,18 +333,18 @@ export default function EditBlogPostPage() {
     let result: Awaited<ReturnType<typeof updateBlogPost>>;
     try {
       result = await updateBlogPost(id, {
-        title: form.title,
+        title,
         slug,
         excerpt: form.excerpt || null,
         content: form.content || null,
-        cover_image: coverImage || null,
-        cover_credit_name: coverImage && coverCredit ? coverCredit.name : null,
-        cover_credit_url: coverImage && coverCredit ? coverCredit.url : null,
+        cover_image: saveCover || null,
+        cover_credit_name: saveCover && coverCredit ? coverCredit.name : null,
+        cover_credit_url: saveCover && coverCredit ? coverCredit.url : null,
         published: form.published,
         updated_at: updatedAt,
       }, session.access_token, savedSlug.current);
     } catch {
-      setError("Couldn't save — your session may have expired. Copy any unsaved text, then refresh and sign in again.");
+      setError(ACTION_THREW_MESSAGE);
       setSaving(false);
       return;
     }
@@ -320,18 +358,18 @@ export default function EditBlogPostPage() {
 
     // Row saved — now drop the old saved cover if it was replaced/removed.
     // Failure is harmless (cleanupOrphans reaps it), so the result is ignored.
-    if (savedCover.current && savedCover.current !== coverImage) {
+    if (savedCover.current && savedCover.current !== saveCover) {
       removeStorageFiles([savedCover.current], session.access_token).catch(() => {});
     }
-    savedCover.current = coverImage;
+    savedCover.current = saveCover;
     savedSlug.current = slug;
     setLiveSlug(slug);
-    setForm((prev) => ({ ...prev, slug }));
-    setBaseline({ form: { ...form, slug }, cover: coverImage });
+    setForm((prev) => ({ ...prev, title, slug }));
+    setBaseline({ form: { ...form, title, slug }, cover: saveCover });
 
     setSuccess("Post updated successfully.");
     setSaving(false);
-    setTimeout(() => setSuccess(""), 3000);
+    successTimer.schedule(() => setSuccess(""));
   };
 
   const handleDelete = async () => {
@@ -349,7 +387,7 @@ export default function EditBlogPostPage() {
       return;
     }
     if (!session) {
-      setError("Session expired. Please sign in again.");
+      setError(SESSION_EXPIRED_MESSAGE);
       setDeleting(false);
       return;
     }
@@ -434,23 +472,13 @@ export default function EditBlogPostPage() {
           type="button"
           onClick={handleDelete}
           disabled={deleting || saving}
-          className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="min-h-11 shrink-0 rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {deleting ? "Deleting..." : "Delete"}
         </button>
       </div>
 
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
-          {success}
-        </div>
-      )}
+      <FormMessages ref={messagesRef} error={error} notice={notice} success={success} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Post Details */}
@@ -523,7 +551,7 @@ export default function EditBlogPostPage() {
             </p>
           </div>
 
-          <label className="flex items-center gap-2.5 cursor-pointer">
+          <label className="flex min-h-11 items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
               aria-label="Published (visible on site)"
@@ -555,7 +583,8 @@ export default function EditBlogPostPage() {
               <button
                 type="button"
                 onClick={removeCover}
-                className="inline-flex min-h-11 items-center text-xs text-red-500 hover:text-red-700 font-medium"
+                disabled={saving}
+                className="inline-flex min-h-11 items-center text-xs text-red-500 hover:text-red-700 font-medium disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Remove cover image
               </button>
@@ -614,14 +643,14 @@ export default function EditBlogPostPage() {
         <div className="flex flex-col-reverse gap-3 pb-6 sm:flex-row sm:items-center sm:justify-end">
           <Link
             href="/admin/blog"
-            className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving || uploading || deleting}
-            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Update Post"}
           </button>

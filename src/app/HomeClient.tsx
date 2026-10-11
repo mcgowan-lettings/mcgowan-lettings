@@ -27,7 +27,8 @@ const { props: heroImgProps } = getImageProps({
 /** Preload only the hero this device will show (React dedupes per request). */
 function preloadHero() {
   preload("/hero-mobile.jpg", { as: "image", media: "(max-width: 767px)", fetchPriority: "high" });
-  preload("/hero.jpg", { as: "image", media: "(min-width: 768px)", fetchPriority: "high" });
+  preload("/hero.jpg", { as: "image", media: "(min-width: 768px) and (max-width: 1279px)", fetchPriority: "high" });
+  preload("/hero-desktop.jpg", { as: "image", media: "(min-width: 1280px)", fetchPriority: "high" });
 }
 import {
   BedIcon,
@@ -310,6 +311,9 @@ export default function HomePage({
               matching one is preloaded via preloadHero(). */}
           <picture>
             <source media="(max-width: 767px)" srcSet="/hero-mobile.jpg" />
+            {/* Large/retina desktops: the untouched 3840px original — the
+                2880px file was upscaled ~1.3× on a 1920px-wide 2× screen. */}
+            <source media="(min-width: 1280px)" srcSet="/hero-desktop.jpg" />
             <img
               {...heroImgProps}
               alt="Manchester skyline"
@@ -331,7 +335,7 @@ export default function HomePage({
             </div>
 
             {/* Headline */}
-            <h1 className="animate-fade-in-up stagger-2 font-heading text-5xl md:text-6xl lg:text-7xl font-semibold text-white leading-[1.08] mb-6">
+            <h1 className="font-heading text-5xl md:text-6xl lg:text-7xl font-semibold text-white leading-[1.08] mb-6">
               Find Your
               <br />
               Perfect Rental

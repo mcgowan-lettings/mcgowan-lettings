@@ -11,11 +11,15 @@ import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
+import { FormMessages, useRevealMessages } from "@/app/admin/form-feedback";
 import {
+  ACTION_THREW_MESSAGE,
+  SESSION_EXPIRED_MESSAGE,
   STALE_UPLOAD_CHECK_MS,
   findMissingUploads,
   safeExtension,
   storagePathFromUrl,
+  UPLOAD_CACHE_CONTROL,
 } from "@/app/admin/properties/upload-helpers";
 
 export default function NewBlogPostPage() {
@@ -23,6 +27,7 @@ export default function NewBlogPostPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const { ref: messagesRef, reveal: revealMessages } = useRevealMessages();
   const [coverImage, setCoverImage] = useState("");
   const [coverPreview, setCoverPreview] = useState("");
   const [showUnsplash, setShowUnsplash] = useState(false);
@@ -81,47 +86,52 @@ export default function NewBlogPostPage() {
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
+    const input = e.target;
+    const file = input.files?.[0];
     if (!file) return;
 
     setUploading(true);
     setError("");
 
-    let compressed: File;
     try {
-      compressed = await compressImage(file);
+      let compressed: File;
+      try {
+        compressed = await compressImage(file);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to process image.");
+        return;
+      }
+      const fileExt = safeExtension(compressed, "jpg");
+      const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
+      const filePath = `blog/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("property-images")
+        // Names are unique timestamps and never overwritten, so cache for a year.
+        .upload(filePath, compressed, { cacheControl: UPLOAD_CACHE_CONTROL });
+
+      if (uploadError) {
+        setError(`Failed to upload image: ${uploadError.message}`);
+        return;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("property-images").getPublicUrl(filePath);
+
+      // Replacing an earlier (unsaved) upload — drop the old object.
+      await removeStoredCover(coverImage);
+
+      setCoverImage(publicUrl);
+      setCoverCredit(null);
+      setPreview(URL.createObjectURL(compressed));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to process image.");
+      setError(err instanceof Error ? `Failed to upload image: ${err.message}` : "Failed to upload image.");
+    } finally {
       setUploading(false);
-      return;
+      // Reset on every path so re-picking the same file fires onChange again.
+      input.value = "";
     }
-    const fileExt = safeExtension(compressed, "jpg");
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
-    const filePath = `blog/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("property-images")
-      // Names are unique timestamps and never overwritten, so cache for a year.
-      .upload(filePath, compressed, { cacheControl: "31536000" });
-
-    if (uploadError) {
-      setError(`Failed to upload image: ${uploadError.message}`);
-      setUploading(false);
-      return;
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("property-images").getPublicUrl(filePath);
-
-    // Replacing an earlier (unsaved) upload — drop the old object.
-    await removeStoredCover(coverImage);
-
-    setCoverImage(publicUrl);
-    setCoverCredit(null);
-    setPreview(URL.createObjectURL(compressed));
-    setUploading(false);
-    e.target.value = "";
   };
 
   /** Remove an uploaded cover from storage (no-op for Unsplash URLs). */
@@ -136,6 +146,7 @@ export default function NewBlogPostPage() {
   }
 
   const removeCover = async () => {
+    if (saving) return;
     await removeStoredCover(coverImage);
     setCoverImage("");
     setCoverCredit(null);
@@ -144,10 +155,18 @@ export default function NewBlogPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await savePost();
+    // The error renders at the top of the form, far from the Save button —
+    // bring it into view (no-op on success: we navigate away).
+    revealMessages();
+  };
+
+  const savePost = async () => {
     setError("");
     setSaving(true);
 
-    if (!form.title.trim()) {
+    const title = form.title.trim();
+    if (!title) {
       setError("Please enter a title.");
       setSaving(false);
       return;
@@ -188,7 +207,7 @@ export default function NewBlogPostPage() {
       return;
     }
     if (!session) {
-      setError("Session expired. Please sign in again.");
+      setError(SESSION_EXPIRED_MESSAGE);
       setSaving(false);
       return;
     }
@@ -196,7 +215,7 @@ export default function NewBlogPostPage() {
     let result: Awaited<ReturnType<typeof createBlogPost>>;
     try {
       result = await createBlogPost({
-        title: form.title,
+        title,
         slug,
         excerpt: form.excerpt || null,
         content: form.content || null,
@@ -206,7 +225,7 @@ export default function NewBlogPostPage() {
         published: form.published,
       }, session.access_token);
     } catch {
-      setError("Couldn't save — your session may have expired. Copy any unsaved text, then refresh and sign in again.");
+      setError(ACTION_THREW_MESSAGE);
       setSaving(false);
       return;
     }
@@ -243,11 +262,7 @@ export default function NewBlogPostPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      <FormMessages ref={messagesRef} error={error} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Info */}
@@ -323,7 +338,7 @@ export default function NewBlogPostPage() {
             </p>
           </div>
 
-          <label className="flex items-center gap-2.5 cursor-pointer">
+          <label className="flex min-h-11 items-center gap-2.5 cursor-pointer">
             <input
               type="checkbox"
               aria-label="Published (visible on site)"
@@ -355,7 +370,8 @@ export default function NewBlogPostPage() {
               <button
                 type="button"
                 onClick={removeCover}
-                className="inline-flex min-h-11 items-center text-xs text-red-500 hover:text-red-700 font-medium"
+                disabled={saving}
+                className="inline-flex min-h-11 items-center text-xs text-red-500 hover:text-red-700 font-medium disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Remove cover image
               </button>
@@ -415,14 +431,14 @@ export default function NewBlogPostPage() {
         <div className="flex flex-col-reverse gap-3 pb-6 sm:flex-row sm:items-center sm:justify-end">
           <Link
             href="/admin/blog"
-            className="rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-gray-300 px-5 py-2.5 text-center text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark"
           >
             Cancel
           </Link>
           <button
             type="submit"
             disabled={saving || uploading}
-            className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Create Post"}
           </button>

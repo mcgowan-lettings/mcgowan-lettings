@@ -15,6 +15,7 @@ import {
 } from "@/lib/application-types";
 import { copyFor } from "@/lib/application-copy";
 import { formatMoneyDisplay, formatRentDisplay } from "@/lib/money";
+import { recentRowCount, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -35,6 +36,8 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_PER_IP_PER_HOUR = 5;
 const MAX_PER_EMAIL_PER_DAY = 3;
+/** Real volume is a few a week; 20 in an hour is a flood. */
+const MAX_APPLICATIONS_EMAILED_PER_HOUR = 20;
 
 // Truncate by code point, not UTF-16 unit: slicing inside an emoji leaves a
 // lone surrogate, which Postgres rejects — the user would then get "Something
@@ -259,16 +262,29 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   };
 
   // A resend after a dropped connection (server already saved + emailed):
-  // same applicant, same type and property within 10 minutes → success,
-  // without a second row, PDF and pair of emails.
+  // an IDENTICAL form within 10 minutes → success, without a second row, PDF
+  // and pair of emails. Match the whole payload, not just who/where: a
+  // corrected resubmission (fixed NI/DOB/income), a guarantor signing for a
+  // second sharer at the same address, or joint applicants sharing an inbox
+  // are all genuinely new forms and must go through.
   try {
-    const { count: dupes } = await supabaseAdmin
+    let dupQuery = supabaseAdmin
       .from("tenant_applications")
       .select("id", { count: "exact", head: true })
       .ilike("email", escapeLike(email))
       .eq("application_type", application_type)
       .eq("property_address", property_address)
+      .eq("full_name", full_name)
+      .eq("phone", phone)
+      .eq("date_of_birth", date_of_birth)
+      .eq("ni_number", ni_number)
+      .eq("current_address", current_address)
+      .eq("employment_status", employment_status)
+      .eq("monthly_income", monthly_income)
+      .eq("signed_name", signed_name)
       .gte("created_at", new Date(Date.now() - 10 * 60 * 1000).toISOString());
+    dupQuery = isGuarantor ? dupQuery.eq("tenant_name", tenant_name) : dupQuery;
+    const { count: dupes } = await dupQuery;
     if ((dupes ?? 0) > 0) return { success: true };
   } catch {
     // Fall through — the throttle below still applies.
@@ -341,6 +357,15 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
     }
 
     // --- Emails (never fail the submission) --------------------------------
+    // Table-wide breaker: per-IP/per-email caps can be beaten with rotating
+    // IPs, and every application emails David a PDF plus a confirmation to an
+    // arbitrary address. Above the hourly cap, save but don't email; David
+    // gets one "alerts paused" notice per hour instead.
+    if ((await recentRowCount("tenant_applications")) > MAX_APPLICATIONS_EMAILED_PER_HOUR) {
+      await sendPausedNotice("application");
+      return { success: true };
+    }
+
     try {
       // PDF in its own try: a PDF failure must not cost David the notification
       // or the applicant their confirmation. The row is saved either way and

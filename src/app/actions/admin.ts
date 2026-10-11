@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/auth";
 import { sanitizeHtml } from "@/lib/sanitize-html";
+import { isHtml } from "@/lib/rich-text";
 import { generateSlug } from "@/lib/slug";
 import { thumbPathForPhotoPath } from "@/lib/thumb";
 
@@ -149,11 +150,23 @@ export type PropertyData = {
   features: string[] | null;
 };
 
+/**
+ * Sanitize rich-text HTML before storing it. Legacy markdown (not HTML) is
+ * stored as-is: running it through sanitizeHtml would entity-encode `&`, `<`
+ * and `>`, which the markdown renderers (renderInline / markdownToHtml) then
+ * show literally as "&amp;". Markdown is escaped at render time, and every
+ * render path uses the same isHtml() test to pick HTML vs markdown, so
+ * anything treated as HTML on render has been sanitized here.
+ */
+function sanitizeRichText(content: string): string {
+  return isHtml(content) ? sanitizeHtml(content) : content;
+}
+
 export async function createProperty(data: PropertyData, accessToken: string) {
   await requireAdmin(accessToken);
   // Sanitize rich text on write as well as render — stored HTML stays clean
   // even if a future render path forgets to.
-  if (data.description) data.description = sanitizeHtml(data.description);
+  if (data.description) data.description = sanitizeRichText(data.description);
   const { error } = await supabaseAdmin.from("properties").insert(data);
   if (error) return { success: false, error: error.message };
   revalidatePropertyPaths();
@@ -162,7 +175,7 @@ export async function createProperty(data: PropertyData, accessToken: string) {
 
 export async function updateProperty(id: string, data: Partial<PropertyData> & { updated_at: string }, accessToken: string) {
   await requireAdmin(accessToken);
-  if (data.description) data.description = sanitizeHtml(data.description);
+  if (data.description) data.description = sanitizeRichText(data.description);
   // Return the stored updated_at: a DB trigger overwrites it with now(), and
   // the editor's "changed elsewhere?" check compares against this value.
   const { data: row, error } = await supabaseAdmin
@@ -240,7 +253,7 @@ export async function createBlogPost(data: BlogPostData, accessToken: string) {
   if (dupError) return { success: false, error: dupError.message };
   if (existing) return { success: false, error: "A blog post with this URL slug already exists." };
 
-  if (data.content) data.content = sanitizeHtml(data.content);
+  if (data.content) data.content = sanitizeRichText(data.content);
   const { error } = await supabaseAdmin.from("blog_posts").insert(data);
   if (error) return { success: false, error: error.message };
   revalidateBlogPaths(data.slug);
@@ -268,7 +281,7 @@ export async function updateBlogPost(
     if (dupError) return { success: false, error: dupError.message, updated_at: null };
     if (existing) return { success: false, error: "A blog post with this URL slug already exists.", updated_at: null };
   }
-  if (data.content) data.content = sanitizeHtml(data.content);
+  if (data.content) data.content = sanitizeRichText(data.content);
   // Return the stored updated_at (a DB trigger may overwrite it) so the
   // editor's "changed elsewhere?" check compares against the real value.
   const { data: row, error } = await supabaseAdmin

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -24,6 +24,16 @@ const isPublicAdminPath = (p: string | null | undefined) =>
 const RETRY_BASE_MS = 5000;
 const RETRY_MAX_MS = 60000;
 
+/** Tailwind `lg` — at and above it the sidebar is static, below it a drawer. */
+const DESKTOP_QUERY = "(min-width: 1024px)";
+const subscribeDesktop = (onChange: () => void) => {
+  const mq = window.matchMedia(DESKTOP_QUERY);
+  mq.addEventListener("change", onChange);
+  return () => mq.removeEventListener("change", onChange);
+};
+const getDesktop = () => window.matchMedia(DESKTOP_QUERY).matches;
+const getDesktopServer = () => false;
+
 export default function AdminLayout({
   children,
 }: {
@@ -34,6 +44,11 @@ export default function AdminLayout({
   const [authenticated, setAuthenticated] = useState(false);
   const [checkError, setCheckError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktop, getDesktopServer);
+  // The drawer is "open" as a modal only below lg.
+  const drawerOpen = sidebarOpen && !isDesktop;
+  const sidebarRef = useRef<HTMLElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   // Session vanished (expired, or signed out in another tab) while an editor
   // had unsaved work: keep the editor mounted and show a banner instead of
   // bouncing to /admin/login and throwing the work away.
@@ -54,6 +69,32 @@ export default function AdminLayout({
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
+
+  // Mobile drawer: lock page scroll, move focus in, close on Escape, and
+  // hand focus back to the menu button on close.
+  useEffect(() => {
+    if (!drawerOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const sidebar = sidebarRef.current;
+    const first = sidebar?.querySelector<HTMLElement>("a[href], button");
+    first?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    const menuButton = menuButtonRef.current;
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKey);
+      // Only reclaim focus if it was inside the drawer (not e.g. a link that
+      // navigated and focused something else).
+      const active = document.activeElement;
+      if (!active || active === document.body || sidebar?.contains(active)) {
+        menuButton?.focus();
+      }
+    };
+  }, [drawerOpen]);
 
   // Subscribe once. NOTE: this is a client-side UX gate only — real
   // enforcement is requireAdmin() inside every server action.
@@ -291,13 +332,21 @@ export default function AdminLayout({
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
+          aria-hidden="true"
           className="fixed inset-0 z-30 bg-black/40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — a static column on lg+, an off-canvas drawer below. When
+          the drawer is closed it's inert so its links can't be tabbed to
+          off-screen; while open, the page behind it is inert instead. */}
       <aside
+        id="admin-sidebar"
+        ref={sidebarRef}
+        aria-label="Admin menu"
+        inert={!isDesktop && !sidebarOpen}
+        {...(drawerOpen ? { role: "dialog", "aria-modal": true } : {})}
         className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-white border-r border-gray-200 transition-transform duration-200 lg:relative lg:translate-x-0 ${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
@@ -364,12 +413,15 @@ export default function AdminLayout({
       </aside>
 
       {/* Main content */}
-      <div className="flex flex-1 flex-col lg:overflow-hidden">
+      <div className="flex flex-1 flex-col lg:overflow-hidden" inert={drawerOpen}>
         {/* Top bar */}
         <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-4 sm:px-6">
           <button
+            ref={menuButtonRef}
             type="button"
             onClick={() => setSidebarOpen(true)}
+            aria-expanded={sidebarOpen}
+            aria-controls="admin-sidebar"
             className="-ml-2.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-gray-100 hover:text-dark lg:hidden"
             aria-label="Open menu"
           >

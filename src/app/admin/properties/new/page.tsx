@@ -9,6 +9,7 @@ import VideoList from "../VideoList";
 import { transcodeVideoToMp4, MAX_VIDEO_BYTES, assertUploadableVideo } from "@/lib/video-transcode";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import RichTextEditor from "@/components/RichTextEditor";
+import { FormMessages, useRevealMessages } from "@/app/admin/form-feedback";
 import { createProperty } from "@/app/actions/admin";
 import { useUnsavedGuard } from "@/lib/use-unsaved-guard";
 import {
@@ -18,6 +19,7 @@ import {
   findMissingUploads,
   mapSettledWithConcurrency,
   parseWholeNumber,
+  prepareEpcFile,
   safeExtension,
   storagePathsForUrl,
   uploadPropertyPhoto,
@@ -95,6 +97,7 @@ export default function NewPropertyPage() {
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
   const storage = useStorageUsage();
+  const { ref: messagesRef, reveal: revealMessages } = useRevealMessages();
   // When the page was opened — every upload here is unsaved, so after ~20h
   // cleanupOrphans (24h grace) may already have reaped some of them.
   const openedAt = useRef(0);
@@ -171,6 +174,7 @@ export default function NewPropertyPage() {
   };
 
   const removeImage = async (index: number) => {
+    if (saving) return;
     // Capture the URL and drop it from state *before* the network delete, so
     // rapid clicks can't shift indexes and remove the wrong photo.
     const url = imageUrls[index];
@@ -252,6 +256,7 @@ export default function NewPropertyPage() {
   };
 
   const removeVideo = async (index: number) => {
+    if (saving) return;
     const url = videoUrls[index];
     if (!url) return;
     setVideoUrls((prev) => prev.filter((u) => u !== url));
@@ -259,6 +264,7 @@ export default function NewPropertyPage() {
   };
 
   const removeEpc = async () => {
+    if (saving) return;
     const url = form.epc_document;
     updateField("epc_document", "");
     setEpcError("");
@@ -267,9 +273,18 @@ export default function NewPropertyPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    await saveProperty();
+    // The error renders at the top of this long form, far from the Save
+    // button — bring it into view (no-op on success: we navigate away).
+    revealMessages();
+  };
+
+  const saveProperty = async () => {
     setError("");
 
-    if (!form.title || !form.price || !form.location || !form.beds || !form.baths) {
+    const title = form.title.trim();
+    const location = form.location.trim();
+    if (!title || !form.price || !location || !form.beds || !form.baths) {
       setError("Please fill in all required fields.");
       return;
     }
@@ -321,10 +336,10 @@ export default function NewPropertyPage() {
       }
 
       const result = await createProperty({
-        title: form.title,
+        title,
         description: form.description || null,
         price,
-        location: form.location,
+        location,
         area: form.area,
         beds,
         baths,
@@ -381,11 +396,7 @@ export default function NewPropertyPage() {
         </div>
       </div>
 
-      {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
+      <FormMessages ref={messagesRef} error={error} />
 
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* Basic Info */}
@@ -647,8 +658,9 @@ export default function NewPropertyPage() {
                 <button
                   type="button"
                   onClick={removeEpc}
+                  disabled={saving}
                   aria-label="Remove EPC certificate"
-                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs text-red-500 hover:text-red-700"
+                  className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs text-red-500 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   Remove
                 </button>
@@ -680,12 +692,16 @@ export default function NewPropertyPage() {
                     }
                     setUploadingEpc(true);
                     try {
-                      const fileExt = safeExtension(file, "pdf");
+                      const uploadFile = await prepareEpcFile(file);
+                      const fileExt = safeExtension(uploadFile, "pdf");
                       const fileName = `epc-${Date.now()}.${fileExt}`;
                       const filePath = `epc/${fileName}`;
                       const { error: upErr } = await supabase.storage
                         .from("property-images")
-                        .upload(filePath, file, { cacheControl: UPLOAD_CACHE_CONTROL });
+                        .upload(filePath, uploadFile, {
+                          cacheControl: UPLOAD_CACHE_CONTROL,
+                          contentType: uploadFile.type || file.type,
+                        });
                       if (upErr) {
                         setEpcError(`Failed to upload EPC: ${upErr.message}`);
                         return;
@@ -785,6 +801,7 @@ export default function NewPropertyPage() {
             images={imageUrls}
             onReorder={setImageUrls}
             onRemove={removeImage}
+            removeDisabled={saving}
           />
 
           {/* Storage warning */}
@@ -796,7 +813,7 @@ export default function NewPropertyPage() {
             }`}>
               {storage.percentage >= 90 ? (
                 <>
-                  <strong>Storage almost full</strong> ({formatBytes(storage.usedBytes)} / {formatBytes(storage.limitBytes)}). Delete old images or upgrade your plan before uploading more.
+                  <strong>Storage almost full</strong> ({formatBytes(storage.usedBytes)} / {formatBytes(storage.limitBytes)}). Contact Viktor, or delete media from old listings before uploading more.
                 </>
               ) : (
                 <>
@@ -815,7 +832,7 @@ export default function NewPropertyPage() {
             </svg>
             <div>
               <span className="text-sm font-medium text-brand-dark">
-                {uploading ? "Uploading..." : !storage.loading && storage.percentage >= 95 ? "Storage full — cannot upload" : "Click to upload images"}
+                {uploading ? "Uploading..." : !storage.loading && storage.percentage >= 95 ? "Storage full — cannot upload" : "Tap or click to upload images"}
               </span>
               <p className="text-xs text-text-muted mt-1">
                 JPG, PNG or WebP. First image will be the main photo.
@@ -843,7 +860,7 @@ export default function NewPropertyPage() {
             </p>
           </div>
 
-          <VideoList videos={videoUrls} onRemove={removeVideo} />
+          <VideoList videos={videoUrls} onRemove={removeVideo} removeDisabled={saving} />
 
           {videoError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

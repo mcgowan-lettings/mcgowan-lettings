@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import AdminThumb from "@/app/admin/AdminThumb";
+import { useAutoClear } from "@/app/admin/form-feedback";
+import { SESSION_EXPIRED_MESSAGE } from "@/app/admin/properties/upload-helpers";
 import { supabase } from "@/lib/supabase";
 import { deleteBlogPost as deleteBlogPostAction, toggleBlogPublished } from "@/app/actions/admin";
 
@@ -35,6 +37,14 @@ export default function AdminBlogPage() {
     text: string;
     type: "success" | "error";
   } | null>(null);
+  const messageTimer = useAutoClear();
+  /** Successes fade after 3s; errors stay until replaced, so one action's
+   * timer can never wipe another action's error. */
+  const showMessage = (next: { text: string; type: "success" | "error" }) => {
+    setMessage(next);
+    if (next.type === "success") messageTimer.schedule(() => setMessage(null));
+    else messageTimer.cancel();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -63,27 +73,26 @@ export default function AdminBlogPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        showMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
         return;
       }
 
       const result = await toggleBlogPublished(id, !currentPublished, session.access_token, slug);
       if (!result.success) {
-        setMessage({ text: "Failed to update post.", type: "error" });
+        showMessage({ text: "Failed to update post.", type: "error" });
       } else {
         setPosts((prev) =>
           prev.map((p) => (p.id === id ? { ...p, published: !currentPublished } : p))
         );
-        setMessage({
+        showMessage({
           text: `Post ${!currentPublished ? "published" : "unpublished"}.`,
           type: "success",
         });
       }
     } catch {
-      setMessage({ text: "Failed to update post — please refresh and try again.", type: "error" });
+      showMessage({ text: "Failed to update post — please refresh and try again.", type: "error" });
     } finally {
       setToggling(null);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -93,21 +102,20 @@ export default function AdminBlogPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        showMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
         return;
       }
       const result = await deleteBlogPostAction(post.id, post.cover_image, session.access_token, post.slug);
       if (!result.success) {
-        setMessage({ text: result.error || "Failed to delete post.", type: "error" });
+        showMessage({ text: result.error || "Failed to delete post.", type: "error" });
         return;
       }
       setPosts((prev) => prev.filter((p) => p.id !== post.id));
-      setMessage({ text: "Post deleted.", type: "success" });
+      showMessage({ text: "Post deleted.", type: "success" });
     } catch {
-      setMessage({ text: "Failed to delete post — please refresh and try again.", type: "error" });
+      showMessage({ text: "Failed to delete post — please refresh and try again.", type: "error" });
     } finally {
       setDeletingId(null);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -128,13 +136,13 @@ export default function AdminBlogPage() {
             Blog Posts
           </h2>
           <p className="text-sm text-text-muted mt-1">
-            {posts.length} posts total &middot;{" "}
+            {posts.length} {posts.length === 1 ? "post" : "posts"} total &middot;{" "}
             {posts.filter((p) => p.published).length} published
           </p>
         </div>
         <Link
           href="/admin/blog/new"
-          className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light"
+          className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-brand px-4 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -152,6 +160,7 @@ export default function AdminBlogPage() {
 
       {message && (
         <div
+          role={message.type === "error" ? "alert" : "status"}
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             message.type === "success"
               ? "bg-green-50 text-green-700 border border-green-200"
@@ -198,7 +207,7 @@ export default function AdminBlogPage() {
                       <div className="flex items-center gap-3">
                         <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                           {post.cover_image ? (
-                            <Image
+                            <AdminThumb
                               src={post.cover_image}
                               alt={post.title}
                               fill
@@ -227,39 +236,52 @@ export default function AdminBlogPage() {
                       {formatPostDate(post.created_at)}
                     </td>
                     <td className="px-4 py-3 text-center">
+                      {/* 44px hit area around the visual switch */}
                       <button
+                        type="button"
                         onClick={() =>
                           togglePublished(post.id, post.published, post.slug)
                         }
                         disabled={toggling === post.id}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          post.published ? "bg-brand" : "bg-gray-300"
-                        } ${toggling === post.id ? "opacity-50" : ""}`}
+                        aria-pressed={post.published}
+                        aria-label={`Published (visible on site): ${post.title}`}
+                        className={`inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg ${
+                          toggling === post.id ? "opacity-50" : ""
+                        }`}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
-                            post.published
-                              ? "translate-x-6"
-                              : "translate-x-1"
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            post.published ? "bg-brand" : "bg-gray-300"
                           }`}
-                        />
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
+                              post.published
+                                ? "translate-x-6"
+                                : "translate-x-1"
+                            }`}
+                          />
+                        </span>
                       </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <Link
                           href={`/admin/blog/${post.id}/edit`}
-                          className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-dark transition-colors hover:bg-gray-200"
+                          aria-label={`Edit ${post.title}`}
+                          className="inline-flex min-h-[44px] items-center gap-1.5 rounded-lg bg-gray-100 px-3 text-xs font-medium text-dark transition-colors hover:bg-gray-200"
                         >
-                          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <svg className="h-3.5 w-3.5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
                           </svg>
                           Edit
                         </Link>
                         <button
+                          type="button"
                           onClick={() => handleDelete(post)}
                           disabled={deletingId === post.id}
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label={`Delete ${post.title}`}
+                          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 text-xs font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {deletingId === post.id ? "Deleting..." : "Delete"}
                         </button>
@@ -281,7 +303,7 @@ export default function AdminBlogPage() {
                 <div className="flex gap-3">
                   <div className="relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                     {post.cover_image ? (
-                      <Image
+                      <AdminThumb
                         src={post.cover_image}
                         alt={post.title}
                         fill
@@ -306,6 +328,7 @@ export default function AdminBlogPage() {
                     {/* min-h-[44px] tap targets; -ml-2 keeps the toggle visually aligned with the title */}
                     <div className="mt-1 -ml-2 flex flex-wrap items-center gap-x-1">
                       <button
+                        type="button"
                         onClick={() =>
                           togglePublished(post.id, post.published, post.slug)
                         }
@@ -333,14 +356,17 @@ export default function AdminBlogPage() {
 
                       <Link
                         href={`/admin/blog/${post.id}/edit`}
+                        aria-label={`Edit ${post.title}`}
                         className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-brand-dark hover:underline"
                       >
                         Edit
                       </Link>
 
                       <button
+                        type="button"
                         onClick={() => handleDelete(post)}
                         disabled={deletingId === post.id}
+                        aria-label={`Delete ${post.title}`}
                         className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
                       >
                         {deletingId === post.id ? "Deleting..." : "Delete"}

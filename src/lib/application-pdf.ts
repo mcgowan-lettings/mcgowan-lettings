@@ -14,6 +14,7 @@ import { PDFDocument, PDFFont, PDFImage, PDFPage, StandardFonts, rgb } from "pdf
 import { declarationFor, type TenantApplicationRow } from "@/lib/application-types";
 import { copyFor } from "@/lib/application-copy";
 import { isWellFormedPng } from "@/lib/png-check";
+import { formatMoneyDisplay, formatRentDisplay } from "@/lib/money";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -46,6 +47,9 @@ const FOOTER_LINE =
  * anything outside that range so `drawText` never throws on, say, an emoji
  * or a Cyrillic character in an address field.
  */
+// Non-Latin-1 characters that WinAnsi (StandardFonts) still encodes.
+const WINANSI_EXTRAS = "€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ";
+
 // Letters with no WinAnsi glyph and no NFKD decomposition to one.
 const FOLD: Record<string, string> = {
   "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ı": "i", "ø": "o", "Ø": "O",
@@ -59,7 +63,7 @@ function foldToLatin1(input: string): string {
   let out = "";
   for (const ch of input.normalize("NFC")) {
     const code = ch.codePointAt(0)!;
-    if (code < 0x100) {
+    if (code < 0x100 || WINANSI_EXTRAS.includes(ch)) {
       out += ch;
     } else if (FOLD[ch]) {
       out += FOLD[ch];
@@ -81,7 +85,8 @@ function sanitize(input: string | null | undefined): string {
     .replace(/–/g, "-")
     .replace(/—/g, "-")
     .replace(/…/g, "...")
-    .replace(/[^\x20-\x7E\xA0-\xFF\n]/g, "?");
+    // Per code point (u flag): an emoji becomes one "?", not "??".
+    .replace(/[^\x20-\x7E\xA0-\xFF\n€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/gu, "?");
 }
 
 function wrapLine(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
@@ -178,16 +183,13 @@ function formatDateTime(iso: string | null | undefined): string {
   return `${get("day")}/${get("month")}/${get("year")} ${get("hour")}:${get("minute")}`;
 }
 
+// Same formatting as the admin inbox and David's email (src/lib/money.ts).
 function formatMoney(value: string | null | undefined): string {
-  const trimmed = (value ?? "").trim();
-  if (!trimmed) return "—";
-  return /^[\d.,]+$/.test(trimmed) ? `£${trimmed}` : trimmed;
+  return value && value.trim() ? formatMoneyDisplay(value) : "—";
 }
 
 function formatRent(rent: string | null): string {
-  if (!rent || !rent.trim()) return "—";
-  const trimmed = rent.trim();
-  return /^[\d.,]+$/.test(trimmed) ? `£${trimmed} pcm` : trimmed;
+  return rent && rent.trim() ? formatRentDisplay(rent) : "—";
 }
 
 // ---------------------------------------------------------------------------
@@ -219,7 +221,9 @@ class Layout {
     // Pages after the first get a continuation line so they never look orphaned.
     if (this.pageCount > 1 && this.continuationLabel) {
       const size = 8.5;
-      page.drawText(sanitize(this.continuationLabel), {
+      // Truncated: an over-long name must not run off the page.
+      const label = sanitize(this.continuationLabel);
+      page.drawText(label.length > 90 ? `${label.slice(0, 89)}…` : label, {
         x: MARGIN,
         y: this.y - 8,
         size,

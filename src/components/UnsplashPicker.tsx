@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useId, useRef } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
@@ -65,14 +65,43 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
   const [totalPages, setTotalPages] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  // Latest onClose without re-binding the key listener on every render.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- hydration mount guard
     setMounted(true);
   }, []);
 
+  // Escape closes; focus moves into the dialog on open and back on close.
+  useEffect(() => {
+    if (!mounted) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    if (!dialogRef.current?.contains(document.activeElement)) dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        onCloseRef.current();
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      if (previouslyFocused && document.contains(previouslyFocused)) previouslyFocused.focus();
+    };
+  }, [mounted]);
+
   const search = async (e?: React.FormEvent) => {
     e?.preventDefault();
+    // React events bubble through portals to the React parent — the picker
+    // is rendered inside the blog editor's <form>, so without this a search
+    // would also submit (save) the post.
+    e?.stopPropagation();
     if (!query.trim()) return;
 
     setLoading(true);
@@ -120,6 +149,7 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
         return [...prev, ...fresh];
       });
       setPage(nextPage);
+      setError("");
     } catch {
       setError("Failed to load more photos.");
     } finally {
@@ -131,20 +161,29 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-2xl max-h-[80vh] rounded-xl bg-white shadow-xl flex flex-col overflow-hidden">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="w-full max-w-2xl max-h-[80vh] rounded-xl bg-white shadow-xl flex flex-col overflow-hidden outline-none"
+      >
         {/* Header */}
         <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
           <div>
-            <h3 className="text-lg font-semibold text-dark">Search Stock Photos</h3>
+            <h3 id={titleId} className="text-lg font-semibold text-dark">Search Stock Photos</h3>
             <p className="text-xs text-text-muted mt-0.5">
               Free photos from Unsplash — no storage used
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-text-muted hover:bg-gray-100 hover:text-dark transition-colors"
+            aria-label="Close"
+            className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-text-muted hover:bg-gray-100 hover:text-dark transition-colors"
           >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-5 w-5" aria-hidden="true" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
@@ -157,13 +196,14 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder='Try "house", "office", "apartment"...'
-            className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm text-dark outline-none focus:border-brand focus:ring-1 focus:ring-brand"
+            aria-label="Search stock photos"
+            className="min-h-11 min-w-0 flex-1 rounded-lg border border-gray-300 px-3 py-2 text-base sm:text-sm text-dark outline-none focus:border-brand focus:ring-1 focus:ring-brand"
             autoFocus={typeof window !== "undefined" && window.innerWidth > 768}
           />
           <button
             type="submit"
             disabled={loading || !query.trim()}
-            className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
+            className="min-h-11 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? "Searching..." : "Search"}
           </button>
@@ -221,7 +261,7 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
                     type="button"
                     onClick={loadMore}
                     disabled={loadingMore}
-                    className="rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark disabled:opacity-50"
+                    className="min-h-11 rounded-lg border border-gray-300 px-5 py-2 text-sm font-medium text-text-muted transition-colors hover:bg-gray-100 hover:text-dark disabled:opacity-50"
                   >
                     {loadingMore ? "Loading..." : "Load more"}
                   </button>

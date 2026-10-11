@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import AdminThumb from "@/app/admin/AdminThumb";
+import { useAutoClear } from "@/app/admin/form-feedback";
 import { supabase } from "@/lib/supabase";
 import { deleteProperty as deletePropertyAction, togglePropertyActive, togglePropertyFeatured, togglePropertyNew } from "@/app/actions/admin";
 import { SESSION_EXPIRED_MESSAGE } from "./upload-helpers";
@@ -28,6 +29,26 @@ interface Property {
   created_at: string;
 }
 
+/**
+ * What the homepage will show for a given number of active + featured
+ * listings — mirrors getFeaturedProperties() in src/app/page.tsx: 6 cards if
+ * 6+ are featured, otherwise up to 3 (available before Let Agreed); with none
+ * featured it falls back to the available listings.
+ */
+function featuredHint(n: number): string {
+  if (n === 0) {
+    return "Nothing featured — the homepage shows your available listings instead. Star 3 or 6 active listings to choose them.";
+  }
+  if (n < 3) {
+    return `The homepage shows ${n === 1 ? "this 1 listing" : "these 2 listings"}. Star 3 or 6 active listings to fill a full row or two.`;
+  }
+  if (n === 3 || n === 6) return `The homepage shows all ${n} featured listings.`;
+  if (n < 6) {
+    return `The homepage shows only 3 of these ${n} (available ones first). Star exactly 3 or 6 to control which appear.`;
+  }
+  return `The homepage shows only 6 of these ${n} (available ones first). Star exactly 6 to control which appear.`;
+}
+
 // Lowercase and drop punctuation so "43 Harvey St, Bury" matches "43 harvey st bury".
 const normalise = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
@@ -45,6 +66,14 @@ export default function AdminPropertiesPage() {
     text: string;
     type: "success" | "error";
   } | null>(null);
+  const messageTimer = useAutoClear();
+  /** Successes fade after 3s; errors stay until replaced, so one action's
+   * timer can never wipe another action's error. */
+  const showMessage = (next: { text: string; type: "success" | "error" }) => {
+    setMessage(next);
+    if (next.type === "success") messageTimer.schedule(() => setMessage(null));
+    else messageTimer.cancel();
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -78,25 +107,28 @@ export default function AdminPropertiesPage() {
     });
   }, [properties, query]);
 
+  // Only active + featured listings reach the homepage (src/app/page.tsx).
+  const featuredLive = properties.filter((p) => p.featured && p.active).length;
+
   const toggleActive = async (id: string, currentActive: boolean) => {
     setToggling(id);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        showMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
         return;
       }
 
       const result = await togglePropertyActive(id, !currentActive, session.access_token);
       if (!result.success) {
-        setMessage({ text: "Failed to update property.", type: "error" });
+        showMessage({ text: "Failed to update property.", type: "error" });
       } else {
         setProperties((prev) =>
           prev.map((p) => (p.id === id ? { ...p, active: !currentActive } : p))
         );
       }
     } catch {
-      setMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
+      showMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
       setToggling(null);
     }
@@ -111,7 +143,7 @@ export default function AdminPropertiesPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        showMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
         return;
       }
       const fileUrls = [...(property.images || []), ...(property.videos || []), property.epc_document].filter(
@@ -120,16 +152,15 @@ export default function AdminPropertiesPage() {
       const result = await deletePropertyAction(property.id, fileUrls, session.access_token);
 
       if (!result.success) {
-        setMessage({ text: "Failed to delete property.", type: "error" });
+        showMessage({ text: "Failed to delete property.", type: "error" });
       } else {
         setProperties((prev) => prev.filter((p) => p.id !== property.id));
-        setMessage({ text: "Property deleted.", type: "success" });
+        showMessage({ text: "Property deleted.", type: "success" });
       }
     } catch {
-      setMessage({ text: "Couldn't delete — your session may have expired. Refresh and sign in again.", type: "error" });
+      showMessage({ text: "Couldn't delete — your session may have expired. Refresh and sign in again.", type: "error" });
     } finally {
       setDeletingId(null);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -139,13 +170,13 @@ export default function AdminPropertiesPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        showMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
         return;
       }
 
       const result = await togglePropertyFeatured(id, !currentFeatured, session.access_token);
       if (!result.success) {
-        setMessage({ text: "Failed to update featured status.", type: "error" });
+        showMessage({ text: "Failed to update featured status.", type: "error" });
       } else {
         setProperties((prev) =>
           prev.map((p) =>
@@ -154,10 +185,9 @@ export default function AdminPropertiesPage() {
         );
       }
     } catch {
-      setMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
+      showMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
       setTogglingFeatured(null);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -167,13 +197,13 @@ export default function AdminPropertiesPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
-        setMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
+        showMessage({ text: SESSION_EXPIRED_MESSAGE, type: "error" });
         return;
       }
 
       const result = await togglePropertyNew(id, !currentNew, session.access_token);
       if (!result.success) {
-        setMessage({ text: "Failed to update the New Property badge.", type: "error" });
+        showMessage({ text: "Failed to update the New Property badge.", type: "error" });
       } else {
         setProperties((prev) =>
           prev.map((p) =>
@@ -182,10 +212,9 @@ export default function AdminPropertiesPage() {
         );
       }
     } catch {
-      setMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
+      showMessage({ text: TOGGLE_THREW_MESSAGE, type: "error" });
     } finally {
       setTogglingNew(null);
-      setTimeout(() => setMessage(null), 3000);
     }
   };
 
@@ -206,13 +235,11 @@ export default function AdminPropertiesPage() {
             Properties
           </h2>
           <p className="text-sm text-text-muted mt-1">
-            {properties.length} properties total &middot;{" "}
+            {properties.length} {properties.length === 1 ? "property" : "properties"} total &middot;{" "}
             {properties.filter((p) => p.active).length} active &middot;{" "}
-            {properties.filter((p) => p.featured).length} featured
+            {featuredLive} featured on the homepage
           </p>
-          <p className="text-xs text-text-muted mt-1">
-            The homepage shows 3 or 6 featured properties — mark exactly 3 or 6 to fill the grid evenly.
-          </p>
+          <p className="text-xs text-text-muted mt-1">{featuredHint(featuredLive)}</p>
         </div>
         <Link
           href="/admin/properties/new"
@@ -234,6 +261,7 @@ export default function AdminPropertiesPage() {
 
       {message && (
         <div
+          role={message.type === "error" ? "alert" : "status"}
           className={`rounded-lg px-4 py-3 text-sm font-medium ${
             message.type === "success"
               ? "bg-green-50 text-green-700 border border-green-200"
@@ -340,7 +368,7 @@ export default function AdminPropertiesPage() {
                       <div className="flex items-center gap-3">
                         <div className="relative h-12 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                           {property.images?.[0] ? (
-                            <Image
+                            <AdminThumb
                               src={property.images[0]}
                               alt={property.title}
                               fill
@@ -502,7 +530,7 @@ export default function AdminPropertiesPage() {
                 <div className="flex gap-3">
                   <div className="relative h-16 w-20 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100">
                     {property.images?.[0] ? (
-                      <Image
+                      <AdminThumb
                         src={property.images[0]}
                         alt={property.title}
                         fill

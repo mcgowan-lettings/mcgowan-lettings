@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  poweredByHeader: false,
   // Next 16.3 writes an AGENTS.md into the repo on every dev start; this
   // project documents itself in CLAUDE.md, so keep the tree clean.
   agentRules: false,
@@ -49,6 +50,7 @@ const nextConfig: NextConfig = {
       },
       { source: "/hero.jpg", headers: brandAssetCache },
       { source: "/hero-mobile.jpg", headers: brandAssetCache },
+      { source: "/hero-desktop.jpg", headers: brandAssetCache },
       { source: "/hero-banner.jpg", headers: brandAssetCache },
       { source: "/mcgowan-logo.png", headers: brandAssetCache },
       { source: "/mcgowan-logo-header.png", headers: brandAssetCache },
@@ -82,6 +84,16 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // Old WordPress pages still linked from bookmarks, directories and the
+      // search index (the trailing-slash 308 runs first, then these).
+      { source: "/current-properties", destination: "/properties", permanent: true },
+      { source: "/advanced-search", destination: "/properties", permanent: true },
+      { source: "/favourites", destination: "/properties", permanent: true },
+      { source: "/contact-us", destination: "/contact", permanent: true },
+      { source: "/feed", destination: "/blog", permanent: true },
+      // Old borough pages → the matching area guide (all four exist).
+      { source: "/property_city/:slug(bury|bolton|manchester|rossendale|rochdale|accrington|burnley)", destination: "/areas/:slug", permanent: true },
+      { source: "/property_city/:path*", destination: "/areas", permanent: true },
       {
         // Legacy WordPress property slugs (text-based, e.g. "/properties/cosy-flat-bury").
         // The `[g-z]` guard requires at least one letter g-z, which excludes our

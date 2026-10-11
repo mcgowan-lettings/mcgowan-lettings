@@ -50,18 +50,42 @@ export async function deleteApplication(id: string, accessToken: string) {
 }
 
 /** Admin-only list read (service role) — keeps PII out of the anon-key data path. */
+// Every column except signature_data_url (~40-70KB each): with it, the list
+// payload grows ~42KB per application and would eventually exceed the
+// function response limit. The signature is fetched per row on expand.
+const LIST_COLUMNS =
+  "id, application_type, property_address, tenant_name, rent_pcm, full_name, email, phone, date_of_birth, ni_number, current_address, period_at_address, employment_status, employer, job_title, employment_start_date, monthly_income, declaration_agreed, declaration_text, signed_name, signed_at, ip_address, user_agent, read, created_at";
+
 export async function listApplications(accessToken: string): Promise<TenantApplicationRow[]> {
   await requireAdmin(accessToken);
   const { data, error } = await supabaseAdmin
     .from("tenant_applications")
-    .select("*")
+    .select(LIST_COLUMNS)
     .order("created_at", { ascending: false })
     .limit(1000);
   if (error) {
-    console.error("listApplications error:", error);
+    console.error("listApplications error:", error.code, error.message);
     throw new Error("Failed to load applications.");
   }
-  return (data ?? []) as TenantApplicationRow[];
+  return ((data ?? []) as unknown as Omit<TenantApplicationRow, "signature_data_url">[]).map((row) => ({
+    ...row,
+    signature_data_url: "",
+  }));
+}
+
+/** Signature image for one application (loaded when its row is expanded). */
+export async function getApplicationSignature(id: string, accessToken: string): Promise<string | null> {
+  await requireAdmin(accessToken);
+  const { data, error } = await supabaseAdmin
+    .from("tenant_applications")
+    .select("signature_data_url")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) {
+    console.error("getApplicationSignature error:", error.code, error.message);
+    return null;
+  }
+  return (data?.signature_data_url as string | null) ?? null;
 }
 
 export async function countUnreadApplications(accessToken: string): Promise<number> {

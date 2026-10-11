@@ -404,6 +404,8 @@ function SignaturePad({
   // name can never end up mixed in the submitted image.
   const toggleMode = () => {
     const nextMode = mode === "draw" ? "type" : "draw";
+    // Switching method clears the pad — don't throw away a signature silently.
+    if (hasInk && !window.confirm("Switching will clear your current signature. Continue?")) return;
     clear();
     setMode(nextMode);
     if (nextMode === "type") {

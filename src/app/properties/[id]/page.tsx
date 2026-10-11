@@ -604,7 +604,7 @@ export default async function PropertyDetailPage({ params }: Props) {
               </h2>
               <Link
                 href="/properties"
-                className="group inline-flex items-center min-h-11 gap-1.5 text-sm font-semibold text-text-muted hover:text-brand-deep transition-colors"
+                className="group inline-flex shrink-0 items-center min-h-11 gap-1.5 whitespace-nowrap text-sm font-semibold text-text-muted hover:text-brand-deep transition-colors"
               >
                 View all
                 <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />

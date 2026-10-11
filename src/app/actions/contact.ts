@@ -2,7 +2,7 @@
 
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { getResend } from "@/lib/resend";
-import { checkLeadThrottle, clientIp, isRecentDuplicate, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
+import { checkLeadThrottle, clientIp, isRecentDuplicate, isSafeLeadEmail, plainSubject, sendPausedNotice } from "@/lib/form-throttle";
 
 function escapeHtml(text: string): string {
   return text
@@ -68,22 +68,35 @@ export async function submitContactForm(formData: {
     return { success: false, error: "Message is required." };
   }
 
+  if (!isSafeLeadEmail(email.trim())) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
+
   // A resend after a dropped connection: already saved and emailed.
-  if (await isRecentDuplicate("contact_submissions", email.trim(), "message", message.trim())) {
+  if (
+    await isRecentDuplicate("contact_submissions", email.trim(), {
+      name: name.trim(),
+      phone: phone?.trim() || null,
+      type: type?.trim() || "General",
+      message: message.trim(),
+    })
+  ) {
     return { success: true };
   }
 
   const ip_address = await clientIp();
-  const throttle = await checkLeadThrottle("contact_submissions", email.trim(), ip_address);
-  if (!throttle.allowed) {
-    return {
-      success: false,
-      error: "You've sent several messages in the last hour — we'll be in touch. For anything urgent, call 0161 797 6967.",
-    };
+  const TOO_MANY = {
+    success: false as const,
+    error: "You've sent several messages in the last hour — we'll be in touch. For anything urgent, call 0161 797 6967.",
+  };
+  // Cheap early reject; the authoritative check runs after the insert.
+  const precheck = await checkLeadThrottle("contact_submissions", email.trim(), ip_address, false);
+  if (!precheck.allowed) {
+    return TOO_MANY;
   }
 
   try {
-    const { error } = await supabaseAdmin.from("contact_submissions").insert({
+    const { data: inserted, error } = await supabaseAdmin.from("contact_submissions").insert({
       ip_address,
       name: name.trim(),
       email: email.trim(),
@@ -91,16 +104,24 @@ export async function submitContactForm(formData: {
       type: type?.trim() || "General",
       message: message.trim(),
       read: false,
-    });
+    }).select("id").single();
 
     if (error) {
       console.error("Supabase contact insert error:", error.code, error.message);
       return { success: false, error: "Something went wrong. Please try again." };
     }
 
+    // Re-count with this row included (see checkLeadThrottle): concurrent
+    // bursts can't exceed the caps. Over → remove our own row, no email.
+    const throttle = await checkLeadThrottle("contact_submissions", email.trim(), ip_address, true);
+    if (!throttle.allowed) {
+      if (inserted?.id) await supabaseAdmin.from("contact_submissions").delete().eq("id", inserted.id);
+      return TOO_MANY;
+    }
+
     // Send email notification to David
     // Resend returns { error } rather than throwing on API failures.
-    if (throttle.sendPausedNotice) await sendPausedNotice("contact");
+    if (!throttle.sendEmail) await sendPausedNotice("contact");
     if (throttle.sendEmail) {
       try {
         const { error: sendError } = await getResend().emails.send({

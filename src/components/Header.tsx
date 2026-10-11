@@ -112,7 +112,7 @@ export default function Header() {
         <nav
           ref={navRef}
           aria-label="Main"
-          className={`hidden lg:flex flex-1 items-center gap-8 min-w-0 overflow-hidden [&>:first-child]:ml-auto ${
+          className={`hidden lg:flex flex-1 items-center gap-8 min-w-0 overflow-hidden p-1 [&>:first-child]:ml-auto ${
             navOverflows ? "invisible" : ""
           }`}
         >

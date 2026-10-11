@@ -67,6 +67,9 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
   // Starts false so SSR/first paint never auto-advances; the effect below
   // enables it after mount unless the user prefers reduced motion.
   const [isAutoPlaying, setIsAutoPlaying] = useState(false);
+  // The Play/Pause control only does anything once hydrated; before that (or
+  // on a device that never hydrates) it would be a dead, mislabelled button.
+  const [hydrated, setHydrated] = useState(false);
   // Rotation also halts while the pointer or keyboard focus is inside the
   // carousel, and resumes only when it leaves (WCAG 2.2.2) — never on a timer.
   const [hoverInside, setHoverInside] = useState(false);
@@ -112,9 +115,10 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
 
   // Seed autoplay from prefers-reduced-motion (runs only in the browser)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time mount flag
+    setHydrated(true);
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-time init from matchMedia on mount
     setIsAutoPlaying(!mq.matches);
   }, []);
 
@@ -308,8 +312,9 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
             ))}
           </div>
 
-          {/* Visible rotation control (WCAG 2.2.2 Pause, Stop, Hide). */}
-          <div className="flex justify-center mt-2">
+          {/* Visible rotation control (WCAG 2.2.2 Pause, Stop, Hide). Hidden
+              (space kept) until hydrated — before that nothing rotates. */}
+          <div className={`flex justify-center mt-2 ${hydrated ? "" : "invisible"}`}>
             <button
               type="button"
               onClick={() => {

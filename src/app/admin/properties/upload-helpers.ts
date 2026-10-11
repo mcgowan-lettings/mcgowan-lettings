@@ -58,6 +58,21 @@ export function safeExtension(file: File, fallback: "jpg" | "mp4" | "pdf"): stri
 }
 
 /**
+ * EPC certificates may be photos/scans: images go through compressImage like
+ * property photos (a phone photo of an EPC is often 3–8MB); PDFs upload
+ * unchanged. If compression fails (e.g. iPad memory pressure) the original
+ * — already capped at 10MB by the caller — is uploaded instead.
+ */
+export async function prepareEpcFile(file: File): Promise<File> {
+  if (file.type === "application/pdf") return file;
+  try {
+    return await compressImage(file);
+  } catch {
+    return file;
+  }
+}
+
+/**
  * Like Promise.allSettled(items.map(fn)) but runs at most `limit` at a time,
  * so a 30-photo batch on an iPad doesn't decode every image at once.
  */
