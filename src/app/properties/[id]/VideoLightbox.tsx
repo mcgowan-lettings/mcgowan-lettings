@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import "plyr/dist/plyr.css";
 
 const MUSIC_VOLUME_KEY = "mcgowan:video-music-volume";
@@ -19,13 +19,21 @@ const MUSIC_LOOP_AT = 113;
 const SVG_VOLUME_ON = `<svg aria-hidden="true" focusable="false" viewBox="0 0 18 18"><path d="M9 1.5v15a.5.5 0 0 1-.85.35L3.9 12.5H1.5A.5.5 0 0 1 1 12V6a.5.5 0 0 1 .5-.5h2.4l4.25-4.35A.5.5 0 0 1 9 1.5z" fill="currentColor"/><path d="M11.96 6.45a.7.7 0 0 1 .98-.05 4 4 0 0 1 0 5.2.7.7 0 1 1-1.04-.94 2.6 2.6 0 0 0 0-3.32.7.7 0 0 1 .06-.89z" fill="currentColor"/><path d="M13.95 3.65a.7.7 0 0 1 .98 0 7 7 0 0 1 0 10.7.7.7 0 0 1-.98-1 5.6 5.6 0 0 0 0-8.7.7.7 0 0 1 0-1z" fill="currentColor"/></svg>`;
 const SVG_VOLUME_OFF = `<svg aria-hidden="true" focusable="false" viewBox="0 0 18 18"><path d="M9 1.5v15a.5.5 0 0 1-.85.35L3.9 12.5H1.5A.5.5 0 0 1 1 12V6a.5.5 0 0 1 .5-.5h2.4l4.25-4.35A.5.5 0 0 1 9 1.5z" fill="currentColor"/><path d="M11.3 6.3a.7.7 0 0 1 1 0L14 8l1.7-1.7a.7.7 0 0 1 1 1L15 9l1.7 1.7a.7.7 0 0 1-1 1L14 10l-1.7 1.7a.7.7 0 0 1-1-1L13 9l-1.7-1.7a.7.7 0 0 1 0-1z" fill="currentColor"/></svg>`;
 
+const FOCUSABLE =
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 export default function VideoLightbox({
   src,
   onClose,
+  returnFocusRef,
 }: {
   src: string;
   onClose: () => void;
+  /** Element to refocus on close. Safari doesn't focus links/buttons on
+   *  click, so document.activeElement isn't a reliable trigger there. */
+  returnFocusRef?: RefObject<HTMLElement | null>;
 }) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const muteBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -80,14 +88,48 @@ export default function VideoLightbox({
     }
   }, [volume]);
 
-  // Focus management: move focus to Close on open, restore it on close
+  // Focus management: move focus to Close on open, trap Tab inside the
+  // dialog, and restore focus to the trigger on close.
   useEffect(() => {
-    const previouslyFocused =
-      document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const activeEl =
+      document.activeElement instanceof HTMLElement && document.activeElement !== document.body
+        ? document.activeElement
+        : null;
+    const restoreTarget = returnFocusRef?.current ?? activeEl;
     closeBtnRef.current?.focus();
-    return () => {
-      previouslyFocused?.focus();
+
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== "Tab") return;
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      const focusables = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
+        (el) => el.getClientRects().length > 0,
+      );
+      if (focusables.length === 0) {
+        e.preventDefault();
+        return;
+      }
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      const current = document.activeElement;
+      const inside = current instanceof Node && dialog.contains(current);
+      if (e.shiftKey) {
+        if (!inside || current === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (!inside || current === last) {
+        e.preventDefault();
+        first.focus();
+      }
     };
+    document.addEventListener("keydown", onTab);
+
+    return () => {
+      document.removeEventListener("keydown", onTab);
+      restoreTarget?.focus();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- capture the trigger once, on open
   }, []);
 
   useEffect(() => {
@@ -218,6 +260,7 @@ export default function VideoLightbox({
 
   return (
     <div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="Virtual tour"

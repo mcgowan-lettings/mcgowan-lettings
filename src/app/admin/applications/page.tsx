@@ -11,6 +11,8 @@ import {
 } from "@/app/actions/applications";
 import type { TenantApplicationRow } from "@/lib/application-types";
 
+const LONDON_TZ = "Europe/London";
+
 export default function AdminApplicationsPage() {
   const [applications, setApplications] = useState<TenantApplicationRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,15 +51,19 @@ export default function AdminApplicationsPage() {
 
   const markRead = async (app: TenantApplicationRow) => {
     if (app.read) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
-    const result = await markApplicationRead(app.id, session.access_token);
-    if (result.success) {
-      setApplications((prev) =>
-        prev.map((a) => (a.id === app.id ? { ...a, read: true } : a))
-      );
-    } else {
-      flash("Failed to mark as read.", "error");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const result = await markApplicationRead(app.id, session.access_token);
+      if (result.success) {
+        setApplications((prev) =>
+          prev.map((a) => (a.id === app.id ? { ...a, read: true } : a))
+        );
+      } else {
+        flash("Failed to mark as read.", "error");
+      }
+    } catch {
+      flash("Failed to mark as read — please refresh and try again.", "error");
     }
   };
 
@@ -74,41 +80,59 @@ export default function AdminApplicationsPage() {
     const unreadIds = applications.filter((a) => !a.read).map((a) => a.id);
     if (unreadIds.length === 0) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        flash("Session expired. Please sign in again.", "error");
+        return;
+      }
 
-    const result = await markAllApplicationsRead(unreadIds, session.access_token);
-    if (!result.success) {
-      flash("Failed to mark all as read.", "error");
-    } else {
-      setApplications((prev) => prev.map((a) => ({ ...a, read: true })));
-      flash("All applications marked as read.", "success");
+      const result = await markAllApplicationsRead(unreadIds, session.access_token);
+      if (!result.success) {
+        flash("Failed to mark all as read.", "error");
+      } else {
+        setApplications((prev) => prev.map((a) => ({ ...a, read: true })));
+        flash("All applications marked as read.", "success");
+      }
+    } catch {
+      flash("Failed to mark all as read — please refresh and try again.", "error");
     }
   };
 
   const deleteApplication = async (id: string) => {
     if (!confirm("Delete this application? This cannot be undone.")) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
     setDeletingId(id);
-    const result = await deleteApplicationAction(id, session.access_token);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        flash("Session expired. Please sign in again.", "error");
+        return;
+      }
+      const result = await deleteApplicationAction(id, session.access_token);
 
-    if (!result.success) {
-      flash(result.error || "Failed to delete application.", "error");
-    } else {
-      setApplications((prev) => prev.filter((a) => a.id !== id));
-      if (expandedId === id) setExpandedId(null);
-      flash("Application deleted.", "success");
+      if (!result.success) {
+        flash(result.error || "Failed to delete application.", "error");
+      } else {
+        setApplications((prev) => prev.filter((a) => a.id !== id));
+        if (expandedId === id) setExpandedId(null);
+        flash("Application deleted.", "success");
+      }
+    } catch {
+      flash("Failed to delete application — please refresh and try again.", "error");
+    } finally {
+      setDeletingId(null);
     }
-    setDeletingId(null);
   };
 
   const downloadPdf = async (id: string) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
     setDownloadingId(id);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        flash("Session expired. Please sign in again.", "error");
+        return;
+      }
       const { base64, filename } = await getApplicationPdf(id, session.access_token);
       const binary = atob(base64);
       const bytes = new Uint8Array(binary.length);
@@ -124,8 +148,9 @@ export default function AdminApplicationsPage() {
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
       flash("Failed to generate PDF.", "error");
+    } finally {
+      setDownloadingId(null);
     }
-    setDownloadingId(null);
   };
 
   const formatDate = (dateStr: string) => {
@@ -144,10 +169,13 @@ export default function AdminApplicationsPage() {
     if (diffHours < 48) {
       return "Yesterday";
     }
+    const londonYear = (d: Date) =>
+      d.toLocaleDateString("en-GB", { year: "numeric", timeZone: LONDON_TZ });
     return date.toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      year: londonYear(date) !== londonYear(now) ? "numeric" : undefined,
+      timeZone: LONDON_TZ,
     });
   };
 
@@ -157,7 +185,9 @@ export default function AdminApplicationsPage() {
     const m = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
     if (m) return `${m[3]}/${m[2]}/${m[1]}`;
     const d = new Date(value);
-    return isNaN(d.getTime()) ? value : d.toLocaleDateString("en-GB");
+    return isNaN(d.getTime())
+      ? value
+      : d.toLocaleDateString("en-GB", { timeZone: LONDON_TZ });
   };
 
   const formatDateTime = (value: string) => {
@@ -170,6 +200,7 @@ export default function AdminApplicationsPage() {
           year: "numeric",
           hour: "2-digit",
           minute: "2-digit",
+          timeZone: LONDON_TZ,
         });
   };
 
@@ -289,7 +320,7 @@ export default function AdminApplicationsPage() {
                           {formatDate(app.created_at)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-text-muted">
+                      <p className="mt-0.5 text-xs text-text-muted break-words">
                         {app.application_type === "guarantor" && app.tenant_name
                           ? `For ${app.tenant_name} · `
                           : ""}
@@ -386,7 +417,7 @@ export default function AdminApplicationsPage() {
                           </div>
                           <div className="sm:col-span-2">
                             <span className="text-text-muted">Current address: </span>
-                            <span className="text-dark whitespace-pre-wrap">{app.current_address}</span>
+                            <span className="text-dark whitespace-pre-wrap break-words">{app.current_address}</span>
                           </div>
                         </div>
                       </div>

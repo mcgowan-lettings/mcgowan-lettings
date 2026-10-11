@@ -5,6 +5,8 @@ import { Metadata } from "next";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { safeJsonLd } from "@/lib/json-ld";
 import { getProperty } from "./get-property";
+import { SITE_URL } from "@/lib/site";
+import { formatPrice } from "../filters";
 
 // Cached statically; updateProperty / togglePropertyActive / deleteProperty
 // all call `revalidatePath(/properties/${id})` so edits, deactivation and
@@ -34,25 +36,30 @@ type Props = {
   params: Promise<{ id: string }>;
 };
 
+// `description` is stored as sanitized HTML; strip tags so <p> etc. don't
+// land in meta descriptions or JSON-LD (mirrors blog/[slug]).
+function stripHtml(html: string | null | undefined): string {
+  return (html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const property = await getProperty(id);
 
-  if (!property) {
-    return { title: "Property Not Found | McGowan Lettings" };
+  // Inactive listings 404 in the page body; don't leak their title/price
+  // into <head> either.
+  if (!property || !property.active) {
+    return {
+      title: "Property Not Found | McGowan Lettings",
+      robots: { index: false, follow: false },
+    };
   }
 
   const title = `${property.title} | McGowan Lettings`;
-  // `description` is stored as sanitized HTML; strip tags so <p> etc. don't
-  // land in the meta description (mirrors blog/[slug]).
-  const plainDescription = (property.description ?? "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, 160);
+  const plainDescription = stripHtml(property.description).slice(0, 160);
   const description =
     plainDescription ||
-    `${property.beds} bed ${property.type?.toLowerCase() || "property"} to rent in ${property.location} — £${property.price?.toLocaleString()}/pcm. View details and book a viewing with McGowan Lettings.`;
+    `${property.beds === 0 ? "Studio" : `${property.beds} bed`} ${property.type?.toLowerCase() || "property"} to rent in ${property.location} — £${formatPrice(property.price)}/pcm. View details and book a viewing with McGowan Lettings.`;
   const images: string[] = property.images ?? [];
   const ogImage = images[0] || "/hero.jpg";
 
@@ -170,8 +177,8 @@ export default async function PropertyDetailPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "RealEstateListing",
     name: property.title,
-    description: property.description || `${property.title} in ${property.location}`,
-    url: `https://mcgowanlettings.co.uk/properties/${id}`,
+    description: stripHtml(property.description) || `${property.title} in ${property.location}`,
+    url: `${SITE_URL}/properties/${id}`,
     image: images[0] || undefined,
     offers: {
       "@type": "Offer",
@@ -193,8 +200,8 @@ export default async function PropertyDetailPage({ params }: Props) {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://mcgowanlettings.co.uk" },
-      { "@type": "ListItem", position: 2, name: "Properties", item: "https://mcgowanlettings.co.uk/properties" },
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Properties", item: `${SITE_URL}/properties` },
       { "@type": "ListItem", position: 3, name: property.title },
     ],
   };
@@ -247,7 +254,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                 )}
               </div>
               <h1 className="font-heading text-4xl md:text-5xl font-semibold text-dark mb-2">
-                £{property.price?.toLocaleString()}
+                £{formatPrice(property.price)}
                 <span className="text-xl text-text-muted font-body font-normal ml-1">pcm</span>
               </h1>
               <p className="text-dark font-medium text-lg mt-1">
@@ -495,7 +502,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                         className="property-image object-cover transition-transform duration-700 ease-out"
                       />
                       <div className="absolute bottom-3 left-3 bg-dark/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-sm">
-                        <span className="text-lg font-semibold">£{p.price.toLocaleString()}</span>
+                        <span className="text-lg font-semibold">£{formatPrice(p.price)}</span>
                         <span className="text-white/50 text-xs ml-1">pcm</span>
                       </div>
                       <PropertyCardBadge status={p.status} isNew={p.is_new} />
@@ -511,7 +518,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                       <div className="flex items-center gap-4 pt-4 border-t border-black/5">
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BedIcon className="w-4 h-4" />
-                          <span>{p.beds} {p.beds === 1 ? "Bed" : "Beds"}</span>
+                          <span>{p.beds === 0 ? "Studio" : `${p.beds} ${p.beds === 1 ? "Bed" : "Beds"}`}</span>
                         </div>
                         <div className="flex items-center gap-1.5 text-sm text-text-muted">
                           <BathIcon className="w-4 h-4" />

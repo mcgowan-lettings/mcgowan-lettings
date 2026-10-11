@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
-import { checkIsAdmin } from "@/app/actions/admin";
+import { getAdminSessionStatus } from "@/app/actions/admin-session";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -20,25 +20,57 @@ export default function AdminLoginPage() {
     type: "success" | "error";
   } | null>(null);
 
+  // Already signed in as an admin? Skip the form and go to the dashboard.
+  // Only a definite "admin" verdict redirects; anything else shows the form.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        if (!session || cancelled) return;
+        const status = await getAdminSessionStatus(session.access_token);
+        if (!cancelled && status === "admin") router.replace("/admin");
+      } catch {
+        // Ignore — the login form is still usable.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     setResetMessage(null);
     setResetLoading(true);
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
-      resetEmail,
-      { redirectTo: `${window.location.origin}/admin` }
-    );
+    try {
+      // The link lands on /admin/reset-password, which waits for the recovery
+      // session and calls supabase.auth.updateUser. This URL must be in the
+      // Supabase Auth redirect allowlist or Supabase falls back to Site URL.
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+        resetEmail,
+        { redirectTo: `${window.location.origin}/admin/reset-password` }
+      );
 
-    if (resetError) {
-      setResetMessage({ text: resetError.message, type: "error" });
-    } else {
+      if (resetError) {
+        setResetMessage({ text: resetError.message, type: "error" });
+      } else {
+        setResetMessage({
+          text: "Password reset email sent. Check your inbox.",
+          type: "success",
+        });
+      }
+    } catch {
       setResetMessage({
-        text: "Password reset email sent. Check your inbox.",
-        type: "success",
+        text: "Couldn't send the reset email. Please try again.",
+        type: "error",
       });
+    } finally {
+      setResetLoading(false);
     }
-    setResetLoading(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -46,26 +78,35 @@ export default function AdminLoginPage() {
     setError("");
     setLoading(true);
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (authError) {
-      setError(authError.message);
+      if (authError) {
+        setError(authError.message);
+        setLoading(false);
+        return;
+      }
+
+      const status = await getAdminSessionStatus(data.session.access_token);
+      if (status !== "admin") {
+        await supabase.auth.signOut();
+        setError(
+          status === "error"
+            ? "Couldn't verify your access — please try again."
+            : "You do not have admin access."
+        );
+        setLoading(false);
+        return;
+      }
+
+      router.replace("/admin");
+    } catch {
+      setError("Couldn't sign in — check your connection and try again.");
       setLoading(false);
-      return;
     }
-
-    const isAdmin = await checkIsAdmin(data.session.access_token);
-    if (!isAdmin) {
-      await supabase.auth.signOut();
-      setError("You do not have admin access.");
-      setLoading(false);
-      return;
-    }
-
-    router.replace("/admin");
   };
 
   return (

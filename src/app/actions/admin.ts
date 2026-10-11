@@ -4,25 +4,22 @@ import { revalidatePath } from "next/cache";
 import { supabaseAdmin } from "@/lib/supabase-server";
 import { requireAdmin } from "@/lib/auth";
 import { sanitizeHtml } from "@/lib/sanitize-html";
+import { generateSlug } from "@/lib/slug";
 
 // Storage paths are derived from public URLs; warn instead of silently
 // skipping when a URL doesn't contain the expected bucket segment.
 function extractStoragePath(url: string | null | undefined): string | null {
   if (!url) return null;
-  const path = url.split("/property-images/")[1];
-  if (!path) {
+  const raw = url.split("/property-images/")[1]?.split("?")[0];
+  if (!raw) {
     console.warn("Could not derive storage path from URL:", url);
     return null;
   }
-  return path;
-}
-
-export async function checkIsAdmin(accessToken: string): Promise<boolean> {
+  // Public URLs are percent-encoded; storage.remove() wants the raw path.
   try {
-    await requireAdmin(accessToken);
-    return true;
+    return decodeURIComponent(raw);
   } catch {
-    return false;
+    return raw;
   }
 }
 
@@ -148,10 +145,18 @@ export async function createProperty(data: PropertyData, accessToken: string) {
 export async function updateProperty(id: string, data: Partial<PropertyData> & { updated_at: string }, accessToken: string) {
   await requireAdmin(accessToken);
   if (data.description) data.description = sanitizeHtml(data.description);
-  const { error } = await supabaseAdmin.from("properties").update(data).eq("id", id);
-  if (error) return { success: false, error: error.message };
+  // Return the stored updated_at: a DB trigger overwrites it with now(), and
+  // the editor's "changed elsewhere?" check compares against this value.
+  const { data: row, error } = await supabaseAdmin
+    .from("properties")
+    .update(data)
+    .eq("id", id)
+    .select("updated_at")
+    .maybeSingle();
+  if (error) return { success: false, error: error.message, updated_at: null };
+  if (!row) return { success: false, error: "This property no longer exists — it may have been deleted.", updated_at: null };
   revalidatePropertyPaths(id);
-  return { success: true, error: "" };
+  return { success: true, error: "", updated_at: (row.updated_at as string | null) ?? null };
 }
 
 export async function togglePropertyActive(id: string, active: boolean, accessToken: string) {
@@ -202,13 +207,16 @@ export type BlogPostData = {
 
 export async function createBlogPost(data: BlogPostData, accessToken: string) {
   await requireAdmin(accessToken);
+  data.slug = generateSlug(data.slug);
+  if (!data.slug) return { success: false, error: "The URL slug needs at least one letter or number." };
 
-  const { data: existing } = await supabaseAdmin
+  const { data: existing, error: dupError } = await supabaseAdmin
     .from("blog_posts")
     .select("id")
     .eq("slug", data.slug)
     .maybeSingle();
 
+  if (dupError) return { success: false, error: dupError.message };
   if (existing) return { success: false, error: "A blog post with this URL slug already exists." };
 
   if (data.content) data.content = sanitizeHtml(data.content);
@@ -227,6 +235,18 @@ export async function updateBlogPost(
   previousSlug?: string
 ) {
   await requireAdmin(accessToken);
+  if (data.slug !== undefined) {
+    data.slug = generateSlug(data.slug);
+    if (!data.slug) return { success: false, error: "The URL slug needs at least one letter or number." };
+    const { data: existing, error: dupError } = await supabaseAdmin
+      .from("blog_posts")
+      .select("id")
+      .eq("slug", data.slug)
+      .neq("id", id)
+      .maybeSingle();
+    if (dupError) return { success: false, error: dupError.message };
+    if (existing) return { success: false, error: "A blog post with this URL slug already exists." };
+  }
   if (data.content) data.content = sanitizeHtml(data.content);
   const { error } = await supabaseAdmin.from("blog_posts").update(data).eq("id", id);
   if (error) return { success: false, error: error.message };
@@ -314,7 +334,8 @@ export async function updateReviewCount(count: number, accessToken: string) {
       { onConflict: "key" }
     );
   if (error) return { success: false, error: error.message };
-  revalidatePath("/");
+  // The count feeds aggregateRating JSON-LD in the root layout (every page).
+  revalidatePath("/", "layout");
   return { success: true, error: "" };
 }
 

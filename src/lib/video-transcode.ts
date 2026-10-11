@@ -112,11 +112,25 @@ async function runWebCodecsConversion(
     return { conversion, target };
   };
 
-  const { conversion, target } = await withTimeout(
-    setup(),
-    SETUP_TIMEOUT_MS,
-    `Preparing the video timed out. ${SEND_TO_VIKTOR}`,
-  );
+  const setupPromise = setup();
+  let built: Awaited<typeof setupPromise>;
+  try {
+    built = await withTimeout(
+      setupPromise,
+      SETUP_TIMEOUT_MS,
+      `Preparing the video timed out. ${SEND_TO_VIKTOR}`,
+    );
+  } catch (err) {
+    // The timeout only stops us waiting — setup() keeps running. If it builds
+    // a conversion after we've given up, cancel it so it can't hold decoders
+    // or memory while the MediaRecorder fallback runs.
+    setupPromise.then(
+      ({ conversion }) => conversion.cancel().catch(() => {}),
+      () => {},
+    );
+    throw err;
+  }
+  const { conversion, target } = built;
 
   onProgress?.("transcoding", 0);
 
@@ -160,6 +174,12 @@ function pickMediaRecorderMime(): string {
   return "";
 }
 
+const INTERRUPTED_MESSAGE =
+  "Video conversion was interrupted — keep this tab open while converting.";
+
+/** Thrown when the fallback recorder was interrupted (tab hidden / playback paused). */
+class ConversionInterruptedError extends Error {}
+
 async function transcodeWithMediaRecorder(
   file: File,
   onProgress?: (stage: TranscodeStage, ratio: number) => void
@@ -171,109 +191,178 @@ async function transcodeWithMediaRecorder(
 
   onProgress?.("loading", 0);
 
+  const objectUrl = URL.createObjectURL(file);
   const video = document.createElement("video");
   video.muted = true;
   video.playsInline = true;
   video.preload = "auto";
-  video.src = URL.createObjectURL(file);
+  video.src = objectUrl;
 
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error("Video took too long to load.")), 30000);
-    video.onloadeddata = () => { clearTimeout(timeout); resolve(); };
-    video.onerror = () => { clearTimeout(timeout); reject(new Error("Could not read this video file.")); };
-  });
-
-  if (!video.videoWidth || !video.videoHeight) {
-    throw new Error("Could not read video dimensions.");
-  }
-
-  const srcW = video.videoWidth;
-  const srcH = video.videoHeight;
-  const scale = Math.min(1, 1920 / Math.max(srcW, srcH));
-  const outW = Math.round(srcW * scale) & ~1;
-  const outH = Math.round(srcH * scale) & ~1;
-
-  const canvas = document.createElement("canvas");
-  canvas.width = outW;
-  canvas.height = outH;
-  const ctx = canvas.getContext("2d")!;
-
-  const stream = canvas.captureStream(30);
-  const recorder = new MediaRecorder(stream, {
-    mimeType,
-    videoBitsPerSecond: 5_000_000,
-  });
-
-  const chunks: Blob[] = [];
-  recorder.ondataavailable = (e) => {
-    if (e.data.size > 0) chunks.push(e.data);
+  let recorder: MediaRecorder | undefined;
+  let stream: MediaStream | undefined;
+  let watchdog: ReturnType<typeof setInterval> | undefined;
+  let onVisibility: (() => void) | undefined;
+  const stopRecorder = () => {
+    if (recorder && recorder.state !== "inactive") {
+      try { recorder.stop(); } catch { /* already stopped */ }
+    }
   };
 
-  const done = new Promise<Blob>((resolve, reject) => {
-    recorder.onstop = () => {
-      const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
-      resolve(new Blob(chunks, { type }));
-    };
-    recorder.onerror = () => reject(new Error("Video conversion failed."));
-  });
-
-  recorder.start(1000);
-  onProgress?.("transcoding", 0);
-
   try {
-    await withTimeout(video.play(), 30_000, "Video playback did not start.");
-  } catch {
-    recorder.stop();
-    throw new Error("Browser blocked video playback during conversion.");
-  }
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Video took too long to load.")), 30000);
+      video.onloadeddata = () => { clearTimeout(timeout); resolve(); };
+      video.onerror = () => { clearTimeout(timeout); reject(new Error("Could not read this video file.")); };
+    });
 
-  const duration = video.duration;
+    if (!video.videoWidth || !video.videoHeight) {
+      throw new Error("Could not read video dimensions.");
+    }
 
-  let lastTime = -1;
-  let lastAdvanceAt = Date.now();
-  await new Promise<void>((resolve, reject) => {
-    video.onended = () => {
-      recorder.stop();
-      resolve();
+    const srcW = video.videoWidth;
+    const srcH = video.videoHeight;
+    const scale = Math.min(1, 1920 / Math.max(srcW, srcH));
+    const outW = Math.round(srcW * scale) & ~1;
+    const outH = Math.round(srcH * scale) & ~1;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = outW;
+    canvas.height = outH;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      throw new Error(`Not enough memory to convert this video. ${SEND_TO_VIKTOR}`);
+    }
+
+    stream = canvas.captureStream(30);
+    const rec = new MediaRecorder(stream, {
+      mimeType,
+      videoBitsPerSecond: 5_000_000,
+    });
+    recorder = rec;
+
+    const chunks: Blob[] = [];
+    rec.ondataavailable = (e) => {
+      if (e.data.size > 0) chunks.push(e.data);
     };
-    const drawFrame = () => {
-      if (video.currentTime !== lastTime) {
-        lastTime = video.currentTime;
-        lastAdvanceAt = Date.now();
-      } else if (Date.now() - lastAdvanceAt > STALL_TIMEOUT_MS) {
-        recorder.stop();
-        reject(new Error(`Converting the video stalled. ${SEND_TO_VIKTOR}`));
-        return;
-      }
-      if (video.ended || video.paused) {
-        recorder.stop();
-        resolve();
-        return;
-      }
-      ctx.drawImage(video, 0, 0, outW, outH);
-      if (duration && isFinite(duration)) {
-        onProgress?.("transcoding", Math.min(video.currentTime / duration, 1));
-      }
-      requestAnimationFrame(drawFrame);
-    };
-    drawFrame();
-  });
 
-  const blob = await done;
-  URL.revokeObjectURL(video.src);
+    const done = new Promise<Blob>((resolve, reject) => {
+      rec.onstop = () => {
+        const type = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
+        resolve(new Blob(chunks, { type }));
+      };
+      rec.onerror = () => reject(new Error("Video conversion failed."));
+    });
+    // Avoid an unhandled rejection if we bail out before awaiting it.
+    done.catch(() => {});
 
-  // A broken encoder can "finish" with a near-empty file (Safari 27.0.1 gave
-  // 13 KB for a 2-minute clip). Real output is hundreds of KB per second, so
-  // anything under ~20 KB/s is a failed recording, not a video worth uploading.
-  if (blob.size < Math.max(50_000, (isFinite(duration) ? duration : 0) * 20_000)) {
-    throw new Error(`Converting the video failed. ${SEND_TO_VIKTOR}`);
+    rec.start(1000);
+    onProgress?.("transcoding", 0);
+
+    try {
+      await withTimeout(video.play(), 30_000, "Video playback did not start.");
+    } catch {
+      throw new Error("Browser blocked video playback during conversion.");
+    }
+
+    const duration = video.duration;
+    const hasDuration = !!duration && isFinite(duration);
+
+    // The recording only contains frames we actually drew, so "finished" means
+    // we drew up to (near) the end. A background tab pauses playback and/or
+    // rAF, which previously resolved as success with a truncated video.
+    let lastDrawnTime = 0;
+    let lastTime = -1;
+    let lastAdvanceAt = Date.now();
+    await new Promise<void>((resolve, reject) => {
+      let finished = false;
+      const finish = (err?: Error) => {
+        if (finished) return;
+        finished = true;
+        stopRecorder();
+        if (err) reject(err);
+        else resolve();
+      };
+      const reachedEnd = () => !hasDuration || lastDrawnTime >= duration * 0.95;
+
+      onVisibility = () => {
+        if (document.hidden) {
+          video.pause();
+          finish(new ConversionInterruptedError(INTERRUPTED_MESSAGE));
+        }
+      };
+      document.addEventListener("visibilitychange", onVisibility);
+
+      video.onended = () => {
+        finish(reachedEnd() ? undefined : new ConversionInterruptedError(INTERRUPTED_MESSAGE));
+      };
+      video.onpause = () => {
+        // "pause" also fires just before "ended"; only a pause short of the
+        // end is an interruption.
+        if (!video.ended) finish(new ConversionInterruptedError(INTERRUPTED_MESSAGE));
+      };
+
+      // Timer-based so a stall is caught even when rAF is throttled to zero.
+      watchdog = setInterval(() => {
+        if (Date.now() - lastAdvanceAt > STALL_TIMEOUT_MS) {
+          finish(new Error(`Converting the video stalled. ${SEND_TO_VIKTOR}`));
+        }
+      }, 5_000);
+
+      const drawFrame = () => {
+        if (finished) return;
+        if (video.currentTime !== lastTime) {
+          lastTime = video.currentTime;
+          lastAdvanceAt = Date.now();
+        }
+        if (video.ended) {
+          finish(reachedEnd() ? undefined : new ConversionInterruptedError(INTERRUPTED_MESSAGE));
+          return;
+        }
+        if (video.paused) {
+          finish(new ConversionInterruptedError(INTERRUPTED_MESSAGE));
+          return;
+        }
+        try {
+          ctx.drawImage(video, 0, 0, outW, outH);
+        } catch {
+          finish(new Error(`Converting the video failed. ${SEND_TO_VIKTOR}`));
+          return;
+        }
+        lastDrawnTime = video.currentTime;
+        if (hasDuration) {
+          onProgress?.("transcoding", Math.min(video.currentTime / duration, 1));
+        }
+        requestAnimationFrame(drawFrame);
+      };
+      drawFrame();
+    });
+
+    const blob = await done;
+
+    // A broken encoder can "finish" with a near-empty file (Safari 27.0.1 gave
+    // 13 KB for a 2-minute clip). Real output is hundreds of KB per second, so
+    // anything under ~20 KB/s is a failed recording, not a video worth uploading.
+    if (blob.size < Math.max(50_000, (hasDuration ? duration : 0) * 20_000)) {
+      throw new Error(`Converting the video failed. ${SEND_TO_VIKTOR}`);
+    }
+
+    const outExt = mimeType.startsWith("video/mp4") ? ".mp4" : ".webm";
+    const outType = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
+    const newName = file.name.replace(/\.[^.]+$/, "") + outExt;
+
+    return new File([blob], newName, { type: outType });
+  } finally {
+    clearInterval(watchdog);
+    if (onVisibility) document.removeEventListener("visibilitychange", onVisibility);
+    stopRecorder();
+    stream?.getTracks().forEach((t) => t.stop());
+    video.onended = null;
+    video.onpause = null;
+    video.pause();
+    video.removeAttribute("src");
+    video.load();
+    URL.revokeObjectURL(objectUrl);
   }
-
-  const outExt = mimeType.startsWith("video/mp4") ? ".mp4" : ".webm";
-  const outType = mimeType.startsWith("video/mp4") ? "video/mp4" : "video/webm";
-  const newName = file.name.replace(/\.[^.]+$/, "") + outExt;
-
-  return new File([blob], newName, { type: outType });
 }
 
 function supportsWebCodecs(): boolean {
@@ -295,7 +384,10 @@ export async function transcodeVideoToMp4(
       // too do we surface the original (friendlier, actionable) error.
       try {
         return await transcodeWithMediaRecorder(file, onProgress);
-      } catch {
+      } catch (fallbackErr) {
+        // An interruption is actionable (keep the tab open), so surface it
+        // rather than the WebCodecs error.
+        if (fallbackErr instanceof ConversionInterruptedError) throw fallbackErr;
         throw webCodecsErr;
       }
     }

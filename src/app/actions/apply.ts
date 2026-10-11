@@ -54,6 +54,23 @@ function ageInYears(dob: Date, now: Date): number {
   return age;
 }
 
+/** Today's date in the UK as a UTC-midnight Date, so the 18+ check flips on
+ * the applicant's birthday as the UK sees it (the server runs in UTC). */
+function ukToday(): Date {
+  const ymd = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/London",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return new Date(`${ymd}T00:00:00Z`);
+}
+
+/** Escape LIKE wildcards so an email is matched literally by ilike. */
+function escapeLike(s: string): string {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`);
+}
+
 function formatDate(iso: string | null): string {
   if (!iso) return "—";
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
@@ -128,7 +145,7 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   if (!date_of_birth) return { success: false, error: "Date of birth is required." };
   const dob = parseIsoDate(date_of_birth);
   if (!dob) return { success: false, error: "Please enter a valid date of birth." };
-  const age = ageInYears(dob, new Date());
+  const age = ageInYears(dob, ukToday());
   if (age < 18) return { success: false, error: "Applicants must be at least 18 years old." };
   if (age > 120) return { success: false, error: "Please enter a valid date of birth." };
 
@@ -194,7 +211,17 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   try {
     const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    const [byIp, byEmail] = await Promise.all([
+    // Per-email cap counts plus-address variants (a+1@x, a+2@x) as one inbox.
+    const at = email.lastIndexOf("@");
+    const local = email.slice(0, at).split("+")[0];
+    const domain = email.slice(at + 1);
+    const countEmail = (pattern: string) =>
+      supabaseAdmin
+        .from("tenant_applications")
+        .select("id", { count: "exact", head: true })
+        .ilike("email", pattern)
+        .gte("created_at", dayAgo);
+    const [byIp, byEmail, byPlusEmail] = await Promise.all([
       ip_address
         ? supabaseAdmin
             .from("tenant_applications")
@@ -202,17 +229,16 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
             .eq("ip_address", ip_address)
             .gte("created_at", hourAgo)
         : Promise.resolve({ count: 0, error: null }),
-      supabaseAdmin
-        .from("tenant_applications")
-        .select("id", { count: "exact", head: true })
-        .ilike("email", email)
-        .gte("created_at", dayAgo),
+      countEmail(`${escapeLike(local)}@${escapeLike(domain)}`),
+      countEmail(`${escapeLike(local)}+%@${escapeLike(domain)}`),
     ]);
-    if (byIp.error || byEmail.error) {
-      console.error("Application throttle check error:", byIp.error ?? byEmail.error);
+    const throttleError = byIp.error ?? byEmail.error ?? byPlusEmail.error;
+    if (throttleError) {
+      console.error("Application throttle check error:", throttleError);
       return { success: false, error: "Something went wrong. Please try again." };
     }
-    if ((byIp.count ?? 0) >= MAX_PER_IP_PER_HOUR || (byEmail.count ?? 0) >= MAX_PER_EMAIL_PER_DAY) {
+    const emailCount = (byEmail.count ?? 0) + (byPlusEmail.count ?? 0);
+    if ((byIp.count ?? 0) >= MAX_PER_IP_PER_HOUR || emailCount >= MAX_PER_EMAIL_PER_DAY) {
       return {
         success: false,
         error: "Too many applications have been submitted recently. Please try again later or call us on 0161 797 6967.",

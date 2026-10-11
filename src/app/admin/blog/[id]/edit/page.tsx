@@ -9,16 +9,7 @@ import { compressImage } from "@/lib/compress-image";
 import { deleteBlogPost as deleteBlogPostAction, updateBlogPost, removeStorageFiles } from "@/app/actions/admin";
 import UnsplashPicker from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
-
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { generateSlug } from "@/lib/slug";
 
 export default function EditBlogPostPage() {
   const router = useRouter();
@@ -39,6 +30,8 @@ export default function EditBlogPostPage() {
   // the old URL is revalidated when it changes.
   const savedCover = useRef("");
   const savedSlug = useRef("");
+  // Mirror of savedSlug for render (refs can't be read during render).
+  const [liveSlug, setLiveSlug] = useState("");
 
   const [form, setForm] = useState({
     title: "",
@@ -74,6 +67,7 @@ export default function EditBlogPostPage() {
       setCoverImage(data.cover_image ?? "");
       savedCover.current = data.cover_image ?? "";
       savedSlug.current = data.slug;
+      setLiveSlug(data.slug);
       setLoading(false);
     })();
     return () => {
@@ -81,14 +75,10 @@ export default function EditBlogPostPage() {
     };
   }, [id]);
 
+  // Unlike the new-post page, the title never rewrites the slug here: the post
+  // may already be live and indexed, and a silent slug change 404s the old URL.
   const updateField = (field: string, value: string | boolean) => {
-    setForm((prev) => {
-      const updated = { ...prev, [field]: value };
-      if (field === "title" && typeof value === "string") {
-        updated.slug = generateSlug(value);
-      }
-      return updated;
-    });
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
 
   /** Delete a cover from storage only if it was uploaded this session (unsaved). */
@@ -156,22 +146,9 @@ export default function EditBlogPostPage() {
       setSaving(false);
       return;
     }
-    if (!form.slug.trim()) {
-      setError("Slug is empty. The title needs to contain letters or numbers — or edit the slug manually.");
-      setSaving(false);
-      return;
-    }
-
-    // Check for duplicate slug (exclude current post)
-    const { data: existing } = await supabase
-      .from("blog_posts")
-      .select("id")
-      .eq("slug", form.slug)
-      .neq("id", id)
-      .maybeSingle();
-
-    if (existing) {
-      setError("A blog post with this URL slug already exists. Please change the title or edit the slug.");
+    const slug = generateSlug(form.slug);
+    if (!slug) {
+      setError("The URL slug needs at least one letter or number.");
       setSaving(false);
       return;
     }
@@ -183,15 +160,23 @@ export default function EditBlogPostPage() {
       return;
     }
 
-    const result = await updateBlogPost(id, {
-      title: form.title,
-      slug: form.slug,
+    // The action checks for duplicate slugs server-side.
+    let result: Awaited<ReturnType<typeof updateBlogPost>>;
+    try {
+      result = await updateBlogPost(id, {
+        title: form.title,
+        slug,
       excerpt: form.excerpt || null,
       content: form.content || null,
-      cover_image: coverImage || null,
-      published: form.published,
-      updated_at: new Date().toISOString(),
-    }, session.access_token, savedSlug.current);
+        cover_image: coverImage || null,
+        published: form.published,
+        updated_at: new Date().toISOString(),
+      }, session.access_token, savedSlug.current);
+    } catch {
+      setError("Couldn't save — your session may have expired. Copy any unsaved text, then refresh and sign in again.");
+      setSaving(false);
+      return;
+    }
 
     if (!result.success) {
       setError(result.error);
@@ -205,7 +190,9 @@ export default function EditBlogPostPage() {
       removeStorageFiles([savedCover.current], session.access_token).catch(() => {});
     }
     savedCover.current = coverImage;
-    savedSlug.current = form.slug;
+    savedSlug.current = slug;
+    setLiveSlug(slug);
+    setForm((prev) => ({ ...prev, slug }));
 
     setSuccess("Post updated successfully.");
     setSaving(false);
@@ -218,15 +205,28 @@ export default function EditBlogPostPage() {
     }
 
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) {
+      setError("Session expired. Please sign in again.");
+      return;
+    }
     setDeleting(true);
-    const result = await deleteBlogPostAction(id, coverImage || null, session.access_token, form.slug);
+    // Use the *saved* cover and slug: those are what's live. An unsaved
+    // replacement cover is removed separately.
+    let result: Awaited<ReturnType<typeof deleteBlogPostAction>>;
+    try {
+      result = await deleteBlogPostAction(id, savedCover.current || null, session.access_token, savedSlug.current);
+    } catch {
+      setError("Couldn't delete — your session may have expired. Refresh and sign in again.");
+      setDeleting(false);
+      return;
+    }
 
     if (!result.success) {
       setError(result.error);
       setDeleting(false);
       return;
     }
+    await removeUnsavedCover(coverImage).catch(() => {});
 
     router.push("/admin/blog");
   };
@@ -308,10 +308,13 @@ export default function EditBlogPostPage() {
               type="text"
               value={form.slug}
               onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))}
+              onBlur={(e) => setForm((prev) => ({ ...prev, slug: generateSlug(e.target.value) }))}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-text-muted outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
             />
             <p className="text-xs text-text-muted mt-1.5">
-              Auto-generated from title. Edit only if needed.
+              {form.slug !== liveSlug
+                ? "Changing the slug changes the post's web address — existing links to it will stop working."
+                : "The post's web address. Changing the title doesn't change it."}
             </p>
           </div>
 

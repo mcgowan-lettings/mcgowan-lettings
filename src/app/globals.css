@@ -138,6 +138,8 @@ a[data-fancybox]:focus-visible {
 }
 
 /* Rendered rich text on public pages */
+/* Long URLs / unbroken strings in pasted content must wrap, not overflow phones. */
+.rich-content { overflow-wrap: anywhere; }
 .rich-content p { margin: 0 0 1rem; line-height: 1.8; color: var(--color-text-muted); }
 .rich-content p:last-child { margin-bottom: 0; }
 .rich-content h2 {

@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 import { supabaseAdmin } from "@/lib/supabase-server";
+import { SITE_URL } from "@/lib/site";
 
 // Without this the sitemap is prerendered once at deploy and new listings and
 // posts never appear until the next push. Admin actions also call
@@ -7,7 +8,7 @@ import { supabaseAdmin } from "@/lib/supabase-server";
 export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = "https://mcgowanlettings.co.uk";
+  const baseUrl = SITE_URL;
 
   // Static pages
   const staticPages: MetadataRoute.Sitemap = [
@@ -34,11 +35,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   // Dynamic property pages. The hard limit is generous (David has ~18 active
   // listings; the limit just prevents an unbounded query from timing out the
   // sitemap if the table ever balloons).
-  const { data: properties } = await supabaseAdmin
+  // Throw on query errors: a failed ISR regeneration then keeps serving the
+  // last good sitemap instead of caching one with every listing missing.
+  const { data: properties, error: propertiesError } = await supabaseAdmin
     .from("properties")
     .select("id, updated_at")
     .eq("active", true)
     .limit(5000);
+  if (propertiesError) throw new Error(`sitemap: properties query failed: ${propertiesError.message}`);
 
   const propertyPages: MetadataRoute.Sitemap = (properties ?? []).map((p) => ({
     url: `${baseUrl}/properties/${p.id}`,
@@ -48,11 +52,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Dynamic blog pages. Same rationale as the property limit above.
-  const { data: posts } = await supabaseAdmin
+  const { data: posts, error: postsError } = await supabaseAdmin
     .from("blog_posts")
     .select("slug, updated_at")
     .eq("published", true)
     .limit(5000);
+  if (postsError) throw new Error(`sitemap: blog query failed: ${postsError.message}`);
 
   const blogPages: MetadataRoute.Sitemap = (posts ?? []).map((p) => ({
     url: `${baseUrl}/blog/${p.slug}`,

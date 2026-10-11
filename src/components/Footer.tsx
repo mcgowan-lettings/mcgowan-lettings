@@ -93,7 +93,12 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="flex flex-col items-center pt-8 gap-4 text-center">
           <p className="text-white/30 text-xs">
-            &copy; {new Date().getFullYear()} McGowan Residential Lettings Ltd. All rights reserved.
+            &copy;{" "}
+            {/* Prerendered pages bake in the build year; after New Year the
+                client's year differs until the next rebuild. Suppress the
+                benign text mismatch rather than hydrate-erroring. */}
+            <span suppressHydrationWarning>{new Date().getFullYear()}</span>{" "}
+            McGowan Residential Lettings Ltd. All rights reserved.
           </p>
           <div className="flex items-center justify-center gap-2 text-white/30 text-xs">
             <span>Regulated by</span>

@@ -11,6 +11,15 @@ import { compressImage } from "@/lib/compress-image";
 import { transcodeVideoToMp4, MAX_VIDEO_BYTES } from "@/lib/video-transcode";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import RichTextEditor from "@/components/RichTextEditor";
+import {
+  ACTION_THREW_MESSAGE,
+  STALE_UPLOAD_CHECK_MS,
+  findMissingUploads,
+  mapSettledWithConcurrency,
+  parseWholeNumber,
+  safeExtension,
+  storagePathFromUrl,
+} from "../../upload-helpers";
 
 const AREAS = [
   "Bury",
@@ -48,6 +57,15 @@ const BEDROOM_OPTIONS = [
   })),
 ];
 
+/** Compare two Postgres/ISO timestamps ("…Z" vs "…+00:00", µs vs ms) by instant. */
+function sameTimestamp(a: string | null, b: string | null): boolean {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const ta = Date.parse(a);
+  const tb = Date.parse(b);
+  return !Number.isNaN(ta) && ta === tb;
+}
+
 export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
@@ -63,6 +81,7 @@ export default function EditPropertyPage() {
   const [videoProgress, setVideoProgress] = useState(0);
   const [error, setError] = useState("");
   const [videoError, setVideoError] = useState("");
+  const [epcError, setEpcError] = useState("");
   const [success, setSuccess] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
   const [videoUrls, setVideoUrls] = useState<string[]>([]);
@@ -71,6 +90,12 @@ export default function EditPropertyPage() {
   // cancelling never leaves the saved listing pointing at a missing file.
   // Files uploaded during this session are not in here and are deleted at once.
   const savedFileUrls = useRef<Set<string>>(new Set());
+  // The row's updated_at when loaded (or last saved here) — used to warn
+  // before overwriting changes made elsewhere, e.g. in another tab.
+  const loadedUpdatedAt = useRef<string | null>(null);
+  // When the page was opened; after ~20h this session's unsaved uploads may
+  // have been reaped by cleanupOrphans (24h grace window).
+  const openedAt = useRef(0);
   const storage = useStorageUsage();
 
   const [form, setForm] = useState({
@@ -132,17 +157,25 @@ export default function EditPropertyPage() {
       ...(data.videos ?? []),
       ...(data.epc_document ? [data.epc_document] : []),
     ]);
+    loadedUpdatedAt.current = data.updated_at ?? null;
     setLoading(false);
   }, [id]);
 
   /** Delete a file from storage only if it was uploaded this session (unsaved). */
   const removeUnsavedFile = async (url: string) => {
     if (savedFileUrls.current.has(url)) return;
-    const path = url.split("/property-images/")[1];
-    if (path) {
+    const path = storagePathFromUrl(url);
+    if (!path) return;
+    try {
       await supabase.storage.from("property-images").remove([path]);
+    } catch {
+      // Harmless — cleanupOrphans reaps it after the 24h grace window.
     }
   };
+
+  useEffect(() => {
+    openedAt.current = Date.now();
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch-on-mount populates form state
@@ -163,11 +196,13 @@ export default function EditPropertyPage() {
     setUploading(true);
     setError("");
 
-    // Parallel compress+upload. See admin/properties/new for rationale.
-    const results = await Promise.allSettled(
-      Array.from(files).map(async (rawFile) => {
+    // Compress+upload a few at a time. See admin/properties/new for rationale.
+    const results = await mapSettledWithConcurrency(
+      Array.from(files),
+      3,
+      async (rawFile) => {
         const file = await compressImage(rawFile);
-        const fileExt = file.name.split(".").pop();
+        const fileExt = safeExtension(file, "jpg");
         const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
         const filePath = `properties/${fileName}`;
 
@@ -184,7 +219,7 @@ export default function EditPropertyPage() {
         } = supabase.storage.from("property-images").getPublicUrl(filePath);
 
         return publicUrl;
-      })
+      }
     );
 
     const newUrls: string[] = [];
@@ -206,13 +241,18 @@ export default function EditPropertyPage() {
   };
 
   const removeImage = async (index: number) => {
-    await removeUnsavedFile(imageUrls[index]);
-    setImageUrls((prev) => prev.filter((_, i) => i !== index));
+    // Capture the URL and drop it from state *before* the network delete, so
+    // rapid clicks can't shift indexes and remove the wrong photo.
+    const url = imageUrls[index];
+    if (!url) return;
+    setImageUrls((prev) => prev.filter((u) => u !== url));
+    await removeUnsavedFile(url);
   };
 
   const uploadVideoFile = async (file: File, contentType: string): Promise<string | null> => {
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${safeName}`;
+    const ext = safeExtension(file, "mp4");
+    const base = file.name.replace(/\.[^.]*$/, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 60) || "video";
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${base}.${ext}`;
     const filePath = `properties/videos/${fileName}`;
 
     const { error: uploadError } = await supabase.storage
@@ -281,24 +321,38 @@ export default function EditPropertyPage() {
   };
 
   const removeVideo = async (index: number) => {
-    await removeUnsavedFile(videoUrls[index]);
-    setVideoUrls((prev) => prev.filter((_, i) => i !== index));
+    const url = videoUrls[index];
+    if (!url) return;
+    setVideoUrls((prev) => prev.filter((u) => u !== url));
+    await removeUnsavedFile(url);
   };
 
   const removeEpc = async () => {
-    if (form.epc_document) await removeUnsavedFile(form.epc_document);
+    const url = form.epc_document;
     updateField("epc_document", "");
+    setEpcError("");
+    if (url) await removeUnsavedFile(url);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
-    setSaving(true);
 
     if (!form.title || !form.price || !form.location || !form.beds || !form.baths) {
       setError("Please fill in all required fields.");
-      setSaving(false);
+      return;
+    }
+
+    const price = parseWholeNumber(form.price);
+    const beds = parseWholeNumber(form.beds);
+    const baths = parseWholeNumber(form.baths);
+    if (price === null || price <= 0) {
+      setError("Price must be a whole number of pounds greater than 0 (e.g. 850).");
+      return;
+    }
+    if (beds === null || baths === null) {
+      setError("Bedrooms and bathrooms must be whole numbers (e.g. 2).");
       return;
     }
 
@@ -307,77 +361,129 @@ export default function EditPropertyPage() {
       .map((f) => f.trim())
       .filter(Boolean);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setError("Session expired. Please sign in again.");
+    setSaving(true);
+    try {
+      // Files uploaded this session aren't referenced by the saved row, so
+      // cleanupOrphans reaps them after 24h. If the page has been open that
+      // long, check they still exist rather than saving dead links.
+      if (openedAt.current && Date.now() - openedAt.current > STALE_UPLOAD_CHECK_MS) {
+        const unsaved = [
+          ...imageUrls,
+          ...videoUrls,
+          ...(form.epc_document ? [form.epc_document] : []),
+        ].filter((u) => !savedFileUrls.current.has(u));
+        const missing = new Set(await findMissingUploads(unsaved));
+        if (missing.size > 0) {
+          setImageUrls((prev) => prev.filter((u) => !missing.has(u)));
+          setVideoUrls((prev) => prev.filter((u) => !missing.has(u)));
+          if (missing.has(form.epc_document)) updateField("epc_document", "");
+          setError("Some photos uploaded more than a day ago were cleaned up — please re-upload them.");
+          return;
+        }
+      }
+
+      // Optimistic concurrency: warn if the row changed since it was loaded
+      // (another tab, or a toggle on the list page). A failed read doesn't
+      // block the save.
+      const { data: current } = await supabase
+        .from("properties")
+        .select("updated_at")
+        .eq("id", id)
+        .maybeSingle();
+      const remoteUpdatedAt: string | null = current?.updated_at ?? null;
+      if (current && !sameTimestamp(remoteUpdatedAt, loadedUpdatedAt.current)) {
+        const overwrite = window.confirm(
+          "This property was changed elsewhere since you opened it (e.g. another tab). Save anyway and overwrite those changes?"
+        );
+        if (!overwrite) return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Session expired. Please sign in again.");
+        return;
+      }
+
+      const updatedAt = new Date().toISOString();
+      const result = await updateProperty(id, {
+        title: form.title,
+        description: form.description || null,
+        price,
+        location: form.location,
+        area: form.area,
+        beds,
+        baths,
+        type: form.type,
+        active: form.active,
+        featured: form.featured,
+        is_new: form.is_new,
+        images: imageUrls,
+        videos: videoUrls,
+        status: form.status,
+        furnished: form.furnished,
+        available_from: form.available_from || null,
+        council_tax_band: form.council_tax_band || null,
+        epc_document: form.epc_document || null,
+        features: featuresArray.length > 0 ? featuresArray : null,
+        updated_at: updatedAt,
+      }, session.access_token);
+
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+      loadedUpdatedAt.current = result.updated_at ?? updatedAt;
+
+      // Row saved — now delete the saved files David removed. Failure is
+      // harmless (cleanupOrphans reaps them), so the result is ignored.
+      const currentUrls = new Set<string>([...imageUrls, ...videoUrls, ...(form.epc_document ? [form.epc_document] : [])]);
+      const staleUrls = [...savedFileUrls.current].filter((url) => !currentUrls.has(url));
+      if (staleUrls.length > 0) {
+        removeStorageFiles(staleUrls, session.access_token).catch(() => {});
+      }
+      savedFileUrls.current = currentUrls;
+
+      setSuccess("Property updated successfully.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch {
+      // A thrown action (requireAdmin on an expired session, network drop,
+      // deploy skew) must not leave the button stuck; form state is untouched.
+      setError(ACTION_THREW_MESSAGE);
+    } finally {
       setSaving(false);
-      return;
     }
-
-    const result = await updateProperty(id, {
-      title: form.title,
-      description: form.description || null,
-      price: parseInt(form.price),
-      location: form.location,
-      area: form.area,
-      beds: parseInt(form.beds),
-      baths: parseInt(form.baths),
-      type: form.type,
-      active: form.active,
-      featured: form.featured,
-      is_new: form.is_new,
-      images: imageUrls,
-      videos: videoUrls,
-      status: form.status,
-      furnished: form.furnished,
-      available_from: form.available_from || null,
-      council_tax_band: form.council_tax_band || null,
-      epc_document: form.epc_document || null,
-      features: featuresArray.length > 0 ? featuresArray : null,
-      updated_at: new Date().toISOString(),
-    }, session.access_token);
-
-    if (!result.success) {
-      setError(result.error);
-      setSaving(false);
-      return;
-    }
-
-    // Row saved — now delete the saved files David removed. Failure is
-    // harmless (cleanupOrphans reaps them), so the result is ignored.
-    const currentUrls = new Set<string>([...imageUrls, ...videoUrls, ...(form.epc_document ? [form.epc_document] : [])]);
-    const staleUrls = [...savedFileUrls.current].filter((url) => !currentUrls.has(url));
-    if (staleUrls.length > 0) {
-      removeStorageFiles(staleUrls, session.access_token).catch(() => {});
-    }
-    savedFileUrls.current = currentUrls;
-
-    setSuccess("Property updated successfully.");
-    setSaving(false);
-    setTimeout(() => setSuccess(""), 3000);
   };
 
   const handleDelete = async () => {
+    if (saving || deleting) return;
     if (!window.confirm("Are you sure you want to delete this property? This action cannot be undone.")) {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setError("Session expired. Please sign in again.");
-      return;
-    }
+    setError("");
     setDeleting(true);
-    const fileUrls = [...imageUrls, ...videoUrls, form.epc_document].filter(Boolean);
-    const result = await deletePropertyAction(id, fileUrls, session.access_token);
+    let navigating = false;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setError("Session expired. Please sign in again.");
+        return;
+      }
+      const fileUrls = [...imageUrls, ...videoUrls, form.epc_document].filter(Boolean);
+      const result = await deletePropertyAction(id, fileUrls, session.access_token);
 
-    if (!result.success) {
-      setError(result.error);
-      setDeleting(false);
-      return;
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
+      navigating = true;
+      router.push("/admin/properties");
+    } catch {
+      setError("Couldn't delete — your session may have expired. Refresh and sign in again.");
+    } finally {
+      if (!navigating) setDeleting(false);
     }
-
-    router.push("/admin/properties");
   };
 
   if (loading) {
@@ -410,7 +516,7 @@ export default function EditPropertyPage() {
         </div>
         <button
           onClick={handleDelete}
-          disabled={deleting}
+          disabled={deleting || saving}
           className="rounded-lg border border-red-200 px-4 py-2.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {deleting ? "Deleting..." : "Delete"}
@@ -689,32 +795,35 @@ export default function EditPropertyPage() {
                     const file = e.target.files?.[0];
                     if (!file) return;
                     const allowed = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
+                    setEpcError("");
                     if (!allowed.includes(file.type)) {
-                      setError("EPC must be a PDF, JPG, PNG or WebP file.");
+                      setEpcError("EPC must be a PDF, JPG, PNG or WebP file.");
                       e.target.value = "";
                       return;
                     }
                     if (file.size > 10 * 1024 * 1024) {
-                      setError("EPC file is too large. Maximum is 10MB.");
+                      setEpcError("EPC file is too large. Maximum is 10MB.");
                       e.target.value = "";
                       return;
                     }
                     setUploadingEpc(true);
                     try {
-                      const fileExt = file.name.split(".").pop();
+                      const fileExt = safeExtension(file, "pdf");
                       const fileName = `epc-${Date.now()}.${fileExt}`;
                       const filePath = `epc/${fileName}`;
                       const { error: upErr } = await supabase.storage
                         .from("property-images")
                         .upload(filePath, file);
                       if (upErr) {
-                        setError(`Failed to upload EPC: ${upErr.message}`);
+                        setEpcError(`Failed to upload EPC: ${upErr.message}`);
                         return;
                       }
                       const { data: { publicUrl } } = supabase.storage
                         .from("property-images")
                         .getPublicUrl(filePath);
                       updateField("epc_document", publicUrl);
+                    } catch (err) {
+                      setEpcError(err instanceof Error ? `Failed to upload EPC: ${err.message}` : "Failed to upload EPC.");
                     } finally {
                       setUploadingEpc(false);
                       e.target.value = "";
@@ -722,6 +831,12 @@ export default function EditPropertyPage() {
                   }}
                 />
               </label>
+            )}
+            {uploadingEpc && (
+              <p className="mt-1.5 text-xs text-text-muted">Uploading EPC...</p>
+            )}
+            {epcError && (
+              <p className="mt-1.5 text-xs text-red-600">{epcError}</p>
             )}
           </div>
 
@@ -907,7 +1022,7 @@ export default function EditPropertyPage() {
           </Link>
           <button
             type="submit"
-            disabled={saving || uploading || uploadingVideo || uploadingEpc}
+            disabled={saving || deleting || uploading || uploadingVideo || uploadingEpc}
             className="rounded-lg bg-brand px-6 py-2.5 text-sm font-semibold text-dark transition-colors hover:bg-brand-light disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? "Saving..." : "Update Property"}

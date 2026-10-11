@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { AnimateIn } from "@/components/AnimateIn";
 import { submitContactForm } from "@/app/actions/contact";
@@ -40,6 +40,20 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // On success, move focus to the confirmation heading (screen readers
+  // announce it) and make sure it's on screen.
+  useEffect(() => {
+    if (!submitted) return;
+    const el = successHeadingRef.current;
+    if (!el) return;
+    const reduce =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }, [submitted]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -184,11 +198,11 @@ export default function ContactPage() {
                   <span className="flex-shrink-0 w-10 h-10 rounded-full bg-brand/10 flex items-center justify-center text-brand">
                     <MailIcon className="w-5 h-5" />
                   </span>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-xs text-text-muted uppercase tracking-wider mb-1">
                       Email
                     </p>
-                    <p className="text-dark font-medium group-hover:text-brand transition-colors">
+                    <p className="text-dark font-medium break-all group-hover:text-brand transition-colors">
                       info@mcgowanlettings.co.uk
                     </p>
                   </div>
@@ -258,11 +272,18 @@ export default function ContactPage() {
                   </p>
 
                   {submitted ? (
-                    <div className="text-center py-12 flex flex-col items-center justify-center min-h-[300px]">
+                    <div
+                      role="status"
+                      className="text-center py-12 flex flex-col items-center justify-center min-h-[300px]"
+                    >
                       <div className="w-14 h-14 rounded-full bg-brand/10 flex items-center justify-center mx-auto mb-4">
                         <MailIcon className="w-7 h-7 text-brand" />
                       </div>
-                      <h3 className="font-heading text-xl text-dark mb-2">
+                      <h3
+                        ref={successHeadingRef}
+                        tabIndex={-1}
+                        className="font-heading text-xl text-dark mb-2 focus:outline-none"
+                      >
                         Message Sent
                       </h3>
                       <p className="text-text-muted  text-sm max-w-sm mx-auto">
@@ -284,6 +305,10 @@ export default function ContactPage() {
                           name="company_url"
                           tabIndex={-1}
                           autoComplete="off"
+                          data-1p-ignore
+                          data-lpignore="true"
+                          data-bwignore="true"
+                          data-form-type="other"
                           value={formData.company_url}
                           onChange={(e) =>
                             setFormData({ ...formData, company_url: e.target.value })
@@ -297,17 +322,19 @@ export default function ContactPage() {
                           htmlFor="name"
                           className="block text-xs font-medium text-dark mb-1.5 uppercase tracking-wider"
                         >
-                          Name
+                          Name *
                         </label>
                         <input
                           type="text"
                           id="name"
+                          name="name"
+                          autoComplete="name"
                           required
                           value={formData.name}
                           onChange={(e) =>
                             setFormData({ ...formData, name: e.target.value })
                           }
-                          className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                          className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                           placeholder="Your full name"
                         />
                       </div>
@@ -319,11 +346,13 @@ export default function ContactPage() {
                             htmlFor="phone"
                             className="block text-xs font-medium text-dark mb-1.5 uppercase tracking-wider"
                           >
-                            Phone
+                            Phone *
                           </label>
                           <input
                             type="tel"
                             id="phone"
+                            name="phone"
+                            autoComplete="tel"
                             required
                             value={formData.phone}
                             onChange={(e) =>
@@ -332,7 +361,7 @@ export default function ContactPage() {
                                 phone: e.target.value,
                               })
                             }
-                            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                            className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                             placeholder="07123 456789"
                           />
                         </div>
@@ -341,11 +370,13 @@ export default function ContactPage() {
                             htmlFor="email"
                             className="block text-xs font-medium text-dark mb-1.5 uppercase tracking-wider"
                           >
-                            Email
+                            Email *
                           </label>
                           <input
                             type="email"
                             id="email"
+                            name="email"
+                            autoComplete="email"
                             required
                             value={formData.email}
                             onChange={(e) =>
@@ -354,7 +385,7 @@ export default function ContactPage() {
                                 email: e.target.value,
                               })
                             }
-                            className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                            className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                             placeholder="you@example.com"
                           />
                         </div>
@@ -366,11 +397,12 @@ export default function ContactPage() {
                           htmlFor="enquiryType"
                           className="block text-xs font-medium text-dark mb-1.5 uppercase tracking-wider"
                         >
-                          I am a&hellip;
+                          I am a&hellip; *
                         </label>
                         <div className="relative">
                           <select
                             id="enquiryType"
+                            name="enquiryType"
                             required
                             value={formData.enquiryType}
                             onChange={(e) =>
@@ -379,7 +411,7 @@ export default function ContactPage() {
                                 enquiryType: e.target.value,
                               })
                             }
-                            className="w-full appearance-none border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                            className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                           >
                             <option value="" disabled>
                               Select an option
@@ -414,10 +446,11 @@ export default function ContactPage() {
                           htmlFor="message"
                           className="block text-xs font-medium text-dark mb-1.5 uppercase tracking-wider"
                         >
-                          Message
+                          Message *
                         </label>
                         <textarea
                           id="message"
+                          name="message"
                           required
                           rows={5}
                           value={formData.message}
@@ -427,7 +460,7 @@ export default function ContactPage() {
                               message: e.target.value,
                             })
                           }
-                          className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
+                          className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
                           placeholder="How can we help?"
                         />
                       </div>

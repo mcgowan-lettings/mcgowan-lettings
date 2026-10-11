@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site";
 
 const title = "Privacy Policy | McGowan Residential Lettings";
 const description =
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: "https://mcgowanlettings.co.uk/privacy",
+    url: `${SITE_URL}/privacy`,
   },
 };
 

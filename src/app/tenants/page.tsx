@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { AnimateIn } from "@/components/AnimateIn";
@@ -142,6 +142,7 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   const [open, setOpen] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const [contentHeight, setContentHeight] = useState(0);
+  const panelId = useId();
 
   // Measure the content's natural height once mounted, and again whenever
   // the inner text would re-wrap (viewport resize). The accordion animates
@@ -165,9 +166,11 @@ function FAQItem({ q, a }: { q: string; a: string }) {
   return (
     <div className="border-b border-black/5 last:border-0">
       <button
+        type="button"
         onClick={() => setOpen(!open)}
         className="w-full flex items-center justify-between py-5 text-left group cursor-pointer"
         aria-expanded={open}
+        aria-controls={panelId}
       >
         <span className="font-body text-dark font-medium pr-4 group-hover:text-brand transition-colors">
           {q}
@@ -179,9 +182,14 @@ function FAQItem({ q, a }: { q: string; a: string }) {
           }`}
         />
       </button>
+      {/* Collapsed answers stay in the DOM (so height can animate) but are
+          removed from the accessibility tree and tab order via inert. */}
       <div
+        id={panelId}
         className="overflow-hidden transition-[height] duration-300 ease-in-out"
         style={{ height: open ? contentHeight : 0 }}
+        aria-hidden={!open}
+        inert={!open}
       >
         <p ref={contentRef} className="text-text-muted leading-relaxed pb-5">{a}</p>
       </div>

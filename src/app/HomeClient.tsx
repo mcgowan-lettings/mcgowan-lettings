@@ -8,6 +8,7 @@ import { AnimateIn, CountUp } from "@/components/AnimateIn";
 import LogoRow from "@/components/LogoRow";
 import TestimonialsCarousel from "@/components/TestimonialsCarousel";
 import PropertyCardBadge from "@/components/PropertyCardBadge";
+import { TYPE_FILTER_OPTIONS, formatPrice } from "@/app/properties/filters";
 import { submitContactForm } from "@/app/actions/contact";
 import {
   BedIcon,
@@ -217,9 +218,11 @@ function HomeContactForm() {
 
 export default function HomePage({
   featuredProperties,
+  searchAreas,
   reviewCount,
 }: {
   featuredProperties: FeaturedProperty[];
+  searchAreas: string[];
   reviewCount: number;
 }) {
   const router = useRouter();
@@ -288,15 +291,11 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Area</label>
                 <div className="relative">
-                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Area" value={heroArea} onChange={(e) => setHeroArea(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">All Areas</option>
-                    <option value="Bury">Bury</option>
-                    <option value="Bolton">Bolton</option>
-                    <option value="Manchester">Manchester</option>
-                    <option value="Rochdale">Rochdale</option>
-                    <option value="Rossendale">Rossendale</option>
-                    <option value="Accrington">Accrington</option>
-                    <option value="Burnley">Burnley</option>
+                    {searchAreas.map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
                   </select>
                   <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
                 </div>
@@ -305,7 +304,7 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Max Price</label>
                 <div className="relative">
-                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Max price" value={heroPrice} onChange={(e) => setHeroPrice(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">Any Price</option>
                     <option value="£500">£500 pcm</option>
                     <option value="£750">£750 pcm</option>
@@ -321,7 +320,7 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Bedrooms</label>
                 <div className="relative">
-                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Bedrooms" value={heroBeds} onChange={(e) => setHeroBeds(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">Any</option>
                     <option value="Studio">Studio</option>
                     <option value="1">1</option>
@@ -336,12 +335,11 @@ export default function HomePage({
               <div className="relative">
                 <label className="text-white/40 text-xs font-medium uppercase tracking-wider mb-1.5 block">Type</label>
                 <div className="relative">
-                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors">
+                  <select aria-label="Property type" value={heroType} onChange={(e) => setHeroType(e.target.value)} className="w-full min-h-11 bg-white/10 border border-white/10 rounded-md text-white text-sm px-3 py-2.5 appearance-none cursor-pointer focus:outline-none focus:border-brand/50 transition-colors [&>option]:bg-white [&>option]:text-dark">
                     <option value="">All Types</option>
-                    <option value="House">House</option>
-                    <option value="Apartment">Apartment</option>
-                    <option value="Flat">Flat</option>
-                    <option value="Bungalow">Bungalow</option>
+                    {TYPE_FILTER_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>{o.label}</option>
+                    ))}
                   </select>
                   <ChevronDownIcon className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/40 pointer-events-none" />
                 </div>
@@ -350,7 +348,7 @@ export default function HomePage({
               <div className="flex items-end">
                 <button
                   onClick={handleSearch}
-                  className="w-full bg-brand hover:bg-brand-light text-dark font-semibold py-2.5 px-6 rounded-md flex items-center justify-center gap-2 transition-all duration-200"
+                  className="w-full min-h-11 bg-brand hover:bg-brand-light text-dark font-semibold py-2.5 px-6 rounded-md flex items-center justify-center gap-2 transition-all duration-200"
                 >
                   <SearchIcon className="w-4 h-4" />
                   <span className="text-sm">Search</span>
@@ -607,7 +605,7 @@ export default function HomePage({
                         className="property-image object-cover transition-transform duration-700 ease-out"
                       />
                       <div className="absolute bottom-3 left-3 bg-dark/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-sm">
-                        <span className="text-lg font-semibold">£{property.price.toLocaleString()}</span>
+                        <span className="text-lg font-semibold">£{formatPrice(property.price)}</span>
                         <span className="text-white/50 text-xs ml-1">pcm</span>
                       </div>
                       <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm text-dark text-xs font-medium px-2.5 py-1 rounded-sm">

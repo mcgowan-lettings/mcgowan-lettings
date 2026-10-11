@@ -17,6 +17,8 @@ export default function PropertyGallery({
   title: string;
 }) {
   const [tourOpen, setTourOpen] = useState(false);
+  // The tour link that opened the lightbox, so focus can return to it on close.
+  const tourTriggerRef = useRef<HTMLAnchorElement | null>(null);
   // Tracks whether Fancybox actually bound. The "View all N photos" badge
   // checks this before hijacking its own click — if Fancybox isn't ready the
   // anchor is allowed to navigate to the /photos SSR fallback page instead.
@@ -71,6 +73,7 @@ export default function PropertyGallery({
         onClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
+          tourTriggerRef.current = e.currentTarget;
           setTourOpen(true);
         }}
         className="absolute z-10 top-4 left-4 flex items-center gap-2.5 rounded-full bg-dark/90 backdrop-blur-sm text-white font-semibold shadow-lg hover:bg-brand hover:text-dark transition-colors px-4 py-2.5 text-sm"
@@ -242,7 +245,11 @@ export default function PropertyGallery({
         </div>
       )}
       {tourOpen && tourUrl && (
-        <VideoLightbox src={tourUrl} onClose={() => setTourOpen(false)} />
+        <VideoLightbox
+          src={tourUrl}
+          onClose={() => setTourOpen(false)}
+          returnFocusRef={tourTriggerRef}
+        />
       )}
     </>
   );

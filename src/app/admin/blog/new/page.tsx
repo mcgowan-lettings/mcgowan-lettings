@@ -9,16 +9,7 @@ import { compressImage } from "@/lib/compress-image";
 import { createBlogPost } from "@/app/actions/admin";
 import UnsplashPicker from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
-
-function generateSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
+import { generateSlug } from "@/lib/slug";
 
 export default function NewBlogPostPage() {
   const router = useRouter();
@@ -28,6 +19,8 @@ export default function NewBlogPostPage() {
   const [coverImage, setCoverImage] = useState("");
   const [coverPreview, setCoverPreview] = useState("");
   const [showUnsplash, setShowUnsplash] = useState(false);
+  // Once the slug is edited by hand, the title stops overwriting it.
+  const [slugTouched, setSlugTouched] = useState(false);
 
   const [form, setForm] = useState({
     title: "",
@@ -40,7 +33,7 @@ export default function NewBlogPostPage() {
   const updateField = (field: string, value: string | boolean) => {
     setForm((prev) => {
       const updated = { ...prev, [field]: value };
-      if (field === "title" && typeof value === "string") {
+      if (field === "title" && typeof value === "string" && !slugTouched) {
         updated.slug = generateSlug(value);
       }
       return updated;
@@ -107,7 +100,8 @@ export default function NewBlogPostPage() {
       setSaving(false);
       return;
     }
-    if (!form.slug.trim()) {
+    const slug = generateSlug(form.slug);
+    if (!slug) {
       setError("Slug is empty. The title needs to contain letters or numbers — or edit the slug manually.");
       setSaving(false);
       return;
@@ -120,14 +114,21 @@ export default function NewBlogPostPage() {
       return;
     }
 
-    const result = await createBlogPost({
-      title: form.title,
-      slug: form.slug,
-      excerpt: form.excerpt || null,
-      content: form.content || null,
-      cover_image: coverImage || null,
-      published: form.published,
-    }, session.access_token);
+    let result: Awaited<ReturnType<typeof createBlogPost>>;
+    try {
+      result = await createBlogPost({
+        title: form.title,
+        slug,
+        excerpt: form.excerpt || null,
+        content: form.content || null,
+        cover_image: coverImage || null,
+        published: form.published,
+      }, session.access_token);
+    } catch {
+      setError("Couldn't save — your session may have expired. Copy any unsaved text, then refresh and sign in again.");
+      setSaving(false);
+      return;
+    }
 
     if (!result.success) {
       setError(result.error);
@@ -192,7 +193,11 @@ export default function NewBlogPostPage() {
             <input
               type="text"
               value={form.slug}
-              onChange={(e) => setForm((prev) => ({ ...prev, slug: e.target.value }))}
+              onChange={(e) => {
+                setSlugTouched(e.target.value !== "");
+                setForm((prev) => ({ ...prev, slug: e.target.value }));
+              }}
+              onBlur={(e) => setForm((prev) => ({ ...prev, slug: generateSlug(e.target.value) }))}
               className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-sm text-text-muted outline-none transition-colors focus:border-brand focus:ring-1 focus:ring-brand"
               placeholder="auto-generated-from-title"
             />

@@ -6,6 +6,14 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { deleteBlogPost as deleteBlogPostAction, toggleBlogPublished } from "@/app/actions/admin";
 
+const formatPostDate = (value: string) =>
+  new Date(value).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/London",
+  });
+
 interface BlogPost {
   id: string;
   title: string;
@@ -49,40 +57,55 @@ export default function AdminBlogPage() {
 
   const togglePublished = async (id: string, currentPublished: boolean, slug: string) => {
     setToggling(id);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setToggling(null); return; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        return;
+      }
 
-    const result = await toggleBlogPublished(id, !currentPublished, session.access_token, slug);
-    if (!result.success) {
-      setMessage({ text: "Failed to update post.", type: "error" });
-    } else {
-      setPosts((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, published: !currentPublished } : p))
-      );
-      setMessage({
-        text: `Post ${!currentPublished ? "published" : "unpublished"}.`,
-        type: "success",
-      });
+      const result = await toggleBlogPublished(id, !currentPublished, session.access_token, slug);
+      if (!result.success) {
+        setMessage({ text: "Failed to update post.", type: "error" });
+      } else {
+        setPosts((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, published: !currentPublished } : p))
+        );
+        setMessage({
+          text: `Post ${!currentPublished ? "published" : "unpublished"}.`,
+          type: "success",
+        });
+      }
+    } catch {
+      setMessage({ text: "Failed to update post — please refresh and try again.", type: "error" });
+    } finally {
+      setToggling(null);
+      setTimeout(() => setMessage(null), 3000);
     }
-    setToggling(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   const handleDelete = async (post: BlogPost) => {
     if (!window.confirm(`Delete "${post.title}"? This cannot be undone.`)) return;
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
     setDeletingId(post.id);
-    const result = await deleteBlogPostAction(post.id, post.cover_image, session.access_token, post.slug);
-    if (!result.success) {
-      setMessage({ text: result.error || "Failed to delete post.", type: "error" });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        return;
+      }
+      const result = await deleteBlogPostAction(post.id, post.cover_image, session.access_token, post.slug);
+      if (!result.success) {
+        setMessage({ text: result.error || "Failed to delete post.", type: "error" });
+        return;
+      }
+      setPosts((prev) => prev.filter((p) => p.id !== post.id));
+      setMessage({ text: "Post deleted.", type: "success" });
+    } catch {
+      setMessage({ text: "Failed to delete post — please refresh and try again.", type: "error" });
+    } finally {
       setDeletingId(null);
-      return;
+      setTimeout(() => setMessage(null), 3000);
     }
-    setPosts((prev) => prev.filter((p) => p.id !== post.id));
-    setMessage({ text: "Post deleted.", type: "success" });
-    setDeletingId(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   if (loading) {
@@ -192,11 +215,7 @@ export default function AdminBlogPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3 text-text-muted">
-                      {new Date(post.created_at).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatPostDate(post.created_at)}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
@@ -273,19 +292,17 @@ export default function AdminBlogPage() {
                       {post.title}
                     </p>
                     <p className="text-xs text-text-muted">
-                      {new Date(post.created_at).toLocaleDateString("en-GB", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                      })}
+                      {formatPostDate(post.created_at)}
                     </p>
-                    <div className="mt-2 flex items-center gap-4">
+                    {/* min-h-[44px] tap targets; -ml-2 keeps the toggle visually aligned with the title */}
+                    <div className="mt-1 -ml-2 flex flex-wrap items-center gap-x-1">
                       <button
                         onClick={() =>
                           togglePublished(post.id, post.published, post.slug)
                         }
                         disabled={toggling === post.id}
-                        className="flex items-center gap-1.5 text-xs"
+                        aria-pressed={post.published}
+                        className="flex min-h-[44px] items-center gap-1.5 rounded-lg px-2 text-xs disabled:opacity-50"
                       >
                         <span
                           className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
@@ -307,7 +324,7 @@ export default function AdminBlogPage() {
 
                       <Link
                         href={`/admin/blog/${post.id}/edit`}
-                        className="text-xs font-medium text-brand-dark hover:underline"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-brand-dark hover:underline"
                       >
                         Edit
                       </Link>
@@ -315,7 +332,7 @@ export default function AdminBlogPage() {
                       <button
                         onClick={() => handleDelete(post)}
                         disabled={deletingId === post.id}
-                        className="text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
+                        className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-lg px-3 text-xs font-medium text-red-600 hover:underline disabled:opacity-50"
                       >
                         {deletingId === post.id ? "Deleting..." : "Delete"}
                       </button>

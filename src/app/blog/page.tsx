@@ -88,11 +88,12 @@ export default async function BlogPage() {
                     </div>
 
                     <div className="p-6">
-                      <time className="text-xs font-medium text-text-muted uppercase tracking-wider">
+                      <time dateTime={post.created_at} className="text-xs font-medium text-text-muted uppercase tracking-wider">
                         {new Date(post.created_at).toLocaleDateString("en-GB", {
                           day: "numeric",
                           month: "long",
                           year: "numeric",
+                          timeZone: "Europe/London",
                         })}
                       </time>
                       <h2 className="mt-3 font-heading text-xl font-semibold text-dark leading-snug group-hover:text-brand-dark transition-colors">

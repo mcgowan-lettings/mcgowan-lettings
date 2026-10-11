@@ -1,11 +1,27 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { checkIsAdmin } from "@/app/actions/admin";
+import { getAdminSessionStatus } from "@/app/actions/admin-session";
+
+/**
+ * Admin routes reachable without an admin session. They render without the
+ * sidebar and are never gated or redirected by this layout. Still under
+ * /admin, so the noindex headers from next.config.ts apply.
+ */
+const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/reset-password"];
+const isPublicAdminPath = (p: string | null | undefined) =>
+  !!p && PUBLIC_ADMIN_PATHS.includes(p);
+
+/** Back-off before re-checking after a transient (network/5xx) failure:
+ * 5s, doubling to a 60s cap, and paused while the tab is hidden — a
+ * permanent failure (e.g. deploy skew) mustn't hammer the server forever. */
+const RETRY_BASE_MS = 5000;
+const RETRY_MAX_MS = 60000;
 
 export default function AdminLayout({
   children,
@@ -14,74 +30,188 @@ export default function AdminLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(false);
+  const [checkError, setCheckError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
+  // Refs so the single long-lived auth subscription below can read the
+  // current route / verified user without being torn down on navigation.
+  const pathnameRef = useRef(pathname);
+  const verifiedUserIdRef = useRef<string | null>(null);
+  const checkSeqRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const retryCountRef = useRef(0);
+  const recheckRef = useRef<() => Promise<void>>(async () => {});
+
   useEffect(() => {
-    const verifyAdmin = async (accessToken: string | undefined) => {
-      if (!accessToken) return false;
-      return checkIsAdmin(accessToken);
-    };
+    pathnameRef.current = pathname;
+  }, [pathname]);
 
-    const checkAuth = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session && pathname !== "/admin/login") {
-        router.replace("/admin/login");
-      } else if (session) {
-        const isAdmin = await verifyAdmin(session.access_token);
-        if (!isAdmin) {
-          await supabase.auth.signOut();
-          router.replace("/admin/login");
-        } else {
-          setAuthenticated(true);
-        }
+  // Subscribe once. NOTE: this is a client-side UX gate only — real
+  // enforcement is requireAdmin() inside every server action.
+  useEffect(() => {
+    let disposed = false;
+
+    const clearRetry = () => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
       }
-      setLoading(false);
     };
 
-    checkAuth();
+    const scheduleRetry = () => {
+      clearRetry();
+      const delay = Math.min(RETRY_BASE_MS * 2 ** retryCountRef.current, RETRY_MAX_MS);
+      retryCountRef.current += 1;
+      retryTimerRef.current = setTimeout(() => {
+        if (document.hidden) {
+          // Re-check once the admin comes back to the tab instead.
+          const onVisible = () => {
+            if (document.hidden) return;
+            document.removeEventListener("visibilitychange", onVisible);
+            if (!disposed) void recheck();
+          };
+          document.addEventListener("visibilitychange", onVisible);
+          return;
+        }
+        void recheck();
+      }, delay);
+    };
+
+    const goToLogin = () => {
+      if (!isPublicAdminPath(pathnameRef.current)) router.replace("/admin/login");
+    };
+
+    const verify = async (session: Session | null) => {
+      const seq = ++checkSeqRef.current;
+      clearRetry();
+
+      if (!session) {
+        verifiedUserIdRef.current = null;
+        setAuthenticated(false);
+        setCheckError(false);
+        goToLogin();
+        return;
+      }
+
+      let status: Awaited<ReturnType<typeof getAdminSessionStatus>>;
+      try {
+        status = await getAdminSessionStatus(session.access_token);
+      } catch {
+        // Server action itself failed (offline, deploy skew…) — transient.
+        status = "error";
+      }
+      if (disposed || seq !== checkSeqRef.current) return;
+
+      if (status !== "error") retryCountRef.current = 0;
+      if (status === "admin") {
+        verifiedUserIdRef.current = session.user.id;
+        setAuthenticated(true);
+        setCheckError(false);
+      } else if (status === "forbidden" || status === "unauthorized") {
+        // Definite answer: this session is not an admin session.
+        verifiedUserIdRef.current = null;
+        setAuthenticated(false);
+        setCheckError(false);
+        supabase.auth
+          .signOut()
+          .catch(() => {})
+          .finally(goToLogin);
+      } else {
+        // Transient failure: never sign out (would lose unsaved work). If
+        // this user was already verified, keep them in silently; otherwise
+        // show a "retrying" note under the spinner. Either way, retry.
+        if (verifiedUserIdRef.current !== session.user.id) setCheckError(true);
+        scheduleRetry();
+      }
+    };
+
+    const recheck = async () => {
+      if (disposed || isPublicAdminPath(pathnameRef.current)) return;
+      let session: Session | null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        session = data.session;
+      } catch {
+        if (disposed) return;
+        if (!verifiedUserIdRef.current) setCheckError(true);
+        scheduleRetry();
+        return;
+      }
+      if (!disposed) await verify(session);
+    };
+    recheckRef.current = recheck;
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (!session && pathname !== "/admin/login") {
-        router.replace("/admin/login");
-        setAuthenticated(false);
-      } else if (session) {
-        const isAdmin = await verifyAdmin(session.access_token);
-        if (!isAdmin) {
-          await supabase.auth.signOut();
-          router.replace("/admin/login");
-          setAuthenticated(false);
-        } else {
-          setAuthenticated(true);
-        }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // The initial check is driven by the pathname effect below.
+      if (event === "INITIAL_SESSION") return;
+      // Hourly token refreshes (and SIGNED_IN re-fires on tab focus) for an
+      // already-verified user don't need another round-trip.
+      if (
+        (event === "TOKEN_REFRESHED" || event === "SIGNED_IN") &&
+        session &&
+        session.user.id === verifiedUserIdRef.current
+      ) {
+        return;
       }
+      // Never await Supabase calls (e.g. signOut) inside this callback — it
+      // runs under the auth lock and can deadlock. Defer the work instead.
+      setTimeout(() => {
+        if (disposed) return;
+        if (isPublicAdminPath(pathnameRef.current)) {
+          // Login / reset pages manage their own session; just invalidate
+          // our cached verdict so leaving the page triggers a fresh check.
+          if (session?.user.id !== verifiedUserIdRef.current) {
+            verifiedUserIdRef.current = null;
+            setAuthenticated(false);
+          }
+          return;
+        }
+        void verify(session);
+      }, 0);
     });
 
-    return () => subscription.unsubscribe();
-  }, [router, pathname]);
+    return () => {
+      disposed = true;
+      clearRetry();
+      subscription.unsubscribe();
+    };
+  }, [router]);
 
-  // Login page gets no sidebar
-  if (pathname === "/admin/login") {
+  // Check on first load and whenever we land on a gated page without a
+  // verified admin (e.g. login → /admin). Already-verified navigations are
+  // free — no re-subscribe, no duplicate checks.
+  useEffect(() => {
+    if (isPublicAdminPath(pathname)) return;
+    if (verifiedUserIdRef.current) return;
+    void recheckRef.current();
+  }, [pathname]);
+
+  // Login / reset-password pages get no sidebar and no gate
+  if (isPublicAdminPath(pathname)) {
     return <>{children}</>;
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
-        <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent" />
-      </div>
-    );
   }
 
   if (!authenticated) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gray-50">
+      <div className="flex h-screen flex-col items-center justify-center gap-4 bg-gray-50 px-4 text-center">
         <div className="h-8 w-8 animate-spin rounded-full border-4 border-brand border-t-transparent" />
+        {checkError && (
+          <div className="space-y-2">
+            <p className="text-sm text-text-muted">
+              Can&apos;t reach the server to check your login. Retrying&hellip;
+            </p>
+            <button
+              type="button"
+              onClick={() => void recheckRef.current()}
+              className="min-h-[44px] rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"
+            >
+              Retry now
+            </button>
+          </div>
+        )}
       </div>
     );
   }

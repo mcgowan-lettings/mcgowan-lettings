@@ -21,8 +21,12 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
   const property = await getProperty(id);
-  if (!property) {
-    return { title: "Photos Not Found | McGowan Lettings" };
+  // Inactive listings 404 in the page body; don't leak their title in <head>.
+  if (!property || !property.active) {
+    return {
+      title: "Property Not Found | McGowan Lettings",
+      robots: { index: false, follow: false },
+    };
   }
   return {
     title: `Photos — ${property.title} | McGowan Lettings`,

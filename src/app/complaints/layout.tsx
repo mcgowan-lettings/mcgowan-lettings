@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SITE_URL } from "@/lib/site";
 
 const title = "Complaints Procedure | McGowan Residential Lettings";
 const description =
@@ -11,7 +12,7 @@ export const metadata: Metadata = {
   openGraph: {
     title,
     description,
-    url: "https://mcgowanlettings.co.uk/complaints",
+    url: `${SITE_URL}/complaints`,
   },
 };
 

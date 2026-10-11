@@ -7,6 +7,7 @@ import { safeJsonLd } from "@/lib/json-ld";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/Icons";
 import BlogRichContent from "./BlogRichContent";
 import { getPost } from "./get-post";
+import { SITE_URL } from "@/lib/site";
 
 // Cached statically; admin `updateBlogPost` calls `revalidatePath` on the
 // slug, so edits go live immediately. The 60s ceiling is a safety net.
@@ -83,7 +84,7 @@ export default async function BlogPostPage({ params }: Props) {
     : rawContent.split(/\s+/).filter(Boolean).length;
   const readingTime = Math.max(1, Math.ceil(wordCount / 220));
 
-  const postUrl = `https://mcgowanlettings.co.uk/blog/${slug}`;
+  const postUrl = `${SITE_URL}/blog/${slug}`;
   const blogJsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -92,21 +93,21 @@ export default async function BlogPostPage({ params }: Props) {
       post.excerpt ||
       (post.content ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 160),
     image: post.cover_image
-      ? [post.cover_image.startsWith("http") ? post.cover_image : `https://mcgowanlettings.co.uk${post.cover_image}`]
-      : ["https://mcgowanlettings.co.uk/hero.jpg"],
+      ? [post.cover_image.startsWith("http") ? post.cover_image : `${SITE_URL}${post.cover_image}`]
+      : [`${SITE_URL}/hero.jpg`],
     datePublished: post.created_at,
     dateModified: post.updated_at || post.created_at,
     author: {
       "@type": "Organization",
       name: "McGowan Residential Lettings Ltd.",
-      url: "https://mcgowanlettings.co.uk",
+      url: SITE_URL,
     },
     publisher: {
       "@type": "Organization",
       name: "McGowan Residential Lettings Ltd.",
       logo: {
         "@type": "ImageObject",
-        url: "https://mcgowanlettings.co.uk/mcgowan-logo.png",
+        url: `${SITE_URL}/mcgowan-logo.png`,
       },
     },
     mainEntityOfPage: { "@type": "WebPage", "@id": postUrl },
@@ -147,11 +148,12 @@ export default async function BlogPostPage({ params }: Props) {
 
         <div className="relative z-10 max-w-4xl mx-auto px-6 pb-10 w-full">
           <div className="flex items-center gap-3 mb-4">
-            <time className="text-brand text-sm font-semibold tracking-[0.15em] uppercase">
+            <time dateTime={post.created_at} className="text-brand text-sm font-semibold tracking-[0.15em] uppercase">
               {new Date(post.created_at).toLocaleDateString("en-GB", {
                 day: "numeric",
                 month: "long",
                 year: "numeric",
+                timeZone: "Europe/London",
               })}
             </time>
             <span className="w-1 h-1 rounded-full bg-white/40" />

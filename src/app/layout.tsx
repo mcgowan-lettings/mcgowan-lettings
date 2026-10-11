@@ -6,6 +6,7 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import SiteShell from "@/components/SiteShell";
 import { safeJsonLd } from "@/lib/json-ld";
 import { getReviewCount } from "@/lib/get-review-count";
+import { SITE_URL } from "@/lib/site";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -22,7 +23,7 @@ const jakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://mcgowanlettings.co.uk"),
+  metadataBase: new URL(SITE_URL),
   alternates: { canonical: "/" },
   title: "McGowan Residential Lettings | Premium Lettings in Greater Manchester",
   description:
@@ -31,7 +32,7 @@ export const metadata: Metadata = {
     title: "McGowan Residential Lettings | Greater Manchester",
     description:
       "Professional letting agents covering Bolton, Bury, Manchester & Rossendale. Find your perfect rental property or let your investment with confidence.",
-    url: "https://mcgowanlettings.co.uk",
+    url: SITE_URL,
     siteName: "McGowan Residential Lettings",
     type: "website",
     images: [{ url: "/hero.jpg", width: 1200, height: 630, alt: "McGowan Residential Lettings — Greater Manchester" }],
@@ -60,9 +61,9 @@ export default async function RootLayout({
     "@context": "https://schema.org",
     "@type": "RealEstateAgent",
     name: "McGowan Residential Lettings Ltd.",
-    url: "https://mcgowanlettings.co.uk",
-    logo: "https://mcgowanlettings.co.uk/mcgowan-logo.png",
-    image: "https://mcgowanlettings.co.uk/hero.jpg",
+    url: SITE_URL,
+    logo: `${SITE_URL}/mcgowan-logo.png`,
+    image: `${SITE_URL}/hero.jpg`,
     telephone: "0161 797 6967",
     email: "info@mcgowanlettings.co.uk",
     priceRange: "££",

@@ -46,9 +46,34 @@ const FOOTER_LINE =
  * anything outside that range so `drawText` never throws on, say, an emoji
  * or a Cyrillic character in an address field.
  */
+// Letters with no WinAnsi glyph and no NFKD decomposition to one.
+const FOLD: Record<string, string> = {
+  "ł": "l", "Ł": "L", "đ": "d", "Đ": "D", "ı": "i", "ø": "o", "Ø": "O",
+  "ħ": "h", "Ħ": "H", "ŧ": "t", "Ŧ": "T", "ß": "ss",
+};
+
+/** Keep Latin-1 characters as-is (é, ü, ñ render fine); fold anything else
+ * to its base letter (ś → s, ł → l) so "Łukasz Wójcik" doesn't print as
+ * "?ukasz". Only truly unmappable characters become "?". */
+function foldToLatin1(input: string): string {
+  let out = "";
+  for (const ch of input.normalize("NFC")) {
+    const code = ch.codePointAt(0)!;
+    if (code < 0x100) {
+      out += ch;
+    } else if (FOLD[ch]) {
+      out += FOLD[ch];
+    } else {
+      const base = ch.normalize("NFKD").replace(/[\u0300-\u036f]/g, "");
+      out += base && /^[\x20-\x7E\xA0-\xFF]+$/.test(base) ? base : ch;
+    }
+  }
+  return out;
+}
+
 function sanitize(input: string | null | undefined): string {
   if (!input) return "";
-  return input
+  return foldToLatin1(input)
     .replace(/\r\n?/g, "\n")
     .replace(/\t/g, "  ")
     .replace(/[‘’]/g, "'")

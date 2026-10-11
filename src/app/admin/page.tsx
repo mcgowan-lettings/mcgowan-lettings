@@ -49,27 +49,38 @@ export default function AdminDashboardPage() {
 
   const handleSaveReviewCount = async () => {
     setReviewCountMsg(null);
-    const parsed = parseInt(reviewCount, 10);
+    // Number() (not parseInt) so "12abc" / "1.5" / "1e3" are rejected
+    // rather than silently truncated.
+    const trimmed = reviewCount.trim();
+    const parsed = trimmed === "" ? NaN : Number(trimmed);
     if (!Number.isInteger(parsed) || parsed < 0) {
       setReviewCountMsg({ text: "Enter a whole number.", type: "error" });
       return;
     }
     setReviewCountSaving(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setReviewCountMsg({ text: "Session expired. Please sign in again.", type: "error" });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setReviewCountMsg({ text: "Session expired. Please sign in again.", type: "error" });
+        return;
+      }
+      const result = await updateReviewCount(parsed, session.access_token);
+      if (result.success) {
+        setReviewCountSaved(String(parsed));
+        setReviewCountState(String(parsed));
+        setReviewCountMsg({ text: "Saved.", type: "success" });
+        setTimeout(() => setReviewCountMsg(null), 3000);
+      } else {
+        setReviewCountMsg({ text: result.error || "Couldn't save.", type: "error" });
+      }
+    } catch {
+      setReviewCountMsg({
+        text: "Couldn't save — your session may have expired. Refresh and try again.",
+        type: "error",
+      });
+    } finally {
       setReviewCountSaving(false);
-      return;
     }
-    const result = await updateReviewCount(parsed, session.access_token);
-    if (result.success) {
-      setReviewCountSaved(String(parsed));
-      setReviewCountMsg({ text: "Saved.", type: "success" });
-      setTimeout(() => setReviewCountMsg(null), 3000);
-    } else {
-      setReviewCountMsg({ text: result.error || "Couldn't save.", type: "error" });
-    }
-    setReviewCountSaving(false);
   };
 
   useEffect(() => {

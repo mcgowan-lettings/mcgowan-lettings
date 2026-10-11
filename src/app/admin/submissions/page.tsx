@@ -4,6 +4,27 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { deleteSubmission as deleteSubmissionAction, markSubmissionRead, markAllSubmissionsRead } from "@/app/actions/admin";
 
+const LONDON_TZ = "Europe/London";
+
+/**
+ * wa.me needs the number in international format with no "+" or leading
+ * zeros. UK leads usually type 07…, which wa.me can't resolve.
+ */
+function whatsappNumber(phone: string): string {
+  let digits = phone.replace(/\D/g, "");
+  if (digits.startsWith("00")) digits = digits.slice(2);
+  else if (digits.startsWith("0")) digits = `44${digits.slice(1)}`;
+  return digits;
+}
+
+/** created_at → "yyyy-mm-dd HH:mm:ss" in UK local time (BST/GMT aware). */
+function formatCsvTimestamp(value: string): string {
+  const d = new Date(value);
+  return isNaN(d.getTime())
+    ? value
+    : d.toLocaleString("sv-SE", { timeZone: LONDON_TZ });
+}
+
 interface Submission {
   id: string;
   name: string;
@@ -56,15 +77,19 @@ export default function AdminSubmissionsPage() {
 
     // Mark as read if unread
     if (!submission.read) {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-      const result = await markSubmissionRead(submission.id, session.access_token);
-      if (result.success) {
-        setSubmissions((prev) =>
-          prev.map((s) =>
-            s.id === submission.id ? { ...s, read: true } : s
-          )
-        );
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+        const result = await markSubmissionRead(submission.id, session.access_token);
+        if (result.success) {
+          setSubmissions((prev) =>
+            prev.map((s) =>
+              s.id === submission.id ? { ...s, read: true } : s
+            )
+          );
+        }
+      } catch {
+        // Non-critical: the message stays unread and can be retried.
       }
     }
   };
@@ -73,36 +98,52 @@ export default function AdminSubmissionsPage() {
     const unreadIds = submissions.filter((s) => !s.read).map((s) => s.id);
     if (unreadIds.length === 0) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        return;
+      }
 
-    const result = await markAllSubmissionsRead(unreadIds, session.access_token);
-    if (!result.success) {
-      setMessage({ text: "Failed to mark all as read.", type: "error" });
-    } else {
-      setSubmissions((prev) => prev.map((s) => ({ ...s, read: true })));
-      setMessage({ text: "All messages marked as read.", type: "success" });
+      const result = await markAllSubmissionsRead(unreadIds, session.access_token);
+      if (!result.success) {
+        setMessage({ text: "Failed to mark all as read.", type: "error" });
+      } else {
+        setSubmissions((prev) => prev.map((s) => ({ ...s, read: true })));
+        setMessage({ text: "All messages marked as read.", type: "success" });
+      }
+    } catch {
+      setMessage({ text: "Failed to mark all as read — please refresh and try again.", type: "error" });
+    } finally {
+      setTimeout(() => setMessage(null), 3000);
     }
-    setTimeout(() => setMessage(null), 3000);
   };
 
   const deleteSubmission = async (id: string) => {
     if (!confirm("Delete this submission?")) return;
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
     setDeletingId(id);
-    const result = await deleteSubmissionAction(id, session.access_token);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        setMessage({ text: "Session expired. Please sign in again.", type: "error" });
+        return;
+      }
+      const result = await deleteSubmissionAction(id, session.access_token);
 
-    if (!result.success) {
-      setMessage({ text: result.error || "Failed to delete submission.", type: "error" });
-    } else {
-      setSubmissions((prev) => prev.filter((s) => s.id !== id));
-      if (expandedId === id) setExpandedId(null);
-      setMessage({ text: "Submission deleted.", type: "success" });
+      if (!result.success) {
+        setMessage({ text: result.error || "Failed to delete submission.", type: "error" });
+      } else {
+        setSubmissions((prev) => prev.filter((s) => s.id !== id));
+        if (expandedId === id) setExpandedId(null);
+        setMessage({ text: "Submission deleted.", type: "success" });
+      }
+    } catch {
+      setMessage({ text: "Failed to delete submission — please refresh and try again.", type: "error" });
+    } finally {
+      setDeletingId(null);
+      setTimeout(() => setMessage(null), 3000);
     }
-    setDeletingId(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   const formatDate = (dateStr: string) => {
@@ -121,10 +162,13 @@ export default function AdminSubmissionsPage() {
     if (diffHours < 48) {
       return "Yesterday";
     }
+    const londonYear = (d: Date) =>
+      d.toLocaleDateString("en-GB", { year: "numeric", timeZone: LONDON_TZ });
     return date.toLocaleDateString("en-GB", {
       day: "numeric",
       month: "short",
-      year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+      year: londonYear(date) !== londonYear(now) ? "numeric" : undefined,
+      timeZone: LONDON_TZ,
     });
   };
 
@@ -133,28 +177,32 @@ export default function AdminSubmissionsPage() {
     if (/^[=+\-@\t\r]/.test(str)) {
       str = `'${str}`;
     }
-    if (str.includes(",") || str.includes('"') || str.includes("\n")) {
+    if (/[",\n\r]/.test(str)) {
       return `"${str.replace(/"/g, '""')}"`;
     }
     return str;
   };
 
   const exportCsv = () => {
-    const headers = ["name", "email", "phone", "type", "message", "created_at"];
+    const headers = ["name", "email", "phone", "type", "message", "created_at (UK time)"];
     const rows = submissions.map((s) =>
-      [s.name, s.email, s.phone, s.type, s.message, s.created_at]
+      [s.name, s.email, s.phone, s.type, s.message, formatCsvTimestamp(s.created_at)]
         .map(escapeCsvField)
         .join(",")
     );
-    const csv = [headers.join(","), ...rows].join("\n");
+    // BOM so Excel opens it as UTF-8 (otherwise £, é, curly quotes mangle).
+    const csv = "\uFEFF" + [headers.join(","), ...rows].join("\r\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const date = new Date().toISOString().split("T")[0];
+    const date = new Date().toLocaleDateString("sv-SE", { timeZone: LONDON_TZ });
     a.href = url;
     a.download = `mcgowan-submissions-${date}.csv`;
+    // Firefox needs the link in the DOM; Safari needs the URL alive briefly.
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   const unreadCount = submissions.filter((s) => !s.read).length;
@@ -266,8 +314,8 @@ export default function AdminSubmissionsPage() {
                           {formatDate(submission.created_at)}
                         </span>
                       </div>
-                      <p className="mt-0.5 text-xs text-text-muted">
-                        {submission.email}
+                      <p className="mt-0.5 text-xs text-text-muted break-words">
+                        <span className="break-all">{submission.email}</span>
                         {submission.phone && ` · ${submission.phone}`}
                       </p>
                       {!isExpanded && (
@@ -302,7 +350,7 @@ export default function AdminSubmissionsPage() {
                           <span className="text-text-muted">Email: </span>
                           <a
                             href={`mailto:${submission.email}`}
-                            className="text-brand-dark hover:underline"
+                            className="text-brand-dark hover:underline break-all"
                           >
                             {submission.email}
                           </a>
@@ -322,13 +370,13 @@ export default function AdminSubmissionsPage() {
 
                       {/* Message */}
                       <div className="rounded-lg bg-white border border-gray-200 p-4">
-                        <p className="text-sm text-dark whitespace-pre-wrap leading-relaxed">
+                        <p className="text-sm text-dark whitespace-pre-wrap break-words leading-relaxed">
                           {submission.message}
                         </p>
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex flex-wrap items-center gap-3">
                         <a
                           href={`mailto:${submission.email}?subject=Re: Your enquiry to McGowan Lettings`}
                           className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-brand-light"
@@ -340,7 +388,7 @@ export default function AdminSubmissionsPage() {
                         </a>
                         {submission.phone && (
                           <a
-                            href={`https://wa.me/${submission.phone.replace(/\D/g, "")}`}
+                            href={`https://wa.me/${whatsappNumber(submission.phone)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-dark transition-colors hover:bg-gray-50"

@@ -73,8 +73,9 @@ create policy "Admins can manage blog posts" on public.blog_posts for all to aut
 -- anyone holding the anon key could upload arbitrary files to, or delete every
 -- object in, the bucket (all property photos, videos, EPCs and blog covers).
 -- The service role bypasses RLS and never needed a policy. Browser uploads and
--- `cleanupOrphans` run with the logged-in admin session JWT, so gating on
--- `authenticated` + is_admin() keeps them working. Public SELECT stays: the
+-- the editors' unsaved-file deletes run with the logged-in admin session JWT,
+-- so gating on `authenticated` + is_admin() keeps them working (`cleanupOrphans`
+-- now runs server-side with the service role). Public SELECT stays: the
 -- bucket is public-read by design (listing photos are served straight from it).
 -- No code path uses `upsert`, so no UPDATE policy is needed.
 drop policy if exists "Service role can upload property images" on storage.objects;

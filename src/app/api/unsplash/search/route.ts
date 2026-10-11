@@ -54,6 +54,7 @@ export async function GET(req: NextRequest) {
       urls: { small: string; raw: string };
       alt_description: string | null;
       user: { name: string; links: { html: string } };
+      links?: { download_location?: string };
     }) => ({
       id: photo.id,
       thumb: photo.urls.small,
@@ -61,6 +62,9 @@ export async function GET(req: NextRequest) {
       alt: photo.alt_description || "Stock photo",
       photographer: photo.user.name,
       photographerUrl: photo.user.links.html,
+      // Required by the Unsplash API guidelines: the client reports a
+      // selection via the trackUnsplashDownload server action.
+      downloadLocation: photo.links?.download_location ?? null,
     })
   );
 

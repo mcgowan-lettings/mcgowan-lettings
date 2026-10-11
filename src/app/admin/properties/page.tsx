@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { deleteProperty as deletePropertyAction, togglePropertyActive, togglePropertyFeatured, togglePropertyNew } from "@/app/actions/admin";
+import { ACTION_THREW_MESSAGE } from "./upload-helpers";
 
 interface Property {
   id: string;
@@ -73,18 +74,23 @@ export default function AdminPropertiesPage() {
 
   const toggleActive = async (id: string, currentActive: boolean) => {
     setToggling(id);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setToggling(null); return; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    const result = await togglePropertyActive(id, !currentActive, session.access_token);
-    if (!result.success) {
-      setMessage({ text: "Failed to update property.", type: "error" });
-    } else {
-      setProperties((prev) =>
-        prev.map((p) => (p.id === id ? { ...p, active: !currentActive } : p))
-      );
+      const result = await togglePropertyActive(id, !currentActive, session.access_token);
+      if (!result.success) {
+        setMessage({ text: "Failed to update property.", type: "error" });
+      } else {
+        setProperties((prev) =>
+          prev.map((p) => (p.id === id ? { ...p, active: !currentActive } : p))
+        );
+      }
+    } catch {
+      setMessage({ text: ACTION_THREW_MESSAGE, type: "error" });
+    } finally {
+      setToggling(null);
     }
-    setToggling(null);
   };
 
   const deleteProperty = async (property: Property) => {
@@ -92,62 +98,77 @@ export default function AdminPropertiesPage() {
       return;
     }
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
     setDeletingId(property.id);
-    const fileUrls = [...(property.images || []), ...(property.videos || []), property.epc_document].filter(
-      (u): u is string => !!u
-    );
-    const result = await deletePropertyAction(property.id, fileUrls, session.access_token);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const fileUrls = [...(property.images || []), ...(property.videos || []), property.epc_document].filter(
+        (u): u is string => !!u
+      );
+      const result = await deletePropertyAction(property.id, fileUrls, session.access_token);
 
-    if (!result.success) {
-      setMessage({ text: "Failed to delete property.", type: "error" });
-    } else {
-      setProperties((prev) => prev.filter((p) => p.id !== property.id));
-      setMessage({ text: "Property deleted.", type: "success" });
+      if (!result.success) {
+        setMessage({ text: "Failed to delete property.", type: "error" });
+      } else {
+        setProperties((prev) => prev.filter((p) => p.id !== property.id));
+        setMessage({ text: "Property deleted.", type: "success" });
+      }
+    } catch {
+      setMessage({ text: "Couldn't delete — your session may have expired. Refresh and sign in again.", type: "error" });
+    } finally {
+      setDeletingId(null);
+      setTimeout(() => setMessage(null), 3000);
     }
-    setDeletingId(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   const toggleFeatured = async (id: string, currentFeatured: boolean) => {
     if (togglingFeatured === id) return;
     setTogglingFeatured(id);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setTogglingFeatured(null); return; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    const result = await togglePropertyFeatured(id, !currentFeatured, session.access_token);
-    if (!result.success) {
-      setMessage({ text: "Failed to update featured status.", type: "error" });
-    } else {
-      setProperties((prev) =>
-        prev.map((p) =>
-          p.id === id ? { ...p, featured: !currentFeatured } : p
-        )
-      );
+      const result = await togglePropertyFeatured(id, !currentFeatured, session.access_token);
+      if (!result.success) {
+        setMessage({ text: "Failed to update featured status.", type: "error" });
+      } else {
+        setProperties((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, featured: !currentFeatured } : p
+          )
+        );
+      }
+    } catch {
+      setMessage({ text: ACTION_THREW_MESSAGE, type: "error" });
+    } finally {
+      setTogglingFeatured(null);
+      setTimeout(() => setMessage(null), 3000);
     }
-    setTogglingFeatured(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   const toggleNew = async (id: string, currentNew: boolean) => {
     if (togglingNew === id) return;
     setTogglingNew(id);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { setTogglingNew(null); return; }
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-    const result = await togglePropertyNew(id, !currentNew, session.access_token);
-    if (!result.success) {
-      setMessage({ text: "Failed to update the New Property badge.", type: "error" });
-    } else {
-      setProperties((prev) =>
-        prev.map((p) =>
-          p.id === id ? { ...p, is_new: !currentNew } : p
-        )
-      );
+      const result = await togglePropertyNew(id, !currentNew, session.access_token);
+      if (!result.success) {
+        setMessage({ text: "Failed to update the New Property badge.", type: "error" });
+      } else {
+        setProperties((prev) =>
+          prev.map((p) =>
+            p.id === id ? { ...p, is_new: !currentNew } : p
+          )
+        );
+      }
+    } catch {
+      setMessage({ text: ACTION_THREW_MESSAGE, type: "error" });
+    } finally {
+      setTogglingNew(null);
+      setTimeout(() => setMessage(null), 3000);
     }
-    setTogglingNew(null);
-    setTimeout(() => setMessage(null), 3000);
   };
 
   if (loading) {
@@ -327,7 +348,7 @@ export default function AdminPropertiesPage() {
                       &pound;{property.price.toLocaleString()}/mo
                     </td>
                     <td className="px-4 py-3 text-text-muted">
-                      {property.beds}
+                      {property.beds === 0 ? "Studio" : property.beds}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <button
@@ -454,7 +475,7 @@ export default function AdminPropertiesPage() {
                       {property.title}
                     </p>
                     <p className="text-xs text-text-muted">
-                      {property.area} &middot; {property.beds} bed &middot;{" "}
+                      {property.area} &middot; {property.beds === 0 ? "Studio" : `${property.beds} bed`} &middot;{" "}
                       &pound;{property.price.toLocaleString()}/mo
                     </p>
                     <div className="mt-2 flex flex-wrap items-center gap-3 sm:gap-4">

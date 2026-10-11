@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter, usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -14,15 +14,37 @@ import {
   SearchIcon,
   ChevronDownIcon,
 } from "@/components/Icons";
+import {
+  BEDROOM_VALUES,
+  MAX_PRICE_VALUES,
+  TYPE_FILTER_OPTIONS,
+  buildAreaList,
+  formatPrice,
+  matchesBeds,
+  matchesPrice,
+  normaliseArea,
+  parseTypeFilter,
+  propertyTypeCategory,
+} from "./filters";
 
 /* ───────────────────────── FILTER OPTIONS ───────────────────────── */
 
-// Curated order — known areas appear first; any extra areas (e.g. typed in by admin)
-// fall through to the dynamic list and are appended alphabetically.
-const KNOWN_AREAS = ["Bury", "Bolton", "Manchester", "Rochdale", "Rossendale", "Accrington", "Burnley"] as const;
-const MAX_PRICES = ["Any Price", "£500", "£750", "£1,000", "£1,250", "£1,500", "£2,000+"] as const;
-const BEDROOMS = ["Any Beds", "Studio", "1", "2", "3", "4+"] as const;
-const PROPERTY_TYPES = ["All Types", "House", "Apartment", "Flat", "Bungalow"] as const;
+const ALL_AREAS = "All Areas";
+const ANY_PRICE = "Any Price";
+const ANY_BEDS = "Any Beds";
+const ALL_TYPES = "All Types";
+
+type Option = { value: string; label: string };
+
+const PRICE_OPTIONS: Option[] = [
+  { value: ANY_PRICE, label: ANY_PRICE },
+  ...MAX_PRICE_VALUES.map((v) => ({ value: v, label: v })),
+];
+const BEDROOM_OPTIONS: Option[] = [
+  { value: ANY_BEDS, label: ANY_BEDS },
+  ...BEDROOM_VALUES.map((v) => ({ value: v, label: v })),
+];
+const TYPE_OPTIONS: Option[] = [{ value: ALL_TYPES, label: ALL_TYPES }, ...TYPE_FILTER_OPTIONS];
 
 type Property = {
   id: string;
@@ -38,19 +60,25 @@ type Property = {
   is_new: boolean | null;
 };
 
+type Filters = { area: string; maxPrice: string; bedrooms: string; type: string };
+
+const DEFAULT_FILTERS: Filters = {
+  area: ALL_AREAS,
+  maxPrice: ANY_PRICE,
+  bedrooms: ANY_BEDS,
+  type: ALL_TYPES,
+};
+
 /* ───────────────────────── HELPERS ───────────────────────── */
 
-function parsePriceFilter(value: string): number | null {
-  if (value === "Any Price") return null;
-  if (value === "£2,000+") return 99999;
-  return parseInt(value.replace(/[£,]/g, ""), 10);
-}
-
-function parseBedsFilter(value: string): number | null {
-  if (value === "Any Beds") return null;
-  if (value === "Studio") return 0;
-  if (value === "4+") return 4;
-  return parseInt(value, 10);
+/** Resolve a URL value against the select's options (case-insensitive,
+ *  trimmed). If it isn't one of them, append it so the select shows what is
+ *  actually being filtered on instead of silently displaying the default. */
+function withCurrent(options: Option[], value: string): { options: Option[]; value: string } {
+  const key = value.trim().toLowerCase();
+  const hit = options.find((o) => o.value.toLowerCase() === key);
+  if (hit) return { options, value: hit.value };
+  return { options: [...options, { value, label: value }], value };
 }
 
 /* ───────────────────────── SELECT COMPONENT ───────────────────────── */
@@ -62,22 +90,22 @@ function FilterSelect({
   onChange,
 }: {
   label: string;
-  options: readonly string[];
+  options: Option[];
   value: string;
   onChange: (v: string) => void;
 }) {
+  const resolved = withCurrent(options, value);
   return (
     <div className="relative flex-1 min-w-[160px]">
-      <label className="sr-only">{label}</label>
       <select
         aria-label={label}
-        value={value}
+        value={resolved.value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
+        className="w-full min-h-11 appearance-none bg-white border border-black/10 rounded-md px-4 py-3 pr-10 text-sm text-dark font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-brand/40 focus:border-brand transition-colors"
       >
-        {options.map((opt) => (
-          <option key={opt} value={opt}>
-            {opt}
+        {resolved.options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
           </option>
         ))}
       </select>
@@ -86,91 +114,93 @@ function FilterSelect({
   );
 }
 
+/* ───────────────────────── URL SYNC ───────────────────────── */
+
+// The only component that touches useSearchParams. On a static/ISR route,
+// useSearchParams forces client rendering up to the nearest Suspense
+// boundary — so it's isolated here, inside a boundary that renders nothing.
+// The hero, filter bar and full (unfiltered) grid are therefore in the
+// prerendered HTML; URL filters are applied right after hydration.
+function SearchParamsSync({ onChange }: { onChange: (f: Filters) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    onChange({
+      area: searchParams.get("area") ?? ALL_AREAS,
+      maxPrice: searchParams.get("maxPrice") ?? ANY_PRICE,
+      bedrooms: searchParams.get("bedrooms") ?? ANY_BEDS,
+      type: searchParams.get("type") ?? ALL_TYPES,
+    });
+  }, [searchParams, onChange]);
+  return null;
+}
+
 /* ───────────────────────── PAGE ───────────────────────── */
 
 export default function PropertiesPage({ initialProperties }: { initialProperties: Property[] }) {
-  return (
-    <Suspense>
-      <PropertiesContent initialProperties={initialProperties} />
-    </Suspense>
-  );
-}
-
-function PropertiesContent({ initialProperties }: { initialProperties: Property[] }) {
-  const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
   const properties = initialProperties;
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
+  const { area, maxPrice, bedrooms, type: propertyType } = filters;
 
   // Build the area filter list from actual property data, so any area the admin
   // types in (e.g. "Rochdale", or anywhere new) automatically appears here.
-  const areaOptions = useMemo(() => {
-    const liveAreas = new Set(
-      properties.map((p) => p.area?.trim()).filter((a): a is string => Boolean(a))
-    );
-    const ordered: string[] = [];
-    for (const a of KNOWN_AREAS) {
-      if (liveAreas.has(a)) {
-        ordered.push(a);
-        liveAreas.delete(a);
-      }
-    }
-    const extras = Array.from(liveAreas).sort((a, b) => a.localeCompare(b));
-    return ["All Areas", ...ordered, ...extras];
-  }, [properties]);
-
-  const area = searchParams.get("area") ?? "All Areas";
-  const maxPrice = searchParams.get("maxPrice") ?? "Any Price";
-  const bedrooms = searchParams.get("bedrooms") ?? "Any Beds";
-  const propertyType = searchParams.get("type") ?? "All Types";
-
-  const updateParam = useCallback(
-    (key: string, value: string, defaultValue: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value === defaultValue) params.delete(key);
-      else params.set(key, value);
-      const qs = params.toString();
-      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
-    },
-    [searchParams, router, pathname]
+  const areaOptions = useMemo<Option[]>(
+    () => [
+      { value: ALL_AREAS, label: ALL_AREAS },
+      ...buildAreaList(properties.map((p) => p.area)).map((a) => ({ value: a, label: a })),
+    ],
+    [properties]
   );
 
-  const setArea = (v: string) => updateParam("area", v, "All Areas");
-  const setMaxPrice = (v: string) => updateParam("maxPrice", v, "Any Price");
-  const setBedrooms = (v: string) => updateParam("bedrooms", v, "Any Beds");
-  const setPropertyType = (v: string) => updateParam("type", v, "All Types");
+  function updateFilter(key: keyof Filters, value: string) {
+    const next = { ...filters, [key]: value };
+    setFilters(next);
+    // Keep unrelated params (utm_*, etc.); only rewrite the filter keys.
+    const params = new URLSearchParams(window.location.search);
+    for (const k of ["area", "maxPrice", "bedrooms", "type"]) params.delete(k);
+    if (next.area !== ALL_AREAS) params.set("area", next.area);
+    if (next.maxPrice !== ANY_PRICE) params.set("maxPrice", next.maxPrice);
+    if (next.bedrooms !== ANY_BEDS) params.set("bedrooms", next.bedrooms);
+    if (next.type !== ALL_TYPES) params.set("type", next.type);
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+  }
+
+  const setArea = (v: string) => updateFilter("area", v);
+  const setMaxPrice = (v: string) => updateFilter("maxPrice", v);
+  const setBedrooms = (v: string) => updateFilter("bedrooms", v);
+  const setPropertyType = (v: string) => updateFilter("type", v);
 
   const filtersActive =
-    area !== "All Areas" ||
-    maxPrice !== "Any Price" ||
-    bedrooms !== "Any Beds" ||
-    propertyType !== "All Types";
+    area !== ALL_AREAS ||
+    maxPrice !== ANY_PRICE ||
+    bedrooms !== ANY_BEDS ||
+    propertyType !== ALL_TYPES;
 
   const filteredProperties = useMemo(() => {
+    const areaKey = area === ALL_AREAS ? "" : normaliseArea(area);
+    const typeCategory = propertyType === ALL_TYPES ? null : parseTypeFilter(propertyType);
     return properties.filter((p) => {
-      if (area !== "All Areas" && p.area !== area) return false;
-
-      const priceLimit = parsePriceFilter(maxPrice);
-      if (priceLimit !== null && priceLimit !== 99999 && p.price > priceLimit) return false;
-
-      const bedsMin = parseBedsFilter(bedrooms);
-      if (bedsMin !== null) {
-        if (bedrooms === "4+" && p.beds < 4) return false;
-        if (bedrooms !== "4+" && p.beds !== bedsMin) return false;
-      }
-
-      if (propertyType !== "All Types" && p.type !== propertyType) return false;
-
+      if (areaKey && normaliseArea(p.area) !== areaKey) return false;
+      if (!matchesPrice(p.price, maxPrice)) return false;
+      if (!matchesBeds(p.beds, bedrooms)) return false;
+      if (typeCategory && propertyTypeCategory(p.type) !== typeCategory) return false;
       return true;
     });
   }, [properties, area, maxPrice, bedrooms, propertyType]);
 
   function resetFilters() {
+    setFilters(DEFAULT_FILTERS);
     router.replace(pathname, { scroll: false });
   }
 
   return (
     <>
+      <Suspense fallback={null}>
+        <SearchParamsSync onChange={setFilters} />
+      </Suspense>
+
       {/* ─── HERO BANNER ─── */}
       <section className="relative h-[40vh] min-h-[320px] flex items-center justify-center overflow-hidden noise-overlay bg-dark pt-16">
         <div className="absolute inset-0">
@@ -208,15 +238,15 @@ function PropertiesContent({ initialProperties }: { initialProperties: Property[
         <div className="max-w-7xl mx-auto px-6 py-5">
           <div className="flex flex-wrap items-end gap-3">
             <FilterSelect label="Area" options={areaOptions} value={area} onChange={setArea} />
-            <FilterSelect label="Max Price" options={MAX_PRICES} value={maxPrice} onChange={setMaxPrice} />
-            <FilterSelect label="Bedrooms" options={BEDROOMS} value={bedrooms} onChange={setBedrooms} />
-            <FilterSelect label="Property Type" options={PROPERTY_TYPES} value={propertyType} onChange={setPropertyType} />
+            <FilterSelect label="Max Price" options={PRICE_OPTIONS} value={maxPrice} onChange={setMaxPrice} />
+            <FilterSelect label="Bedrooms" options={BEDROOM_OPTIONS} value={bedrooms} onChange={setBedrooms} />
+            <FilterSelect label="Property Type" options={TYPE_OPTIONS} value={parseTypeFilter(propertyType) ?? propertyType} onChange={setPropertyType} />
           </div>
 
           {filtersActive && (
             <button
               onClick={resetFilters}
-              className="mt-3 text-sm text-text-muted hover:text-dark transition-colors underline underline-offset-2"
+              className="mt-1 min-h-11 inline-flex items-center text-sm text-text-muted hover:text-dark transition-colors underline underline-offset-2"
             >
               Reset filters
             </button>
@@ -252,7 +282,7 @@ function PropertiesContent({ initialProperties }: { initialProperties: Property[
                       />
                       <div className="absolute bottom-3 left-3 bg-dark/90 backdrop-blur-sm text-white px-3 py-1.5 rounded-sm">
                         <span className="text-lg font-semibold">
-                          £{property.price.toLocaleString()}
+                          £{formatPrice(property.price)}
                         </span>
                         <span className="text-white/50 text-xs ml-1">pcm</span>
                       </div>

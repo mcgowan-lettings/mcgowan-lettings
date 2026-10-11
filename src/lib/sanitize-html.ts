@@ -7,7 +7,7 @@ import sanitize from "sanitize-html";
 // code executes. sanitize-html has no DOM dependency and works in any JS env.
 export function sanitizeHtml(html: string): string {
   return sanitize(html, {
-    allowedTags: ["p", "br", "strong", "em", "b", "i", "a", "h2", "h3", "ul", "ol", "li"],
+    allowedTags: ["p", "br", "strong", "em", "b", "i", "u", "a", "h2", "h3", "ul", "ol", "li"],
     allowedAttributes: {
       a: ["href", "target", "rel"],
     },

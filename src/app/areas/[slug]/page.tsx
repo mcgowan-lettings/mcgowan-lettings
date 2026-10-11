@@ -13,8 +13,11 @@ import {
   PhoneIcon,
   CheckIcon,
 } from "@/components/Icons";
+import { SITE_URL } from "@/lib/site";
 
 export const revalidate = 3600;
+// Only the slugs in AREAS exist; anything else 404s without rendering.
+export const dynamicParams = false;
 
 /* ───────────────────────── AREA DATA ───────────────────────── */
 
@@ -307,6 +310,11 @@ const AREAS: Record<string, AreaData> = {
   },
 };
 
+/** Own-property lookup so "/areas/constructor" etc. can't hit Object.prototype. */
+function getArea(slug: string): AreaData | undefined {
+  return Object.hasOwn(AREAS, slug) ? AREAS[slug] : undefined;
+}
+
 /* ───────────────────────── METADATA ───────────────────────── */
 
 export async function generateMetadata({
@@ -315,7 +323,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const area = AREAS[slug];
+  const area = getArea(slug);
   if (!area) return {};
 
   const title = `Renting in ${area.name} | McGowan Residential Lettings`;
@@ -354,7 +362,7 @@ export default async function AreaGuidePage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const area = AREAS[slug];
+  const area = getArea(slug);
 
   if (!area) notFound();
 
@@ -371,8 +379,8 @@ export default async function AreaGuidePage({
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Home", item: "https://mcgowanlettings.co.uk" },
-      { "@type": "ListItem", position: 2, name: "Area Guides", item: "https://mcgowanlettings.co.uk/areas" },
+      { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+      { "@type": "ListItem", position: 2, name: "Area Guides", item: `${SITE_URL}/areas` },
       { "@type": "ListItem", position: 3, name: area.name },
     ],
   };
@@ -381,7 +389,7 @@ export default async function AreaGuidePage({
     "@context": "https://schema.org",
     "@type": "WebPage",
     name: `Renting in ${area.name}`,
-    url: `https://mcgowanlettings.co.uk/areas/${slug}`,
+    url: `${SITE_URL}/areas/${slug}`,
     description: area.description[0],
     about: {
       "@type": "Place",
@@ -391,7 +399,7 @@ export default async function AreaGuidePage({
     provider: {
       "@type": "RealEstateAgent",
       name: "McGowan Residential Lettings Ltd.",
-      url: "https://mcgowanlettings.co.uk",
+      url: SITE_URL,
     },
   };
 
@@ -496,11 +504,19 @@ export default async function AreaGuidePage({
                       </p>
                     </div>
                   </div>
+                  {/* With nothing live here, a filtered link would land on an
+                      empty list, so send people to everything instead. */}
                   <Link
-                    href={`/properties?area=${encodeURIComponent(area.name)}`}
-                    className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-5 py-2.5 rounded-sm hover:bg-brand-light transition-colors text-sm w-full justify-center"
+                    href={
+                      propertyCount > 0
+                        ? `/properties?area=${encodeURIComponent(area.name)}`
+                        : "/properties"
+                    }
+                    className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-5 py-2.5 min-h-[44px] rounded-sm hover:bg-brand-light transition-colors text-sm w-full justify-center text-center"
                   >
-                    View Properties in {area.name}
+                    {propertyCount > 0
+                      ? `View Properties in ${area.name}`
+                      : "View All Properties"}
                     <ArrowRightIcon className="w-3.5 h-3.5 shrink-0 translate-y-px transition-transform group-hover:translate-x-0.5" />
                   </Link>
                 </div>

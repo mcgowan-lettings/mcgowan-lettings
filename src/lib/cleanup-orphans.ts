@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 const BUCKET = "property-images";
-const PREFIXES = ["properties", "properties/videos", "epc"];
+const PREFIXES = ["properties", "properties/videos", "epc", "blog"];
 
 /**
  * Hard cap on how many files we'll delete in one pass. Even if every other
@@ -27,7 +27,14 @@ function pathFromUrl(url: string | null | undefined): string | null {
   const marker = `/${BUCKET}/`;
   const idx = url.indexOf(marker);
   if (idx === -1) return null;
-  return url.slice(idx + marker.length);
+  // Public URLs percent-encode the path ("my epc.pdf" → "my%20epc.pdf");
+  // storage.list() returns raw names, so compare decoded paths.
+  const raw = url.slice(idx + marker.length).split("?")[0];
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
 }
 
 /**
@@ -72,7 +79,34 @@ export async function cleanupOrphans(supabase: SupabaseClient): Promise<number> 
     throw new Error("cleanupOrphans: properties query returned null data");
   }
 
+  // Blog covers live in `blog/`. Post bodies are scanned too, in case any
+  // content links to a bucket file. Same fail-closed rule as above: a failed
+  // query must never leave live covers looking unreferenced.
+  const { data: posts, error: postsError } = await supabase
+    .from("blog_posts")
+    .select("cover_image, content");
+  if (postsError) {
+    throw new Error(`cleanupOrphans: failed to list blog posts: ${postsError.message}`);
+  }
+  if (!posts) {
+    throw new Error("cleanupOrphans: blog posts query returned null data");
+  }
+
   const referenced = new Set<string>();
+  for (const post of posts) {
+    const cover = pathFromUrl(post.cover_image as string | null);
+    if (cover) referenced.add(cover);
+    const content = (post.content as string | null) ?? "";
+    for (const m of content.matchAll(/\/property-images\/([^"'\s?)]+)/g)) {
+      let p = m[1];
+      try {
+        p = decodeURIComponent(p);
+      } catch {
+        // Malformed escape — keep the raw path rather than abort cleanup.
+      }
+      referenced.add(p);
+    }
+  }
   for (const row of rows) {
     for (const u of (row.images as string[] | null) ?? []) {
       const p = pathFromUrl(u);

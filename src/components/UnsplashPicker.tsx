@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import Image from "next/image";
 import { supabase } from "@/lib/supabase";
+import { trackUnsplashDownload } from "@/app/actions/unsplash";
 
 /**
  * Build an Authorization header for the admin-only Unsplash route. The
@@ -25,6 +26,25 @@ interface UnsplashPhoto {
   alt: string;
   photographer: string;
   photographerUrl: string;
+  downloadLocation: string | null;
+}
+
+/**
+ * Report a selection to Unsplash (API guideline requirement). Fire-and-forget:
+ * selection never waits on, or fails because of, this call.
+ */
+function reportUnsplashDownload(photo: UnsplashPhoto) {
+  if (!photo.downloadLocation) return;
+  const downloadLocation = photo.downloadLocation;
+  void (async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await trackUnsplashDownload(downloadLocation, session.access_token);
+    } catch {
+      // Best-effort only.
+    }
+  })();
 }
 
 interface UnsplashPickerProps {
@@ -85,7 +105,17 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
       );
       if (!res.ok) throw new Error("Load more failed");
       const data = await res.json();
-      setPhotos((prev) => [...prev, ...data.results]);
+      // Unsplash pages can overlap (results shift as the index updates), so
+      // drop ids we already have — duplicate keys break React reconciliation.
+      setPhotos((prev) => {
+        const seen = new Set(prev.map((p) => p.id));
+        const fresh = (data.results as UnsplashPhoto[]).filter((p) => {
+          if (seen.has(p.id)) return false;
+          seen.add(p.id);
+          return true;
+        });
+        return [...prev, ...fresh];
+      });
       setPage(nextPage);
     } catch {
       setError("Failed to load more photos.");
@@ -161,7 +191,10 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
                   <button
                     key={photo.id}
                     type="button"
-                    onClick={() => onSelect(photo.url)}
+                    onClick={() => {
+                      reportUnsplashDownload(photo);
+                      onSelect(photo.url);
+                    }}
                     className="group relative aspect-[16/10] overflow-hidden rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand"
                   >
                     <Image

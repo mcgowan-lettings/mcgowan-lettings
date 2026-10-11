@@ -1,6 +1,6 @@
 import React from "react";
 
-const INLINE_RE = /\*\*([^*\n]+?)\*\*|_([^_\n]+?)_|\[([^\]\n]+?)\]\(([^)\s]+)\)/g;
+const INLINE_RE = /\*\*([^*\n]+?)\*\*|_([^_\n]+?)_(?![A-Za-z0-9_])|\[([^\]\n]+?)\]\(([^)\s]+)\)/g;
 
 export function isHtml(content: string): boolean {
   return /<\/?(p|strong|em|b|i|a|h[1-6]|br|ul|ol|li)\b/i.test(content);
@@ -30,6 +30,15 @@ function inlineMarkdownToHtml(text: string): string {
     if (match[1] !== undefined) {
       result += `<strong>${escapeHtml(match[1])}</strong>`;
     } else if (match[2] !== undefined) {
+      // Only treat _x_ as italics at a word start — snake_case and URLs keep
+      // their underscores. (No regex lookbehind: Safari < 16.4 can't parse it.)
+      const prev = match.index > 0 ? text[match.index - 1] : "";
+      if (/[A-Za-z0-9_]/.test(prev)) {
+        result += "_";
+        INLINE_RE.lastIndex = match.index + 1;
+        lastIndex = INLINE_RE.lastIndex;
+        continue;
+      }
       result += `<em>${escapeHtml(match[2])}</em>`;
     } else if (match[3] !== undefined && match[4] !== undefined) {
       if (isSafeUrl(match[4])) {

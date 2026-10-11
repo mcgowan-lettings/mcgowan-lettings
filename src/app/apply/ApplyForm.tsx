@@ -37,6 +37,16 @@ function maxDobDate(): string {
   return isoDate(d);
 }
 
+/**
+ * Mirrors the server's "age > 120" bound in actions/apply.ts: anyone born on
+ * or before this date is 121+ and would be rejected server-side.
+ */
+function tooOldDobDate(): string {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() - 121);
+  return isoDate(d);
+}
+
 function formatLongDate(d: Date): string {
   return d.toLocaleDateString("en-GB", {
     day: "numeric",
@@ -170,6 +180,9 @@ function Optional() {
 
 /* ───────────────────────── SIGNATURE PAD ───────────────────────── */
 
+/** Points are stored normalised (0–1 of the canvas CSS width/height) so a
+ *  width change — e.g. rotating a phone — rescales the signature instead of
+ *  clipping it. */
 type Point = { x: number; y: number };
 
 function SignaturePad({
@@ -181,14 +194,18 @@ function SignaturePad({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
-  // All strokes in CSS-pixel space so we can re-draw after a resize/DPR change.
+  // All strokes in normalised (0–1) space so we can re-draw after a resize/DPR change.
   const strokesRef = useRef<Point[][]>([]);
+  // Current canvas size in CSS px, used to map normalised points to pixels.
+  const sizeRef = useRef({ w: 1, h: 1 });
   const drawingRef = useRef(false);
   const lastRef = useRef<Point | null>(null);
   const [hasInk, setHasInk] = useState(false);
 
-  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, pts: Point[]) => {
-    if (pts.length === 0) return;
+  const drawStroke = useCallback((ctx: CanvasRenderingContext2D, normPts: Point[]) => {
+    if (normPts.length === 0) return;
+    const { w, h } = sizeRef.current;
+    const pts = normPts.map((p) => ({ x: p.x * w, y: p.y * h }));
     ctx.beginPath();
     if (pts.length === 1) {
       // A tap — draw a dot.
@@ -228,6 +245,7 @@ function SignaturePad({
     canvas.height = Math.round(h * dpr);
     canvas.style.width = `${w}px`;
     canvas.style.height = `${h}px`;
+    sizeRef.current = { w, h };
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     setupContext(ctx, dpr);
@@ -250,7 +268,10 @@ function SignaturePad({
 
   const pointFromEvent = (e: ReactPointerEvent<HTMLCanvasElement>): Point => {
     const rect = e.currentTarget.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    return {
+      x: (e.clientX - rect.left) / Math.max(1, rect.width),
+      y: (e.clientY - rect.top) / Math.max(1, rect.height),
+    };
   };
 
   const handlePointerDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -277,17 +298,21 @@ function SignaturePad({
   const handlePointerMove = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!drawingRef.current) return;
     e.preventDefault();
-    const p = pointFromEvent(e);
-    const last = lastRef.current;
+    const np = pointFromEvent(e);
+    const nLast = lastRef.current;
     const stroke = strokesRef.current[strokesRef.current.length - 1];
-    if (!stroke || !last) return;
+    if (!stroke || !nLast) return;
+    const { w, h } = sizeRef.current;
+    const toPx = (q: Point): Point => ({ x: q.x * w, y: q.y * h });
+    const p = toPx(np);
+    const last = toPx(nLast);
     // Skip micro-jitter so the curve stays clean.
     if (Math.abs(p.x - last.x) < 0.5 && Math.abs(p.y - last.y) < 0.5) return;
-    stroke.push(p);
+    stroke.push(np);
     const ctx = e.currentTarget.getContext("2d");
     if (ctx) {
       // Incremental segment: midpoint smoothing between the last two points.
-      const prev = stroke.length >= 3 ? stroke[stroke.length - 3] : null;
+      const prev = stroke.length >= 3 ? toPx(stroke[stroke.length - 3]) : null;
       ctx.beginPath();
       if (prev) {
         const m1 = { x: (prev.x + last.x) / 2, y: (prev.y + last.y) / 2 };
@@ -300,7 +325,7 @@ function SignaturePad({
       }
       ctx.stroke();
     }
-    lastRef.current = p;
+    lastRef.current = np;
   };
 
   const endStroke = (e: ReactPointerEvent<HTMLCanvasElement>) => {
@@ -422,6 +447,20 @@ export default function ApplyForm({
   const [submitted, setSubmitted] = useState(false);
   const [serverError, setServerError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // On success, bring the confirmation into view and move focus to its
+  // heading so screen readers announce it.
+  useEffect(() => {
+    if (!submitted) return;
+    const el = successHeadingRef.current;
+    if (!el) return;
+    const reduce =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }, [submitted]);
 
   // Today's date is rendered client-side only (server snapshot is empty) so
   // SSR/hydration can't disagree across time zones.
@@ -445,13 +484,20 @@ export default function ApplyForm({
         }
         return next;
       });
-      if (errors[key]) {
-        setErrors((prev) => {
-          const next = { ...prev };
-          delete next[key];
-          return next;
-        });
+      // Clear the edited field's error, plus any error that edit makes stale:
+      // the auto-synced "Print name", and employer fields that are no longer
+      // shown once the employment status changes.
+      const stale: ErrorKey[] = [key];
+      if (key === "full_name" && !signedNameTouched) stale.push("signed_name");
+      if (key === "employment_status" && !needsEmployer(String(value))) {
+        stale.push("employer", "job_title", "employment_start_date");
       }
+      setErrors((prev) => {
+        if (!stale.some((k) => prev[k])) return prev;
+        const next = { ...prev };
+        for (const k of stale) delete next[k];
+        return next;
+      });
     };
 
   const showEmployer = needsEmployer(fields.employment_status);
@@ -475,8 +521,11 @@ export default function ApplyForm({
       e.phone = "Please enter a valid phone number.";
     }
     req("date_of_birth", "Please enter your date of birth.");
+    // Messages match the server's (actions/apply.ts) so the two never disagree.
     if (fields.date_of_birth && fields.date_of_birth > maxDobDate()) {
-      e.date_of_birth = "Applicants must be 18 or over.";
+      e.date_of_birth = "Applicants must be at least 18 years old.";
+    } else if (fields.date_of_birth && fields.date_of_birth <= tooOldDobDate()) {
+      e.date_of_birth = "Please enter a valid date of birth.";
     }
     req("ni_number", "Please enter your National Insurance number.");
     if (fields.ni_number && !NI_REGEX.test(fields.ni_number.replace(/\s+/g, ""))) {
@@ -543,8 +592,9 @@ export default function ApplyForm({
     setServerError("");
 
     const errs = validate();
+    // Always replace the error map so fixed fields don't keep stale messages.
+    setErrors(errs);
     if (Object.keys(errs).length > 0) {
-      setErrors(errs);
       scrollToFirstError(errs);
       return;
     }
@@ -592,11 +642,8 @@ export default function ApplyForm({
     try {
       const result = await submitApplication(payload);
       if (result.success) {
+        // The success effect below scrolls to and focuses the heading.
         setSubmitted(true);
-        const reduce =
-          typeof window.matchMedia === "function" &&
-          window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        window.scrollTo({ top: 0, behavior: reduce ? "auto" : "smooth" });
       } else {
         setServerError(result.error || "Something went wrong. Please try again.");
       }
@@ -612,11 +659,18 @@ export default function ApplyForm({
   /* ── Success panel ── */
   if (submitted) {
     return (
-      <div className="bg-white rounded-lg border border-black/5 shadow-sm p-8 md:p-12 text-center animate-fade-in-up">
+      <div
+        role="status"
+        className="bg-white rounded-lg border border-black/5 shadow-sm p-8 md:p-12 text-center animate-fade-in-up"
+      >
         <div className="w-16 h-16 rounded-full bg-brand/10 flex items-center justify-center mx-auto mb-5">
           <CheckIcon className="w-8 h-8 text-brand" />
         </div>
-        <h2 className="font-heading text-2xl md:text-3xl font-semibold text-dark mb-3">
+        <h2
+          ref={successHeadingRef}
+          tabIndex={-1}
+          className="font-heading text-2xl md:text-3xl font-semibold text-dark mb-3 focus:outline-none"
+        >
           {copy.successTitle}
         </h2>
         <p className="text-text-muted leading-relaxed max-w-md mx-auto mb-2">
@@ -651,13 +705,20 @@ export default function ApplyForm({
         aria-hidden="true"
         style={{ position: "absolute", left: "-10000px", width: "1px", height: "1px", overflow: "hidden" }}
       >
-        <label htmlFor="apply_website">Website</label>
+        {/* Name must stay "website" (server reads it), but the label/id are
+            deliberately non-semantic so password managers don't autofill it
+            and get a real application silently dropped. */}
+        <label htmlFor="hp-field">Leave this blank</label>
         <input
           type="text"
-          id="apply_website"
+          id="hp-field"
           name="website"
           tabIndex={-1}
           autoComplete="off"
+          data-1p-ignore
+          data-lpignore="true"
+          data-bwignore="true"
+          data-form-type="other"
           value={fields.website}
           onChange={set("website")}
         />

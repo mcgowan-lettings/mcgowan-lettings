@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import Image from "next/image";
 import { AnimateIn } from "@/components/AnimateIn";
 import { submitValuationForm } from "@/app/actions/valuation";
@@ -62,6 +62,20 @@ export default function ValuationPage() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const successHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // On success, move focus to the confirmation heading (screen readers
+  // announce it) and make sure it's on screen.
+  useEffect(() => {
+    if (!submitted) return;
+    const el = successHeadingRef.current;
+    if (!el) return;
+    const reduce =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.focus({ preventScroll: true });
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
+  }, [submitted]);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -70,24 +84,28 @@ export default function ValuationPage() {
     setSubmitting(true);
     setError("");
 
-    const result = await submitValuationForm({
-      name: formData.name,
-      email: formData.email,
-      phone: formData.phone,
-      address: formData.address,
-      property_type: formData.propertyType,
-      bedrooms: formData.bedrooms,
-      situation: formData.situation,
-      message: formData.message,
-      website: formData.company_url,
-    });
+    try {
+      const result = await submitValuationForm({
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        property_type: formData.propertyType,
+        bedrooms: formData.bedrooms,
+        situation: formData.situation,
+        message: formData.message,
+        website: formData.company_url,
+      });
 
-    setSubmitting(false);
-
-    if (result.success) {
-      setSubmitted(true);
-    } else {
-      setError(result.error);
+      if (result.success) {
+        setSubmitted(true);
+      } else {
+        setError(result.error);
+      }
+    } catch {
+      setError("Network error. Please check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -172,11 +190,18 @@ export default function ValuationPage() {
             <div className="bg-white rounded-lg border border-black/5 shadow-sm p-8 md:p-10">
 
               {submitted ? (
-                <div className="text-center py-12 flex flex-col items-center justify-center min-h-[300px]">
+                <div
+                  role="status"
+                  className="text-center py-12 flex flex-col items-center justify-center min-h-[300px]"
+                >
                   <div className="w-14 h-14 rounded-full bg-brand/10 flex items-center justify-center mx-auto mb-4">
                     <CheckIcon className="w-7 h-7 text-brand" />
                   </div>
-                  <h3 className="font-heading text-xl text-dark mb-2">
+                  <h3
+                    ref={successHeadingRef}
+                    tabIndex={-1}
+                    className="font-heading text-xl text-dark mb-2 focus:outline-none"
+                  >
                     Valuation Requested
                   </h3>
                   <p className="text-text-muted  text-sm max-w-sm mx-auto">
@@ -196,6 +221,10 @@ export default function ValuationPage() {
                       name="company_url"
                       tabIndex={-1}
                       autoComplete="off"
+                      data-1p-ignore
+                      data-lpignore="true"
+                      data-bwignore="true"
+                      data-form-type="other"
                       value={formData.company_url}
                       onChange={(e) => setFormData({ ...formData, company_url: e.target.value })}
                     />
@@ -211,12 +240,14 @@ export default function ValuationPage() {
                     <input
                       type="text"
                       id="name"
+                      name="name"
+                      autoComplete="name"
                       required
                       value={formData.name}
                       onChange={(e) =>
                         setFormData({ ...formData, name: e.target.value })
                       }
-                      className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                       placeholder="Your full name"
                     />
                   </div>
@@ -233,12 +264,14 @@ export default function ValuationPage() {
                       <input
                         type="email"
                         id="email"
+                        name="email"
+                        autoComplete="email"
                         required
                         value={formData.email}
                         onChange={(e) =>
                           setFormData({ ...formData, email: e.target.value })
                         }
-                        className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                        className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                         placeholder="you@example.com"
                       />
                     </div>
@@ -252,12 +285,14 @@ export default function ValuationPage() {
                       <input
                         type="tel"
                         id="phone"
+                        name="phone"
+                        autoComplete="tel"
                         required
                         value={formData.phone}
                         onChange={(e) =>
                           setFormData({ ...formData, phone: e.target.value })
                         }
-                        className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                        className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                         placeholder="07123 456789"
                       />
                     </div>
@@ -274,12 +309,14 @@ export default function ValuationPage() {
                     <input
                       type="text"
                       id="address"
+                      name="address"
+                      autoComplete="street-address"
                       required
                       value={formData.address}
                       onChange={(e) =>
                         setFormData({ ...formData, address: e.target.value })
                       }
-                      className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
+                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white "
                       placeholder="Full address of the property"
                     />
                   </div>
@@ -296,6 +333,7 @@ export default function ValuationPage() {
                       <div className="relative">
                         <select
                           id="propertyType"
+                          name="propertyType"
                           value={formData.propertyType}
                           onChange={(e) =>
                             setFormData({
@@ -303,7 +341,7 @@ export default function ValuationPage() {
                               propertyType: e.target.value,
                             })
                           }
-                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                         >
                           <option value="" disabled>
                             Select type
@@ -341,6 +379,7 @@ export default function ValuationPage() {
                       <div className="relative">
                         <select
                           id="bedrooms"
+                          name="bedrooms"
                           value={formData.bedrooms}
                           onChange={(e) =>
                             setFormData({
@@ -348,7 +387,7 @@ export default function ValuationPage() {
                               bedrooms: e.target.value,
                             })
                           }
-                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                          className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                         >
                           <option value="" disabled>
                             Select bedrooms
@@ -389,6 +428,7 @@ export default function ValuationPage() {
                     <div className="relative">
                       <select
                         id="situation"
+                        name="situation"
                         value={formData.situation}
                         onChange={(e) =>
                           setFormData({
@@ -396,7 +436,7 @@ export default function ValuationPage() {
                             situation: e.target.value,
                           })
                         }
-                        className="w-full appearance-none border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
+                        className="w-full appearance-none border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  pr-10"
                       >
                         <option value="" disabled>
                           Select an option
@@ -438,23 +478,34 @@ export default function ValuationPage() {
                     </label>
                     <textarea
                       id="message"
+                      name="message"
                       rows={4}
                       value={formData.message}
                       onChange={(e) =>
                         setFormData({ ...formData, message: e.target.value })
                       }
-                      className="w-full border border-black/10 rounded-md px-4 py-2.5 text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
+                      className="w-full border border-black/10 rounded-md px-4 py-3 text-base sm:text-sm focus:outline-none focus:border-brand focus:ring-1 focus:ring-brand/20 transition-colors bg-white  resize-none"
                       placeholder="Anything else you'd like us to know about the property?"
                     />
                   </div>
 
                   {/* Error message */}
-                  {error && <p className="text-red-600 text-sm">{error}</p>}
+                  {error && (
+                    <p
+                      id="valuation-form-error"
+                      role="alert"
+                      aria-live="polite"
+                      className="text-red-600 text-sm"
+                    >
+                      {error}
+                    </p>
+                  )}
 
                   {/* Submit */}
                   <button
                     type="submit"
                     disabled={submitting}
+                    aria-describedby={error ? "valuation-form-error" : undefined}
                     className="group inline-flex items-center gap-2 bg-brand text-dark font-semibold px-8 py-3.5 rounded-sm hover:bg-brand-light transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {submitting ? "Submitting..." : "Request Free Valuation"}

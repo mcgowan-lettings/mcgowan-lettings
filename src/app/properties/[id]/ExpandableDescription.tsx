@@ -47,6 +47,13 @@ export default function ExpandableDescription(props: Props) {
 
   // Single description per page → one stable id is fine.
   const toggleId = "property-description-toggle";
+  const bodyId = "property-description-body";
+
+  // The checkbox is visually hidden but stays in the tab order: Tab focuses
+  // it, Space toggles it, and the visible label shows the focus ring via
+  // peer-focus-visible. Still CSS-only (no hydration needed on old iPads).
+  const labelClass =
+    "mt-2 min-h-11 items-center text-sm font-semibold text-brand-dark hover:underline cursor-pointer rounded-sm peer-focus-visible:outline-none peer-focus-visible:ring-2 peer-focus-visible:ring-brand peer-focus-visible:ring-offset-2";
 
   return (
     <div className="relative">
@@ -54,9 +61,13 @@ export default function ExpandableDescription(props: Props) {
         type="checkbox"
         id={toggleId}
         className="peer sr-only"
-        aria-hidden="true"
+        aria-label="Show full description"
+        aria-controls={bodyId}
       />
-      <div className="overflow-hidden max-h-[150px] peer-checked:max-h-none peer-checked:overflow-visible">
+      <div
+        id={bodyId}
+        className="overflow-hidden max-h-[150px] peer-checked:max-h-none peer-checked:overflow-visible"
+      >
         {body}
       </div>
       {/* Fade gradient over the bottom of the truncated body. Hidden when
@@ -68,13 +79,15 @@ export default function ExpandableDescription(props: Props) {
       />
       <label
         htmlFor={toggleId}
-        className="peer-checked:hidden mt-2 inline-block text-sm font-semibold text-brand-dark hover:underline cursor-pointer"
+        aria-hidden="true"
+        className={`${labelClass} inline-flex peer-checked:hidden`}
       >
         Read full description
       </label>
       <label
         htmlFor={toggleId}
-        className="hidden peer-checked:inline-block mt-2 text-sm font-semibold text-brand-dark hover:underline cursor-pointer"
+        aria-hidden="true"
+        className={`${labelClass} hidden peer-checked:inline-flex`}
       >
         Show less
       </label>

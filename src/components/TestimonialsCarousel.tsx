@@ -102,13 +102,16 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
   }, []);
 
   const maxIndex = TESTIMONIALS.length - visibleCount;
+  // Widening the viewport lowers maxIndex; clamp so a slide index that was
+  // valid at 1-up never translates the track past its last card at 2/3-up.
+  const currentIndex = Math.min(current, maxIndex);
 
   const next = useCallback(() => {
-    setCurrent((c) => (c >= maxIndex ? 0 : c + 1));
+    setCurrent((c) => (Math.min(c, maxIndex) >= maxIndex ? 0 : Math.min(c, maxIndex) + 1));
   }, [maxIndex]);
 
   const prev = useCallback(() => {
-    setCurrent((c) => (c <= 0 ? maxIndex : c - 1));
+    setCurrent((c) => (Math.min(c, maxIndex) <= 0 ? maxIndex : Math.min(c, maxIndex) - 1));
   }, [maxIndex]);
 
   // Seed autoplay from prefers-reduced-motion (runs only in the browser)
@@ -218,7 +221,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
               ref={trackRef}
               className="flex transition-transform duration-500 ease-in-out"
               style={{
-                transform: `translateX(calc(var(--card-w) * -${current}))`,
+                transform: `translateX(calc(var(--card-w) * -${currentIndex}))`,
               }}
             >
               {TESTIMONIALS.map((testimonial, i) => (
@@ -274,7 +277,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
                 >
                   <span
                     className={`block h-2 rounded-full transition-all duration-200 ${
-                      i === current ? "bg-brand w-5" : "bg-dark/20 group-hover:bg-dark/40 w-2"
+                      i === currentIndex ? "bg-brand w-5" : "bg-dark/20 group-hover:bg-dark/40 w-2"
                     }`}
                   />
                 </button>
@@ -300,7 +303,7 @@ export default function TestimonialsCarousel({ reviewCount }: { reviewCount: num
               >
                 <span
                   className={`block h-2 rounded-full transition-all duration-200 ${
-                    i === current ? "bg-brand w-6" : "bg-dark/20 group-hover:bg-dark/40 w-2"
+                    i === currentIndex ? "bg-brand w-6" : "bg-dark/20 group-hover:bg-dark/40 w-2"
                   }`}
                 />
               </button>
