@@ -8,6 +8,12 @@ export const getPost = cache(async (slug: string) => {
     .eq("slug", slug)
     .eq("published", true)
     .single();
-  if (error) return null;
+  // Only "no row" means not found. Throw on anything else so a transient
+  // Supabase error during ISR keeps serving the last good page instead of
+  // caching a 404 for a live post.
+  if (error) {
+    if (error.code === "PGRST116") return null;
+    throw new Error(`getPost(${slug}) failed: ${error.message}`);
+  }
   return data;
 });

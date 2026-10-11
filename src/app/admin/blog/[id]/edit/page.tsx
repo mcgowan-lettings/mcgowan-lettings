@@ -7,7 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
 import { deleteBlogPost as deleteBlogPostAction, updateBlogPost, removeStorageFiles } from "@/app/actions/admin";
-import UnsplashPicker from "@/components/UnsplashPicker";
+import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
 
@@ -32,6 +32,8 @@ export default function EditBlogPostPage() {
   const savedSlug = useRef("");
   // Mirror of savedSlug for render (refs can't be read during render).
   const [liveSlug, setLiveSlug] = useState("");
+  // Set only for Unsplash covers; an uploaded photo has no credit.
+  const [coverCredit, setCoverCredit] = useState<PhotoCredit | null>(null);
 
   const [form, setForm] = useState({
     title: "",
@@ -65,6 +67,11 @@ export default function EditBlogPostPage() {
         published: data.published,
       });
       setCoverImage(data.cover_image ?? "");
+      setCoverCredit(
+        data.cover_credit_name && data.cover_credit_url
+          ? { name: data.cover_credit_name, url: data.cover_credit_url }
+          : null
+      );
       savedCover.current = data.cover_image ?? "";
       savedSlug.current = data.slug;
       setLiveSlug(data.slug);
@@ -126,6 +133,7 @@ export default function EditBlogPostPage() {
     await removeUnsavedCover(coverImage);
 
     setCoverImage(publicUrl);
+    setCoverCredit(null);
     setUploading(false);
     e.target.value = "";
   };
@@ -133,6 +141,7 @@ export default function EditBlogPostPage() {
   const removeCover = async () => {
     await removeUnsavedCover(coverImage);
     setCoverImage("");
+    setCoverCredit(null);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -169,6 +178,8 @@ export default function EditBlogPostPage() {
       excerpt: form.excerpt || null,
       content: form.content || null,
         cover_image: coverImage || null,
+        cover_credit_name: coverImage && coverCredit ? coverCredit.name : null,
+        cover_credit_url: coverImage && coverCredit ? coverCredit.url : null,
         published: form.published,
         updated_at: new Date().toISOString(),
       }, session.access_token, savedSlug.current);
@@ -422,9 +433,10 @@ export default function EditBlogPostPage() {
 
           {showUnsplash && (
             <UnsplashPicker
-              onSelect={async (url) => {
+              onSelect={async (url, credit) => {
                 await removeUnsavedCover(coverImage);
                 setCoverImage(url);
+                setCoverCredit(credit);
                 setShowUnsplash(false);
               }}
               onClose={() => setShowUnsplash(false)}

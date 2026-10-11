@@ -208,13 +208,19 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
   // This action emails an applicant-supplied address with a branded PDF, so cap
   // submissions per IP and per email to stop bots burning Resend quota or using
   // us as a spam relay. Fails closed with a generic error.
-  try {
+  //
+  // Checked twice: a cheap pre-check before inserting, and a re-count after.
+  // Check-then-insert alone races — 30 concurrent calls all see 0 and all
+  // pass. The post-insert count includes this row and every concurrent one,
+  // and passed rows are never removed, so at most the cap can ever get
+  // through; anything over it deletes its own row before any email is sent.
+  const at = email.lastIndexOf("@");
+  const local = email.slice(0, at).split("+")[0];
+  const domain = email.slice(at + 1);
+  const overLimit = async (includesSelf: boolean): Promise<boolean> => {
     const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
     const dayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     // Per-email cap counts plus-address variants (a+1@x, a+2@x) as one inbox.
-    const at = email.lastIndexOf("@");
-    const local = email.slice(0, at).split("+")[0];
-    const domain = email.slice(at + 1);
     const countEmail = (pattern: string) =>
       supabaseAdmin
         .from("tenant_applications")
@@ -233,17 +239,22 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
       countEmail(`${escapeLike(local)}+%@${escapeLike(domain)}`),
     ]);
     const throttleError = byIp.error ?? byEmail.error ?? byPlusEmail.error;
-    if (throttleError) {
-      console.error("Application throttle check error:", throttleError);
-      return { success: false, error: "Something went wrong. Please try again." };
-    }
+    if (throttleError) throw throttleError;
+    // Before inserting, "at the cap" means no room; after, this row counts too.
+    const slack = includesSelf ? 0 : 1;
     const emailCount = (byEmail.count ?? 0) + (byPlusEmail.count ?? 0);
-    if ((byIp.count ?? 0) >= MAX_PER_IP_PER_HOUR || emailCount >= MAX_PER_EMAIL_PER_DAY) {
-      return {
-        success: false,
-        error: "Too many applications have been submitted recently. Please try again later or call us on 0161 797 6967.",
-      };
-    }
+    return (
+      (byIp.count ?? 0) + slack > MAX_PER_IP_PER_HOUR ||
+      emailCount + slack > MAX_PER_EMAIL_PER_DAY
+    );
+  };
+  const TOO_MANY = {
+    success: false as const,
+    error: "Too many applications have been submitted recently. Please try again later or call us on 0161 797 6967.",
+  };
+
+  try {
+    if (await overLimit(false)) return TOO_MANY;
   } catch (err) {
     console.error("Application throttle check error:", err);
     return { success: false, error: "Something went wrong. Please try again." };
@@ -284,6 +295,25 @@ export async function submitApplication(data: ApplicationFormData): Promise<Appl
     if (error || !inserted) {
       console.error("Supabase tenant_applications insert error:", error);
       return { success: false, error: "Something went wrong. Please try again." };
+    }
+
+    // Fails closed like the pre-check: on a count error, undo and ask to retry.
+    let verdict: "ok" | "over" | "error";
+    try {
+      verdict = (await overLimit(true)) ? "over" : "ok";
+    } catch (err) {
+      console.error("Application throttle re-check error:", err);
+      verdict = "error";
+    }
+    if (verdict !== "ok") {
+      const { error: delError } = await supabaseAdmin
+        .from("tenant_applications")
+        .delete()
+        .eq("id", inserted.id);
+      if (delError) console.error("Throttled application cleanup error:", delError);
+      return verdict === "over"
+        ? TOO_MANY
+        : { success: false, error: "Something went wrong. Please try again." };
     }
 
     // --- Emails (never fail the submission) --------------------------------

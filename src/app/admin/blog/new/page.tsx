@@ -7,7 +7,7 @@ import Image from "next/image";
 import { supabase } from "@/lib/supabase";
 import { compressImage } from "@/lib/compress-image";
 import { createBlogPost } from "@/app/actions/admin";
-import UnsplashPicker from "@/components/UnsplashPicker";
+import UnsplashPicker, { type PhotoCredit } from "@/components/UnsplashPicker";
 import RichTextEditor from "@/components/RichTextEditor";
 import { generateSlug } from "@/lib/slug";
 
@@ -19,6 +19,8 @@ export default function NewBlogPostPage() {
   const [coverImage, setCoverImage] = useState("");
   const [coverPreview, setCoverPreview] = useState("");
   const [showUnsplash, setShowUnsplash] = useState(false);
+  // Set only for Unsplash covers; an uploaded photo has no credit.
+  const [coverCredit, setCoverCredit] = useState<PhotoCredit | null>(null);
   // Once the slug is edited by hand, the title stops overwriting it.
   const [slugTouched, setSlugTouched] = useState(false);
 
@@ -74,6 +76,7 @@ export default function NewBlogPostPage() {
     } = supabase.storage.from("property-images").getPublicUrl(filePath);
 
     setCoverImage(publicUrl);
+    setCoverCredit(null);
     setCoverPreview(URL.createObjectURL(compressed));
     setUploading(false);
     e.target.value = "";
@@ -87,6 +90,7 @@ export default function NewBlogPostPage() {
       }
     }
     setCoverImage("");
+    setCoverCredit(null);
     setCoverPreview("");
   };
 
@@ -122,6 +126,8 @@ export default function NewBlogPostPage() {
         excerpt: form.excerpt || null,
         content: form.content || null,
         cover_image: coverImage || null,
+        cover_credit_name: coverImage && coverCredit ? coverCredit.name : null,
+        cover_credit_url: coverImage && coverCredit ? coverCredit.url : null,
         published: form.published,
       }, session.access_token);
     } catch {
@@ -310,8 +316,9 @@ export default function NewBlogPostPage() {
 
           {showUnsplash && (
             <UnsplashPicker
-              onSelect={(url) => {
+              onSelect={(url, credit) => {
                 setCoverImage(url);
+                setCoverCredit(credit);
                 setShowUnsplash(false);
               }}
               onClose={() => setShowUnsplash(false)}

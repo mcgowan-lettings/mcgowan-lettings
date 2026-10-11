@@ -2,6 +2,20 @@
 
 export const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
 
+/** Supabase project's global upload limit (Storage settings, 200 MB). Checked
+ * after conversion so an over-long tour gets a clear message instead of
+ * Supabase's "exceeded the maximum allowed size". At the 3.5 Mbps output
+ * bitrate this is roughly 7 minutes of video. */
+export const MAX_UPLOAD_BYTES = 200 * 1024 * 1024;
+
+export function assertUploadableVideo(file: File) {
+  if (file.size > MAX_UPLOAD_BYTES) {
+    throw new Error(
+      `This video is too long to upload (${(file.size / 1024 / 1024).toFixed(0)} MB after conversion; the limit is ${MAX_UPLOAD_BYTES / 1024 / 1024} MB — about 7 minutes). Please trim it and try again.`
+    );
+  }
+}
+
 export type TranscodeStage = "loading" | "transcoding";
 
 // Any single step that goes this long without moving forward is treated as a

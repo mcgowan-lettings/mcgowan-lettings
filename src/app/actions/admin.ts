@@ -202,6 +202,9 @@ export type BlogPostData = {
   excerpt: string | null;
   content: string | null;
   cover_image: string | null;
+  /** Unsplash photographer credit (required by Unsplash wherever shown). */
+  cover_credit_name: string | null;
+  cover_credit_url: string | null;
   published: boolean;
 };
 

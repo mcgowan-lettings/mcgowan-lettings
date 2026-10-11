@@ -7,7 +7,7 @@ import { ArrowRightIcon } from "@/components/Icons";
 export const revalidate = 60;
 
 export default async function BlogPage() {
-  const { data: posts } = await supabaseAdmin
+  const { data: posts, error } = await supabaseAdmin
     .from("blog_posts")
     // Only the card fields — pulling `content` for every post makes the list
     // query grow with the total size of the blog for no benefit.
@@ -15,6 +15,9 @@ export default async function BlogPage() {
     .eq("published", true)
     .order("created_at", { ascending: false })
     .limit(200);
+  // Throw so a failed ISR regeneration keeps the last good list rather than
+  // caching an empty blog.
+  if (error) throw new Error(`blog list query failed: ${error.message}`);
 
   return (
     <>

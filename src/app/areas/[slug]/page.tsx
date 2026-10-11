@@ -367,11 +367,14 @@ export default async function AreaGuidePage({
   if (!area) notFound();
 
   /* Count active properties in this area */
-  const { count } = await supabaseAdmin
+  const { count, error: countError } = await supabaseAdmin
     .from("properties")
     .select("*", { count: "exact", head: true })
     .eq("active", true)
     .ilike("area", area.name);
+  // Throw rather than cache "0 properties" for an hour on a transient error;
+  // ISR keeps serving the last good page.
+  if (countError) throw new Error(`area count query failed: ${countError.message}`);
 
   const propertyCount = count ?? 0;
 

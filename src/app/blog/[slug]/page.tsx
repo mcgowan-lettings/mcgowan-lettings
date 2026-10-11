@@ -146,6 +146,40 @@ export default async function BlogPostPage({ params }: Props) {
           <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/40 to-dark/60" />
         </div>
 
+        {/* Unsplash requires a visible photographer credit with these UTM
+            params. Covers picked before credits were stored fall back to a
+            plain "Photo from Unsplash". */}
+        {post.cover_image &&
+          ((post.cover_credit_name && post.cover_credit_url) ||
+            post.cover_image.includes("images.unsplash.com")) && (
+          <p className="absolute bottom-2 right-3 z-10 text-[11px] text-white/50">
+            {post.cover_credit_name && post.cover_credit_url ? (
+              <>
+                Photo by{" "}
+                <a
+                  href={`${post.cover_credit_url}?utm_source=mcgowan_lettings&utm_medium=referral`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-white/80"
+                >
+                  {post.cover_credit_name}
+                </a>{" "}
+                on{" "}
+              </>
+            ) : (
+              "Photo from "
+            )}
+            <a
+              href="https://unsplash.com/?utm_source=mcgowan_lettings&utm_medium=referral"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-white/80"
+            >
+              Unsplash
+            </a>
+          </p>
+        )}
+
         <div className="relative z-10 max-w-4xl mx-auto px-6 pb-10 w-full">
           <div className="flex items-center gap-3 mb-4">
             <time dateTime={post.created_at} className="text-brand text-sm font-semibold tracking-[0.15em] uppercase">

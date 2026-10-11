@@ -8,7 +8,7 @@ import { deleteProperty as deletePropertyAction, updateProperty, removeStorageFi
 import SortableImageGrid from "../../SortableImageGrid";
 import VideoList from "../../VideoList";
 import { compressImage } from "@/lib/compress-image";
-import { transcodeVideoToMp4, MAX_VIDEO_BYTES } from "@/lib/video-transcode";
+import { transcodeVideoToMp4, MAX_VIDEO_BYTES, assertUploadableVideo } from "@/lib/video-transcode";
 import { useStorageUsage, formatBytes } from "@/lib/use-storage-usage";
 import RichTextEditor from "@/components/RichTextEditor";
 import {
@@ -250,6 +250,7 @@ export default function EditPropertyPage() {
   };
 
   const uploadVideoFile = async (file: File, contentType: string): Promise<string | null> => {
+    assertUploadableVideo(file);
     const ext = safeExtension(file, "mp4");
     const base = file.name.replace(/\.[^.]*$/, "").replace(/[^a-zA-Z0-9_-]/g, "_").slice(0, 60) || "video";
     const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}-${base}.${ext}`;

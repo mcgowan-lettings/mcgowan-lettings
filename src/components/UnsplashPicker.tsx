@@ -47,8 +47,11 @@ function reportUnsplashDownload(photo: UnsplashPhoto) {
   })();
 }
 
+/** Photographer credit Unsplash requires wherever the photo is shown. */
+export type PhotoCredit = { name: string; url: string };
+
 interface UnsplashPickerProps {
-  onSelect: (url: string) => void;
+  onSelect: (url: string, credit: PhotoCredit) => void;
   onClose: () => void;
 }
 
@@ -193,7 +196,7 @@ export default function UnsplashPicker({ onSelect, onClose }: UnsplashPickerProp
                     type="button"
                     onClick={() => {
                       reportUnsplashDownload(photo);
-                      onSelect(photo.url);
+                      onSelect(photo.url, { name: photo.photographer, url: photo.photographerUrl });
                     }}
                     className="group relative aspect-[16/10] overflow-hidden rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-brand"
                   >
