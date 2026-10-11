@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
   }
 
   const query = req.nextUrl.searchParams.get("q") || "house";
-  const page = req.nextUrl.searchParams.get("page") || "1";
+  const pageNum = Number.parseInt(req.nextUrl.searchParams.get("page") || "1", 10);
+  const page = Number.isFinite(pageNum) && pageNum >= 1 && pageNum <= 100 ? String(pageNum) : "1";
 
   const res = await fetch(
     `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=12&page=${page}&orientation=landscape`,

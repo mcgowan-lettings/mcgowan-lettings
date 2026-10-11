@@ -128,7 +128,10 @@ export async function submitValuationForm(formData: {
     // bursts can't exceed the caps. Over → remove our own row, no email.
     const throttle = await checkLeadThrottle("valuation_requests", email.trim(), ip_address, true);
     if (!throttle.allowed) {
-      if (inserted?.id) await supabaseAdmin.from("valuation_requests").delete().eq("id", inserted.id);
+      if (inserted?.id) {
+        const { error: delError } = await supabaseAdmin.from("valuation_requests").delete().eq("id", inserted.id);
+        if (delError) console.error("Throttled valuation_requests cleanup error:", delError.code, delError.message);
+      }
       return TOO_MANY;
     }
 

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image, { getImageProps } from "next/image";
-import { preload } from "react-dom";
 import Link from "next/link";
 import { AnimateIn, CountUp } from "@/components/AnimateIn";
 import LogoRow from "@/components/LogoRow";
@@ -24,12 +23,10 @@ const { props: heroImgProps } = getImageProps({
   loading: "eager",
 });
 
-/** Preload only the hero this device will show (React dedupes per request). */
-function preloadHero() {
-  preload("/hero-mobile.jpg", { as: "image", media: "(max-width: 767px)", fetchPriority: "high" });
-  preload("/hero.jpg", { as: "image", media: "(min-width: 768px) and (max-width: 1279px)", fetchPriority: "high" });
-  preload("/hero-desktop.jpg", { as: "image", media: "(min-width: 1280px)", fetchPriority: "high" });
-}
+// No <link rel=preload> for the hero: media-scoped preloads are evaluated
+// before the scrollbar exists, so WebKit with classic scrollbars fetched TWO
+// heroes just above each breakpoint. The <picture> is in the initial HTML with
+// fetchPriority="high", so the preload scanner finds it immediately anyway.
 import {
   BedIcon,
   BathIcon,
@@ -282,7 +279,6 @@ export default function HomePage({
   searchAreas: string[];
   reviewCount: number;
 }) {
-  preloadHero();
   const router = useRouter();
   const [heroArea, setHeroArea] = useState("");
   const [heroPrice, setHeroPrice] = useState("");
@@ -307,13 +303,13 @@ export default function HomePage({
         <div className="absolute inset-0">
           {/* Art direction: phones get a full-resolution portrait crop
               (1440×2560) — the landscape photo cropped to a tall screen was
-              being upscaled ~2× and looked blurry. One file per device; the
-              matching one is preloaded via preloadHero(). */}
+              being upscaled ~2× and looked blurry. One file per device. */}
           <picture>
             <source media="(max-width: 767px)" srcSet="/hero-mobile.jpg" />
-            {/* Large/retina desktops: the untouched 3840px original — the
-                2880px file was upscaled ~1.3× on a 1920px-wide 2× screen. */}
-            <source media="(min-width: 1280px)" srcSet="/hero-desktop.jpg" />
+            {/* Large RETINA desktops: the untouched 3840px original — the
+                2880px file was upscaled ~1.3× on a 1920px-wide 2× screen.
+                1× desktops (≤2560px wide) are sharp with the 2880px file. */}
+            <source media="(min-width: 1280px) and (min-resolution: 1.5dppx)" srcSet="/hero-desktop.jpg" />
             <img
               {...heroImgProps}
               alt="Manchester skyline"
@@ -728,7 +724,7 @@ export default function HomePage({
               <div className="w-8 h-px bg-brand" />
             </div>
             <h2 className="font-heading text-3xl md:text-4xl font-semibold text-white leading-tight mb-4">
-              Across Greater Manchester
+              Across Greater Manchester &amp; Lancashire
             </h2>
             <p className="text-white/50 leading-relaxed">
               We cover all areas across Greater Manchester and beyond.
@@ -908,7 +904,7 @@ export default function HomePage({
                     <div>
                       <div className="font-semibold text-dark text-sm mb-0.5">{label}</div>
                       {href ? (
-                        <a href={href} className="inline-flex items-center min-h-11 -my-3 text-text-muted text-sm hover:text-brand-deep transition-colors">{value}</a>
+                        <a href={href} {...(href.startsWith("http") ? { target: "_blank", rel: "noopener noreferrer" } : {})} className="inline-flex items-center min-h-11 -my-3 text-text-muted text-sm hover:text-brand-deep transition-colors">{value}</a>
                       ) : (
                         <div className="text-text-muted text-sm">{value}</div>
                       )}

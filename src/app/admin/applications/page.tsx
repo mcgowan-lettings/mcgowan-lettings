@@ -95,7 +95,10 @@ export default function AdminApplicationsPage() {
     setSignatures((prev) => ({ ...prev, [id]: null }));
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      if (!session) {
+        setSignatures((prev) => ({ ...prev, [id]: "" }));
+        return;
+      }
       const sig = await getApplicationSignature(id, session.access_token);
       setSignatures((prev) => ({ ...prev, [id]: sig ?? "" }));
     } catch {
@@ -191,12 +194,15 @@ export default function AdminApplicationsPage() {
 
     if (diffHours < 1) {
       const mins = Math.floor(diffMs / (1000 * 60));
-      return `${mins}m ago`;
+      return mins < 1 ? "Just now" : `${mins}m ago`;
     }
     if (diffHours < 24) {
       return `${Math.floor(diffHours)}h ago`;
     }
-    if (diffHours < 48) {
+    // Calendar day in the UK, not "24–48h ago": something from 2 days ago
+    // at 23:00 viewed at 00:30 is not "Yesterday".
+    const ukDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    if (ukDay(date) === ukDay(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
       return "Yesterday";
     }
     const londonYear = (d: Date) =>
@@ -511,6 +517,19 @@ export default function AdminApplicationsPage() {
                         </div>
                         {signatures[app.id] === null && (
                           <p className="mt-3 text-xs text-text-muted">Loading signature…</p>
+                        )}
+                        {signatures[app.id] === "" && (
+                          <p className="mt-3 text-xs text-text-muted">
+                            Signature couldn&apos;t be loaded.{" "}
+                            <button
+                              type="button"
+                              onClick={() => void loadSignature(app.id)}
+                              className="min-h-11 font-medium text-brand-deep underline underline-offset-2"
+                            >
+                              Try again
+                            </button>{" "}
+                            (it&apos;s also in the PDF).
+                          </p>
                         )}
                         {signatures[app.id] && (
                           <div className="mt-3 inline-block rounded-lg border border-gray-300 bg-white p-2">

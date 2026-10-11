@@ -302,7 +302,8 @@ export default async function PropertyDetailPage({ params }: Props) {
       addressRegion: resolveCounty(property) ?? undefined,
       addressCountry: "GB",
     },
-    numberOfRooms: property.beds,
+    // Studios are stored as 0 beds; omit rather than claim "0 rooms".
+    ...(property.beds > 0 ? { numberOfRooms: property.beds } : {}),
     numberOfBathroomsTotal: property.baths,
   };
 

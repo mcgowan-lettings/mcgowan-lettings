@@ -4,7 +4,7 @@ Premium letting-agent website for David McGowan (McGowan Residential Lettings Lt
 
 ## Stack
 
-Next.js 16.2 (App Router, Server Actions) · React 19 · Supabase (Postgres + Auth + Storage) · Resend (transactional email) · Tailwind CSS v4 (CSS-first `@theme`, no `tailwind.config`) · TipTap (blog rich-text) · Plyr + Fancyapps (galleries/video) · mediabunny (client-side video transcode) · Vercel hosting (deploy via GitHub integration on push). TypeScript strict. ESLint 9 flat config (`eslint.config.mjs`). No test framework. npm-managed. Path alias `@/*` → `./src/*` — use it, don't write deep relative imports.
+Next.js 16.3 (App Router, Server Actions) · React 19 · Supabase (Postgres + Auth + Storage) · Resend (transactional email) · Tailwind CSS v4 (CSS-first `@theme`, no `tailwind.config`) · TipTap (blog rich-text) · Plyr + Fancyapps (galleries/video) · mediabunny (client-side video transcode) · Vercel hosting (deploy via GitHub integration on push). TypeScript strict. ESLint 9 flat config (`eslint.config.mjs`). No test framework. npm-managed. Path alias `@/*` → `./src/*` — use it, don't write deep relative imports.
 
 ## Commands
 

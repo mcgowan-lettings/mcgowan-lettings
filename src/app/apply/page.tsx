@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import ApplicationPage from "@/components/ApplicationPage";
 import { copyFor } from "@/lib/application-copy";
-import { firstParam } from "@/lib/search-param";
+import { clip, firstParam } from "@/lib/search-param";
 
 /*
  * /apply — tenant application form.
@@ -43,8 +43,8 @@ export default async function ApplyPage({
   return (
     <ApplicationPage
       kind="tenant"
-      initialProperty={firstParam(params.property).slice(0, 200)}
-      initialRent={firstParam(params.rent).slice(0, 20)}
+      initialProperty={clip(firstParam(params.property), 200)}
+      initialRent={clip(firstParam(params.rent), 20)}
     />
   );
 }

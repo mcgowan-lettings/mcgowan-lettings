@@ -1,5 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
+import FooterYear from "./FooterYear";
+
+const BUILD_YEAR = new Date().getFullYear();
 
 /**
  * `fabClearance`: the WhatsApp FAB is fixed bottom-6 right-6 (56px), so it
@@ -100,10 +103,7 @@ export default function Footer({ fabClearance = false }: { fabClearance?: boolea
         <div className="flex flex-col items-center pt-8 gap-1 text-center">
           <p className="text-white/60 text-xs">
             &copy;{" "}
-            {/* Prerendered pages bake in the build year; after New Year the
-                client's year differs until the next rebuild. Suppress the
-                benign text mismatch rather than hydrate-erroring. */}
-            <span suppressHydrationWarning>{new Date().getFullYear()}</span>{" "}
+            <FooterYear buildYear={BUILD_YEAR} />{" "}
             McGowan Residential Lettings Ltd. All rights reserved.
           </p>
           <p className="text-white/60 text-xs">

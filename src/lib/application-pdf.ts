@@ -85,7 +85,10 @@ function sanitize(input: string | null | undefined): string {
     .replace(/–/g, "-")
     .replace(/—/g, "-")
     .replace(/…/g, "...")
-    // Per code point (u flag): an emoji becomes one "?", not "??".
+    // Drop emoji modifiers (variation selectors, ZWJ, skin tones) so a
+    // composed emoji like ❤️ or 👍🏽 becomes one "?", then replace per code
+    // point (u flag) rather than per UTF-16 half.
+    .replace(/[\u200D\uFE0E\uFE0F]|[\u{1F3FB}-\u{1F3FF}]/gu, "")
     .replace(/[^\x20-\x7E\xA0-\xFF\n€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ]/gu, "?");
 }
 

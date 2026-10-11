@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import ApplicationPage from "@/components/ApplicationPage";
 import { copyFor } from "@/lib/application-copy";
-import { firstParam } from "@/lib/search-param";
+import { clip, firstParam } from "@/lib/search-param";
 
 /*
  * /guarantor — the same form as /apply, worded for a guarantor and with a
@@ -42,9 +42,9 @@ export default async function GuarantorPage({
   return (
     <ApplicationPage
       kind="guarantor"
-      initialProperty={firstParam(params.property).slice(0, 200)}
-      initialRent={firstParam(params.rent).slice(0, 20)}
-      initialTenant={firstParam(params.tenant).slice(0, 200)}
+      initialProperty={clip(firstParam(params.property), 200)}
+      initialRent={clip(firstParam(params.rent), 20)}
+      initialTenant={clip(firstParam(params.tenant), 200)}
     />
   );
 }

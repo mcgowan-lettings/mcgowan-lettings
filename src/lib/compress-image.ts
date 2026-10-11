@@ -61,14 +61,12 @@ export async function compressImage(file: File): Promise<File> {
     );
   }
 
-  // Skip if already small (under 500KB)
-  if (file.size < 500 * 1024) return file;
-
+  // Always re-encode, even small files: the canvas round-trip strips EXIF —
+  // phone photos can carry the GPS location of where they were taken, and the
+  // originals are public. (It also caps dimensions.) Only if encoding fails
+  // outright do we fall back to the original.
   const blob = await encodeScaledJpeg(file, MAX_WIDTH, MAX_HEIGHT, QUALITY);
-  if (!blob || blob.size >= file.size) {
-    // Compression didn't help, use original
-    return file;
-  }
+  if (!blob) return file;
   return new File([blob], jpegName(file.name), {
     type: "image/jpeg",
     lastModified: Date.now(),

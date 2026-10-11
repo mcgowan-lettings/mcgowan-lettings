@@ -168,12 +168,15 @@ export default function AdminSubmissionsPage() {
 
     if (diffHours < 1) {
       const mins = Math.floor(diffMs / (1000 * 60));
-      return `${mins}m ago`;
+      return mins < 1 ? "Just now" : `${mins}m ago`;
     }
     if (diffHours < 24) {
       return `${Math.floor(diffHours)}h ago`;
     }
-    if (diffHours < 48) {
+    // Calendar day in the UK, not "24–48h ago": something from 2 days ago
+    // at 23:00 viewed at 00:30 is not "Yesterday".
+    const ukDay = (d: Date) => d.toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+    if (ukDay(date) === ukDay(new Date(now.getTime() - 24 * 60 * 60 * 1000))) {
       return "Yesterday";
     }
     const londonYear = (d: Date) =>

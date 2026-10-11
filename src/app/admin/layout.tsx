@@ -45,7 +45,14 @@ export default function AdminLayout({
   const [checkError, setCheckError] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isDesktop = useSyncExternalStore(subscribeDesktop, getDesktop, getDesktopServer);
-  // The drawer is "open" as a modal only below lg.
+  // The drawer is "open" as a modal only below lg. Crossing to desktop (e.g.
+  // rotating an iPad to landscape) closes it, so it doesn't pop back open —
+  // stealing focus — on rotating back. ("Adjust state on prop change" pattern.)
+  const [lastIsDesktop, setLastIsDesktop] = useState(isDesktop);
+  if (lastIsDesktop !== isDesktop) {
+    setLastIsDesktop(isDesktop);
+    if (isDesktop) setSidebarOpen(false);
+  }
   const drawerOpen = sidebarOpen && !isDesktop;
   const sidebarRef = useRef<HTMLElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);

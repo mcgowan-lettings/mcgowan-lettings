@@ -91,8 +91,15 @@ const nextConfig: NextConfig = {
       { source: "/favourites", destination: "/properties", permanent: true },
       { source: "/contact-us", destination: "/contact", permanent: true },
       { source: "/feed", destination: "/blog", permanent: true },
-      // Old borough pages → the matching area guide (all four exist).
-      { source: "/property_city/:slug(bury|bolton|manchester|rossendale|rochdale|accrington|burnley)", destination: "/areas/:slug", permanent: true },
+      // Old borough pages → the matching area guide. One rule per borough
+      // with a literal lowercase destination: path matching is
+      // case-insensitive, and /areas/[slug] only serves lowercase slugs, so
+      // "/property_city/Bury" must still land on "/areas/bury".
+      ...["bury", "bolton", "manchester", "rossendale", "rochdale", "accrington", "burnley"].map((slug) => ({
+        source: `/property_city/${slug}`,
+        destination: `/areas/${slug}`,
+        permanent: true,
+      })),
       { source: "/property_city/:path*", destination: "/areas", permanent: true },
       {
         // Legacy WordPress property slugs (text-based, e.g. "/properties/cosy-flat-bury").
