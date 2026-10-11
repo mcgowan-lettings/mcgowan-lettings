@@ -513,7 +513,6 @@ class Layout {
     this.y -= 22;
   }
 
-  /** Signature on the left, printed name + date on the right — one balanced block. */
   /** Wrapped right-column text and total height of the signature block. */
   signatureLayout(printName: string, dateSigned: string) {
     const valueW = CONTENT_W / 2 - LABEL_W - 8;
@@ -526,6 +525,7 @@ class Layout {
     return { pairs, wrapped, blockH: Math.max(70, Math.ceil(rightH)) };
   }
 
+  /** Signature on the left, printed name + date on the right — one balanced block. */
   signatureBlock(
     image: PDFImage | null,
     printName: string,

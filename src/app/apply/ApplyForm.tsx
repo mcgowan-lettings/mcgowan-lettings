@@ -68,6 +68,13 @@ function getTodayLabel(): string {
 function getEmpty(): string {
   return "";
 }
+/** YYYY-MM-DD plus n days (calendar arithmetic in UTC, DST-safe). */
+function isoPlusDays(iso: string, days: number): string {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function getTodayIso(): string {
   return isoDate(new Date());
 }
@@ -1140,7 +1147,10 @@ export default function ApplyForm({
                   id="apply-employment_start_date"
                   name="employment_start_date"
                   autoComplete="off"
-                  max={todayIso || undefined}
+                  // A job offer can start in the future: match the server's
+                  // range (1950 → a year ahead) so phone pickers allow it.
+                  min="1950-01-01"
+                  max={todayIso ? isoPlusDays(todayIso, 366) : undefined}
                   value={fields.employment_start_date}
                   onChange={set("employment_start_date")}
                   className={`${cls("employment_start_date")} min-h-[48px] appearance-none`}

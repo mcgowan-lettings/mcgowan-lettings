@@ -123,7 +123,7 @@ function FilterSelect({
 function filtersFromParams(sp: URLSearchParams): Filters {
   return {
     area: sp.get("area") ?? ALL_AREAS,
-    maxPrice: sp.get("maxPrice") ?? ANY_PRICE,
+    maxPrice: (sp.get("maxPrice") ?? ANY_PRICE).replace(/^(.*\d) $/, "$1+"), // hand-typed "£2,000+"
     // A hand-typed "?bedrooms=4+" arrives as "4 " (unencoded + is a space).
     bedrooms: (sp.get("bedrooms") ?? ANY_BEDS).replace(/^(\d+) $/, "$1+"),
     type: sp.get("type") ?? ALL_TYPES,

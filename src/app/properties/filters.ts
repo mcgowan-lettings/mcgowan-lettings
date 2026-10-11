@@ -157,13 +157,17 @@ export function resolveCounty(p: Locatable): County | null {
   return Object.hasOwn(OUTER_TOWN_COUNTY, key) ? OUTER_TOWN_COUNTY[key] : null;
 }
 
-/** Does a listing match an `?area=` value? A borough matches all its
- *  neighbourhoods; any other value (old links like ?area=Ramsbottom) still
- *  matches the stored area exactly. */
+/** Does a listing match an `?area=` value? A borough/town matches by the
+ *  RESOLVED area only — the same rule the area guides count with — so a
+ *  listing typed "Bolton" but located in Ainsworth (Bury) appears under Bury
+ *  alone and the guide's total equals the linked list. Any other value (old
+ *  links like ?area=Ramsbottom) still matches the stored area exactly. */
 export function matchesArea(p: Locatable, value: string | null | undefined): boolean {
   const key = normaliseArea(value);
   if (!key || key === "all areas") return true;
-  return normaliseArea(p.area) === key || normaliseArea(resolveArea(p)) === key;
+  const resolved = normaliseArea(resolveArea(p));
+  if (TOWN_KEYS.has(key)) return resolved === key;
+  return normaliseArea(p.area) === key || resolved === key;
 }
 
 /** Distinct, display-ordered areas for the search dropdowns: boroughs with
