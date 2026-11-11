@@ -51,7 +51,7 @@ const TYPES = [
   "House Share",
 ];
 const STATUSES = ["To Let", "Let Agreed"];
-const FURNISHED_OPTIONS = ["Unfurnished", "Furnished", "Part Furnished"];
+const FURNISHED_OPTIONS = ["Unfurnished", "Furnished", "Part Furnished", "Furnished or Unfurnished"];
 const COUNCIL_TAX_BANDS = ["", "A", "B", "C", "D", "E", "F", "G", "H"];
 // Studio is stored as 0 bedrooms; displayed as "Studio" across the public site.
 const BEDROOM_OPTIONS = [
